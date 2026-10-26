@@ -19,6 +19,12 @@ npm test
 
 정적 배포 시 `npm run build` 실행 후 `dist/`를 배포하면 됩니다. API, 로그인, 데이터베이스, 외부 폰트/이미지/CDN은 필요하지 않습니다. 원격 저장소 업로드와 외부 배포 설정은 별도로 진행합니다.
 
+### Cloudflare Git 배포
+
+Cloudflare Workers에서 `Khd9012/runekick` 저장소를 연결합니다. 프로젝트 이름은 `wrangler.jsonc`와 같은 `runekick`, 프로덕션 브랜치는 `main`, 루트 디렉터리는 `/`, 빌드 명령은 `npm run build`, 배포 명령은 `npx wrangler deploy`입니다. Node.js 22 이상을 사용합니다. `dist/`의 정적 파일만 배포하므로 서버 Worker 코드나 데이터베이스가 필요하지 않습니다.
+
+Git 연동 후에는 `main`에 푸시하면 자동으로 빌드·배포됩니다. 로컬에서 직접 배포할 때는 Cloudflare 로그인 후 `npm run deploy`를 실행합니다. 앱의 저장 데이터는 브라우저 주소별로 분리되므로 localhost의 기존 도전이 공개 주소로 자동 이전되지는 않습니다.
+
 ## 전투 규칙
 
 - 매 턴 에너지 3, 손패 5장으로 시작합니다. 아이템으로 늘릴 수 있습니다.
