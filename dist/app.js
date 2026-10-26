@@ -1,4 +1,4 @@
-import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes, getCardRemovalCost, getEnemyAttack } from './engine.js';
+import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes, getCardRemovalCost, getEnemyAttack, getBossView } from './engine.js';
 import { drawPitch, drawCardArt, drawItemArt, initArt } from './art.js';
 import { createTutorial } from './tutorial.js';
 
@@ -75,12 +75,26 @@ function toast(message) {
   $('toast').textContent = message; $('toast').classList.add('visible');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 2800);
 }
-function playTone(kind) {
+function playTone(kind, impact = {}) {
   if (!sound) return;
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
     audio.resume();
-    const notes = kind === 'goal' ? [523, 659, 784, 1046] : kind === 'defense' ? [294, 392] : kind === 'concede' ? [294, 220] : [440, 554];
+    if ((impact.damage || impact.blocked || impact.defenseGain) && !['goal', 'boss'].includes(kind)) {
+      const strength = impact.intensity || 0, time = audio.currentTime;
+      const shield = !impact.damage && (impact.blocked || impact.defenseGain);
+      for (const [index, frequency] of (shield ? [620, 930] : [150 + strength * 70, 780 + strength * 280]).entries()) {
+        const osc = audio.createOscillator(), gain = audio.createGain(), duration = shield ? .16 : .1 + strength * .08;
+        osc.type = shield ? 'sine' : index ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(frequency, time);
+        osc.frequency.exponentialRampToValueAtTime(shield ? frequency * .72 : index ? 120 : 44, time + duration);
+        gain.gain.setValueAtTime((index ? .018 : .045) + strength * .022, time);
+        gain.gain.exponentialRampToValueAtTime(.001, time + duration);
+        osc.connect(gain); gain.connect(audio.destination); osc.start(time); osc.stop(time + duration);
+      }
+      return;
+    }
+    const notes = kind === 'goal' ? [523, 659, 784, 1046] : kind === 'boss' ? [220, 330, 440] : kind === 'defense' ? [294, 392] : kind === 'concede' ? [294, 220] : [440, 554];
     notes.forEach((frequency, i) => {
       const osc = audio.createOscillator(), gain = audio.createGain(), time = audio.currentTime + i * .09;
       osc.type = 'triangle'; osc.frequency.value = frequency; gain.gain.setValueAtTime(.045, time); gain.gain.exponentialRampToValueAtTime(.001, time + .17);
@@ -88,13 +102,71 @@ function playTone(kind) {
     });
   } catch { /* Audio is optional. */ }
 }
-function animate(type, message) {
-  animation = { type, started: performance.now(), duration: type === 'goal' || type === 'concede' ? 1200 : 480 };
-  if (message) {
-    $('pitch-announcement').textContent = message;
-    clearTimeout(announcementTimer); announcementTimer = setTimeout(() => { $('pitch-announcement').textContent = ''; }, 1300);
+function announce(message, boss = false) {
+  const banner = $('pitch-announcement');
+  banner.classList.toggle('boss-callout', boss); banner.textContent = message;
+  clearTimeout(announcementTimer);
+  announcementTimer = setTimeout(() => { banner.textContent = ''; banner.classList.remove('boss-callout'); }, boss ? 1000 : 1200);
+}
+function animate(type, message, impact = {}) {
+  animation = { type, started: performance.now(), duration: ['goal', 'concede'].includes(type) ? 850 : type === 'boss' ? 800 : 620, ...impact };
+  pitchDirty = true;
+  if (message) announce(message, type === 'boss' || !!impact.bossCountered);
+  playTone(type, impact);
+}
+function floatCombat(target, kind, value, heavy = false) {
+  const layer = $('combat-feedback');
+  // Keep rapid card use responsive without piling old numbers over the latest hit.
+  layer.querySelectorAll(`[data-target="${target}"][data-kind="${kind}"]`).forEach(node => node.remove());
+  const label = document.createElement('span');
+  label.className = `combat-float ${kind}${heavy ? ' heavy' : ''}`;
+  label.dataset.target = target; label.dataset.kind = kind;
+  if (kind === 'damage') label.innerHTML = `<strong>−${value}</strong>${heavy ? '<small>강타</small>' : ''}`;
+  else if (kind === 'block' || kind === 'perfect-block') label.innerHTML = `<strong>막음 ${value}</strong>${kind === 'perfect-block' ? '<small>완전 방어</small>' : ''}`;
+  else if (kind === 'shield') label.innerHTML = `<strong>방어 +${value}</strong>`;
+  else if (kind === 'armor') label.innerHTML = `<strong>방어 −${value}</strong>`;
+  else label.textContent = value;
+  layer.append(label);
+  while (layer.children.length > 6) layer.firstElementChild.remove();
+  setTimeout(() => label.remove(), 900);
+}
+function bossImpact(view, countered = false) {
+  return view ? { bossId: view.id, bossEffect: view.effect, bossCountered: countered } : {};
+}
+function combatFeedback(before, next, action, card) {
+  const previousBoss = getBossView(before), boss = getBossView(next);
+  const interrupted = !!boss?.countered && (!previousBoss?.countered || previousBoss.effect !== boss.effect);
+  if (action.type === 'end-turn' && before.match) {
+    const result = next.match?.lastOutcome;
+    // The outcome preserves damage even when a relic heals the player afterwards.
+    const damage = result?.damageTaken ?? Math.max(0, before.condition - next.condition), blocked = result?.blocked ?? 0;
+    const impact = { damage, blocked, defenseGain: 0, target: 'hero', intensity: Math.min(1, damage / 30), ...bossImpact(previousBoss, !!previousBoss?.countered) };
+    animate(damage ? 'concede' : 'defense', next.phase === 'defeat' ? '다음 도전을 향해.' : null, impact);
+    if (damage) floatCombat('hero', 'damage', damage, damage >= 20);
+    if (blocked) floatCombat('hero', damage ? 'block' : 'perfect-block', blocked);
+    if (previousBoss && boss && (previousBoss.effect !== boss.effect || previousBoss.title !== boss.title)) announce(boss.title, true);
+    return;
   }
-  playTone(type);
+  if (card && before.match && next.match) {
+    const damage = Math.max(0, before.match.enemyHp - next.match.enemyHp);
+    const blocked = Math.max(0, before.match.enemyBlock - next.match.enemyBlock);
+    const defenseGain = Math.max(0, next.match.defense - before.match.defense);
+    const selfDamage = Math.max(0, before.condition - next.condition);
+    const attackCard = /(?:^|\.\s*)피해 \d+/.test(cardText(card));
+    const debuffs = [['enemyExposed', '약점 노출'], ['enemyWeakened', '공격 약화']].filter(([key]) => (next.match[key] || 0) > (before.match[key] || 0)).map(([, label]) => label);
+    const type = next.phase === 'reward' ? 'goal' : attackCard ? (CARDS[card.id].type === 'tactic' ? 'pass' : CARDS[card.id].type) : defenseGain ? 'defense' : debuffs.length ? 'debuff' : 'pass';
+    animate(type, next.phase === 'reward' ? 'DUEL WON' : next.phase === 'defeat' ? '다음 도전을 향해.' : interrupted ? '전술 파훼!' : null,
+      { damage, blocked, defenseGain, intensity: Math.min(1, damage / 30), target: attackCard || debuffs.length || blocked ? 'enemy' : 'hero', ...bossImpact(boss || previousBoss, interrupted) });
+    if (damage) floatCombat('enemy', 'damage', damage, damage >= 20);
+    else if (blocked) floatCombat('enemy', 'armor', blocked);
+    if (defenseGain) floatCombat('hero', 'shield', defenseGain);
+    if (debuffs.length) floatCombat('enemy', 'debuff', debuffs.join(' · '));
+    if (selfDamage) floatCombat('hero', 'damage', selfDamage, selfDamage >= 20);
+    return;
+  }
+  if (action.type === 'choose-node' && next.phase === 'match' && boss) animate('boss', boss.title, { target: 'enemy', intensity: .35, ...bossImpact(boss) });
+  else if (next.phase === 'defeat') animate('concede', '다음 도전을 향해.');
+  else { playTone('pass'); if (action.type !== 'choose-node' && next.message) toast(next.message); }
 }
 function dispatch(action) {
   if (changedElsewhere) return toast('다른 창에서 진행이 변경됐어요. 새로고침하면 이어할 수 있어요.');
@@ -103,21 +175,17 @@ function dispatch(action) {
   const next = act(run, action);
   if (next === before) return toast('지금은 사용할 수 없는 선택이에요.');
   run = next; selected = null; rewardSelection = null; eliteRelicSelection = null;
-  if (run.phase === 'reward' && before.phase !== 'reward') animate('goal', 'DUEL WON');
-  else if (run.phase === 'defeat') animate('concede', '다음 도전을 향해.');
-  else if (action.type === 'end-turn') {
+  combatFeedback(before, run, action, card);
+  if (action.type === 'end-turn' && run.phase === 'match') {
     busy = true;
-    const damage = before.condition - run.condition;
-    animate(damage > 0 ? 'concede' : 'defense', damage > 0 ? `−${damage} HP` : 'BLOCKED');
     setTimeout(() => { busy = false; render(); }, 500);
-  } else if (card) {
-    const damage = (before.match?.enemyHp || 0) - (run.match?.enemyHp || 0);
-    animate(CARDS[card.id].type === 'tactic' ? 'pass' : CARDS[card.id].type, damage > 0 ? `−${damage}` : undefined);
-  } else { playTone('pass'); if (action.type !== 'choose-node' && run.message) toast(run.message); }
+  }
   save(); render();
   if (before.phase !== run.phase) {
     const destination = run.phase === 'map' ? $('phase-panel').querySelector('.map-point.available') : run.phase === 'match' ? document.querySelector('.topbar') : $('phase-panel');
-    destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'start', behavior:motion.matches ? 'auto' : 'smooth'});
+    const scroll = () => { if (run === next) destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'start', behavior:motion.matches ? 'auto' : 'smooth'}); };
+    if (card && ['reward', 'defeat'].includes(run.phase) && !motion.matches) setTimeout(scroll, 650);
+    else scroll();
   }
 }
 function costOf(card) { return card.upgraded ? CARDS[card.id].upgradedCost : CARDS[card.id].cost; }
@@ -210,8 +278,14 @@ function render() {
   $('hero-hp-bar').style.width = `${run.condition/run.maxCondition*100}%`;
   $('opponent-name').textContent = opponent.name; $('enemy-role').textContent = opponent.coach?'THE COACH':opponent.legend?'THE LEGEND':run.activeNode?.type==='boss'?'THE ACE':'THE RIVAL';
   $('pitch').setAttribute('aria-label', `${run.playerName||'루키'}와 ${opponent.name}의 개인 대결`);
-  $('combat-rule').hidden = !active || !(match.intent.rule || opponent.mechanic);
-  $('combat-rule').textContent = active ? (match.intent.rule || opponent.mechanic || '').replace('첫 공격에', '처음 피해를 주는 카드에') : '';
+  const boss = active ? getBossView(run) : null, rule = $('combat-rule');
+  rule.hidden = !active || !(boss || match.intent.rule || opponent.mechanic);
+  rule.classList.toggle('boss-rule', !!boss); rule.classList.toggle('countered', !!boss?.countered);
+  if (boss) {
+    const progress = Math.max(0, Math.min(boss.max || 0, boss.progress || 0));
+    rule.dataset.effect = boss.effect;
+    rule.innerHTML = `<div class="boss-rule-heading"><strong>${esc(boss.title)}</strong>${boss.countered ? '<span class="boss-success">✓ 대응 성공</span>' : ''}${boss.max > 0 ? `<span class="boss-counter">${progress} / ${boss.max}</span>` : ''}</div><p>${esc(boss.detail)}</p>${boss.max > 0 ? `<div class="boss-rule-meter" role="progressbar" aria-label="${esc(boss.title)}" aria-valuemin="0" aria-valuemax="${boss.max}" aria-valuenow="${progress}" aria-valuetext="${esc(boss.detail)}"><i style="width:${100 * progress / boss.max}%"></i></div>` : ''}`;
+  } else { delete rule.dataset.effect; rule.textContent = active ? (match.intent.rule || opponent.mechanic || '').replace('첫 공격에', '처음 피해를 주는 카드에') : ''; }
   document.body.dataset.encounter = opponent.coach ? 'coach' : opponent.legend ? 'legend' : 'rival';
   $('away-score').textContent = match?.enemyHp ?? opponent.maxHp; $('enemy-max-hp').textContent = match?.enemyMaxHp || opponent.maxHp;
   $('enemy-hp-bar').style.width = `${100*(match?.enemyHp??opponent.maxHp)/(match?.enemyMaxHp||opponent.maxHp)}%`;
@@ -236,7 +310,7 @@ function render() {
   const enemyAttack = active ? getEnemyAttack(run) : 0;
   $('incoming-value').textContent = enemyAttack; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
   $('attack-modifier').hidden = !active || !match.enemyWeakened;
-  $('attack-modifier').textContent = active && match.enemyWeakened ? `공격 약화 ${match.intent.attack} → ${enemyAttack}` : '';
+  $('attack-modifier').textContent = active && match.enemyWeakened ? `공격 약화 ${prediction.baseEnemyAttack} → ${enemyAttack}` : '';
   $('intent-description').textContent = active ? `공격 ${enemyAttack} − 내 방어 ${match.defense} = 체력 피해 ${prediction.incoming}` : '';
   $('danger-badge').textContent = active ? prediction.incoming ? `예상 피해 ${prediction.incoming}` : '모두 방어' : '대결 종료';
   $('danger-badge').className = `outcome-badge${active&&prediction.incoming?' danger':' good'}`;
@@ -338,7 +412,7 @@ function showCombatStat(kind) {
   const details = enemy
     ? `<p>내 카드가 주는 피해를 <strong>상대 체력보다 먼저</strong> 막아요.</p><div class="rule-note">현재 상대 방어 <strong>${defense}</strong><br>방어가 막은 만큼 줄어들고,<br><strong>남은 피해만 상대 체력에 적용</strong>돼요.</div><p>다음 내 턴이 시작되면 상대의 새 행동에 맞춰 방어가 다시 정해져요. 이전 턴의 남은 방어에 더해지지는 않아요.</p>${run.match.intent.dribbleBreak ? `<p>현재 상대는 드리블 카드를 사용하면 방어가 <strong>${run.match.intent.dribbleBreak} 추가로 감소</strong>해요.</p>` : ''}`
     : shield
-    ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">${run.match.enemyWeakened ? `공격 약화: ${run.match.intent.attack} → ${getEnemyAttack(run)}<br>` : ''}상대 공격 ${getEnemyAttack(run)} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
+    ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">${run.match.enemyWeakened ? `공격 약화: ${forecast(run).baseEnemyAttack} → ${getEnemyAttack(run)}<br>` : ''}상대 공격 ${getEnemyAttack(run)} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
     : `<p>드리블과 카드·장비 효과로 쌓는 공격 보너스예요.</p><div class="rule-note">현재 기세로 얻는 추가 피해<br>일반 슛: <strong>+${momentum}</strong><br>발리 슈팅: <strong>+${momentum * 2}</strong></div><p>기세는 <strong>턴이 지나도 유지</strong>돼요. 슛 카드를 사용하면 현재 기세를 <strong>전부 소모</strong>해 피해를 더합니다. 상대 방어에 막혀도 소모돼요. 기세가 높을수록 선수 주변의 금빛 기운도 강해져요.</p>`;
   openDialog(enemy ? '상대 방어 · 내 공격을 막는 힘' : shield ? '방어 · 상대 공격을 막는 힘' : '기세 · 다음 슛의 추가 피해', `<section class="combat-stat-help ${shield ? 'shield-help' : 'momentum-help'}"><div class="stat-help-value">${icon}<strong>${shield ? defense : momentum}</strong></div><div class="dialog-copy">${details}</div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
   $('dialog').scrollTop = 0;
@@ -351,7 +425,7 @@ function showEnemyDebuff(kind) {
   const icon = $(`enemy-${kind}-status`).querySelector('svg').outerHTML;
   const effect = exposed
     ? '<p>내 카드가 주는 피해가 <strong>50% 증가</strong>해요. 기세와 장비 보너스를 더한 뒤 계산하며, 소수점은 버리고 상대 방어를 적용합니다.</p><div class="rule-note">예: 카드 피해 10 → <strong>15</strong><br>상대 방어가 4라면 실제 체력 피해 <strong>11</strong></div><p>공격과 함께 약점을 거는 카드는 <strong>피해를 먼저 준 뒤</strong> 새 약점을 적용해요.</p>'
-    : `<p>턴 종료 시 상대가 주는 공격 피해가 <strong>25% 감소</strong>해요. 소수점을 버린 뒤 내 방어로 한 번 더 막습니다.</p><div class="rule-note">현재 상대 공격 ${run.match.intent.attack} → <strong>${getEnemyAttack(run)}</strong><br>내 방어 ${run.match.defense} 적용 후 예상 체력 피해 <strong>${forecast(run).incoming}</strong></div><p>반사 피해와 카드의 체력 소모에는 적용되지 않아요.</p>`;
+    : `<p>턴 종료 시 상대가 주는 공격 피해가 <strong>25% 감소</strong>해요. 소수점을 버린 뒤 내 방어로 한 번 더 막습니다.</p><div class="rule-note">현재 상대 공격 ${forecast(run).baseEnemyAttack} → <strong>${getEnemyAttack(run)}</strong><br>내 방어 ${run.match.defense} 적용 후 예상 체력 피해 <strong>${forecast(run).incoming}</strong></div><p>반사 피해와 카드의 체력 소모에는 적용되지 않아요.</p>`;
   openDialog(`${title} · ${turns}턴 남음`, `<section class="combat-stat-help ${exposed ? 'exposed-help' : 'weakened-help'}"><div class="stat-help-value">${icon}<strong>${turns}</strong><span>턴</span></div><div class="dialog-copy">${effect}<p>숫자는 <strong>지금 내 턴을 포함한 남은 턴</strong>이에요. 상대 행동이 끝날 때마다 1씩 줄고, 0이 되면 사라집니다.</p><p>같은 효과를 다시 걸면 <strong>남은 턴만 더해져요</strong>. 최대 99턴이며 피해 비율은 중첩되지 않습니다.</p></div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
   $('dialog').scrollTop = 0;
 }
@@ -414,6 +488,8 @@ function showHelp() {
     <li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li>
     <li><strong>약점 노출</strong>은 내 카드 피해를 50% 늘리고, <strong>공격 약화</strong>는 상대 공격 피해를 25% 줄입니다. 소수점은 버리고 방어를 적용합니다. 공격과 함께 거는 디버프는 그 공격이 끝난 뒤 적용됩니다.</li>
     <li>상대 아래 디버프 아이콘의 숫자는 <strong>지금 내 턴을 포함한 남은 턴</strong>입니다. 상대 행동 후 1씩 줄어들며, 다시 걸면 기간만 늘어납니다. 아이콘을 누르면 자세한 설명을 볼 수 있습니다.</li>
+    <li>감독전에서는 구장 위의 <strong>전술 조건과 진행 수치</strong>를 읽으세요. 수비벽 돌파, 카드 종류 조합, 세트피스 방해, 연계 끊기처럼 감독마다 대응법이 다릅니다. 대응에 성공하면 다음 공격 예고와 전술 연출도 바뀝니다.</li>
+    <li>큰 피해에는 더 강한 타격 연출, 방어에는 방패 충돌이 표시됩니다. 소리는 메뉴에서 켤 수 있고, 기기의 <strong>동작 줄이기</strong> 설정을 사용하면 흔들림과 움직임을 줄입니다.</li>
     <li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li>
     <li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li>
     <li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li>
@@ -581,8 +657,8 @@ function frame(now) {
   if (document.hidden || (!animation && !pitchDirty && !idle) || now - lastFrame < 1000 / (animation ? 30 : 15)) return;
   lastFrame = now;
   let current = null;
-  if (animation) { const progress = Math.min(1, (now - animation.started) / animation.duration); if (!motion.matches && progress < 1) current = { type: animation.type, progress }; if (progress === 1) animation = null; }
-  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
+  if (animation) { const progress = Math.min(1, (now - animation.started) / animation.duration); if (progress < 1) current = { ...animation, progress, reducedMotion: motion.matches }; if (progress === 1) animation = null; }
+  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, reducedMotion: motion.matches, boss: getBossView(run), opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
   pitchDirty = false;
 }
 render(); save(); requestAnimationFrame(frame);

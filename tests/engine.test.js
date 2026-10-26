@@ -14,7 +14,7 @@ function playBestTurn(run) {
   function visit(state) {
     if (state.phase === 'defeat') return;
     const m = state.match, f = forecast(state);
-    const key = `${m.energy}|${m.enemyHp}|${m.enemyBlock}|${m.defense}|${m.momentum}|${m.enemyExposed}|${m.enemyWeakened}|${m.defenseCardPlayed}|${m.dribbleCardPlayed}|${m.counterReady}|${m.hand.map(c => c.uid).sort()}|${m.draw.map(c => c.uid)}|${state.condition}`;
+    const key = `${m.energy}|${m.enemyHp}|${m.enemyBlock}|${m.defense}|${m.momentum}|${m.enemyExposed}|${m.enemyWeakened}|${JSON.stringify(m.boss)}|${m.defenseCardPlayed}|${m.dribbleCardPlayed}|${m.counterReady}|${m.played.map(c => c.id).sort()}|${m.hand.map(c => c.uid).sort()}|${m.draw.map(c => c.uid)}|${state.condition}`;
     if (seen.has(key)) return;
     seen.add(key);
     const value = state.phase === 'reward' ? 100000 + state.condition
@@ -608,18 +608,17 @@ test('legend rewards guarantee a rare option, currency and one exclusive relic t
   shield = act(shield, { type: 'end-turn' }); assert.equal(shield.match.dribbleCardPlayed, false); assert.ok(validateSave(shield));
 });
 
-test('seven seeded coach bosses expose distinct predictable rules and Ancelotti changes only between turns', () => {
+test('seven seeded coach bosses expose distinct predictable rules and Ancelotti adapts only between turns', () => {
   const seeds = new Map();
   for (let seed = 0; seed < 128; seed++) { const boss = routeFor(createNewRun(seed)).at(-1).choices[0]; if (!seeds.has(boss.opponentId)) seeds.set(boss.opponentId, seed); }
   assert.equal(seeds.size, 7);
+  const attacks = { 'coach-mourinho': [8, 22, 7, 8, 22], 'coach-guardiola': [11, 14, 22, 8, 11], 'coach-klopp': [15, 17, 7, 15, 17], 'coach-ancelotti': [10, 19, 19, 19, 19], 'coach-arteta': [6, 8, 24, 7, 6], 'coach-wenger': [8, 10, 12, 14, 16], 'coach-ferguson': [12, 15, 12, 15, 12] };
   for (const [id, seed] of seeds) {
     let run = newEncounterFixture(seed, 11, id, Array(5).fill('cover'));
     assert.ok(OPPONENTS[id].coach); assert.match(run.match.intent.description, /턴 종료 시 피해/); assert.ok(run.match.intent.rule);
     assert.equal(run.match.enemyMaxHp, OPPONENTS[id].maxHp); assert.ok(run.match.enemyMaxHp >= 85 && run.match.enemyMaxHp <= 95);
     for (let turn = 1; turn <= 5; turn++) {
-      const base = OPPONENTS[id].patterns[(turn - 1) % OPPONENTS[id].patterns.length][1];
-      const bonus = id === 'coach-wenger' ? Math.floor((turn - 1) / 2) * 2 : id === 'coach-ferguson' && turn >= 5 ? 4 : 0;
-      assert.equal(run.match.intent.attack, base + bonus);
+      assert.equal(run.match.intent.attack, attacks[id][turn - 1]);
       for (const card of run.match.hand.slice(0, 3)) run = act(run, { type: 'play-card', uid: card.uid });
       run = act(run, { type: 'end-turn' }); assert.ok(validateSave(run));
     }
@@ -628,8 +627,8 @@ test('seven seeded coach bosses expose distinct predictable rules and Ancelotti 
   for (const card of [...half.deck, ...half.match.hand, ...half.match.draw]) if (card.id === 'power-shot') card.upgraded = true;
   const intent = copy(half.match.intent);
   for (const uid of ['c1', 'c2', 'c3']) half = act(half, { type: 'play-card', uid });
-  assert.ok(half.match.enemyHp < 45); assert.deepEqual(half.match.intent, intent); assert.ok(validateSave(half));
-  half = act(half, { type: 'end-turn' }); assert.match(half.match.intent.rule, /후반 역습 태세/); assert.equal(half.match.intent.attack, 20); assert.ok(validateSave(half));
+  assert.ok(half.match.enemyHp < 45); assert.equal(half.match.intent.attack, intent.attack); assert.equal(half.match.intent.defense, intent.defense); assert.ok(validateSave(half));
+  half = act(half, { type: 'end-turn' }); assert.match(half.match.intent.name, /공격을 읽은 수비/); assert.equal(half.match.intent.attack, 10); assert.equal(half.match.enemyBlock, 12); assert.ok(validateSave(half));
 });
 
 test('schema3 checkpoints preserve a whole journey and post-boss healing after reward completion', () => {

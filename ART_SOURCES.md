@@ -228,3 +228,13 @@ Composition: ONE character only, visible from head to hips behind a compact dark
 Style: polished football RPG pixel-art NPC, tangible cloth and wood texture rendered with crisp square clusters; calm commercial scene, naturally friendly but shrewd shopkeeper. No scene background. Solid opaque physical subject and props with fully transparent alpha everywhere else.
 Avoid: stadium, backdrop, colored haze, gradients outside silhouette, glow, halo, floating particles, ground plane, rectangular background, labels, letters, sponsor logos, actual club crests, watermarks, extra people, overlarge muscles, fighting-game costume, photorealism, soft painterly blur, 3D voxel blocks. Do not draw any text.
 ```
+
+
+## Boss patterns and combat feedback · 2026-10-26
+
+- Original code-native Canvas effects in `dist/art.js`; no new downloaded or generated bitmap assets.
+- Seven tactical motifs: Mourinho wall/counter, Guardiola closing press, Klopp rushing arrows/recovery, Ancelotti adaptive arrows, Arteta set-piece arc and football, Wenger passing connections, Ferguson overtime clock.
+- Damage-scaled impact stars, rings, recoil and bounded camera shake; blue shield absorption and defense gain, purple debuff marks. Actual HP damage and blocked values drive the UI numbers.
+- Existing sprites, football assets and character placements are preserved. Active tactical marks are brighter than idle marks and stay around waist/feet.
+- Reduced-motion rendering disables motion, particles and shake. Optional impact audio is synthesized locally through the existing sound toggle.
+- Visually inspected seven boss idle/action pairs, light/heavy impacts, blocking and reduced-motion samples, plus integrated mobile browser encounters. No extra network assets or runtime dependencies.

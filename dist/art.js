@@ -1,6 +1,6 @@
 /**
  * RuneKick's generated sprite atlases and procedural pixel effects.
- * drawPitch(ctx, { width, height, time, opponentColor, phase, animation, heroMomentum })
+ * drawPitch(ctx, { width, height, time, opponentColor, phase, animation, heroMomentum, boss, reducedMotion })
  * drawCardArt(ctx, type, { width, height, upgraded, id })
  * drawPlayer(ctx, x, y, { scale, team, shirt, facing, pose, selected })
  * Player x/y is the centre of the player's feet. Time is in milliseconds.
@@ -462,14 +462,160 @@ function drawMomentumAura(ctx, x, y, scale, momentum, time) {
   ctx.restore();
 }
 
+// Tactical diagrams use a small fixed number of pixel stamps, independent of
+// canvas size or damage. They stay at boot/waist height so faces remain clear.
+function fxLine(ctx, x1, y1, x2, y2, color, width = 3, steps = 10, dashed = false) {
+  for(let i=0;i<=steps;i++) {
+    if(dashed && i%3===2)continue;
+    const t=i/steps;rect(ctx,lerp(x1,x2,t)-width/2,lerp(y1,y2,t)-width/2,width,width,color);
+  }
+}
+function fxArrow(ctx, x1, y1, x2, y2, color, width = 3) {
+  fxLine(ctx,x1,y1,x2,y2,color,width,12);
+  const a=Math.atan2(y2-y1,x2-x1),size=12;
+  for(const side of [-1,1])fxLine(ctx,x2,y2,x2-Math.cos(a+side*.65)*size,y2-Math.sin(a+side*.65)*size,color,width,4);
+}
+function fxRing(ctx,x,y,radius,color,progress=0,count=16,spread=1,stamp=4) {
+  for(let i=0;i<count;i++) {
+    const a=i*Math.PI*2/count+progress;
+    rect(ctx,x+Math.cos(a)*radius-stamp/2,y+Math.sin(a)*radius*spread-stamp/2,stamp,stamp,color);
+  }
+}
+function drawBossTactics(ctx, heroX, enemyX, footY, fit, boss, animation, time, reduced) {
+  if(!boss && !animation?.bossId)return;
+  const id=animation?.bossId||boss.id,effect=animation?.bossEffect||boss?.effect||'normal';
+  const p=clamp(Number(animation?.progress)||0,0,1),active=!!animation?.bossId;
+  const weight=active&&!reduced?1.6:1;
+  const beat=reduced?0:Math.sin((Number(time)||0)/600)*.5+.5;
+  const progress=clamp((Number(boss?.progress)||0)/Math.max(1,Number(boss?.max)||1),0,1);
+  const broken=!!animation?.bossCountered||effect==='setpiece-broken'||!!boss?.countered;
+  const reach=Math.min(250,(enemyX-heroX)/fit-110),centre=(heroX+enemyX)/2;
+  ctx.save();ctx.translate(centre,footY);ctx.scale(fit,fit);
+  const left=(heroX-centre)/fit,right=(enemyX-centre)/fit;
+  ctx.globalAlpha=reduced?.55:active?.96:.46+beat*.1;
+  if(id==='coach-mourinho') {
+    const x=right-94;
+    for(let row=0;row<4;row++)for(let col=0;col<2;col++) {
+      const fracture=broken&&!reduced?(p*16*(col?1:-1)):0;
+      frame(ctx,x+col*22+(row%2)*4+fracture,-108+row*23+(broken?p*row*5:0),20,20,broken?'#829aa6':'#85ceee',2*weight);
+    }
+    if(effect==='counter')fxArrow(ctx,right-65,-50,left+75+(reduced?0:(1-p)*32),-50,'#b8e8ff',5*weight);
+  } else if(id==='coach-guardiola') {
+    const close=reduced?progress*18:progress*18+(active?Math.sin(p*Math.PI)*22:beat*4);
+    for(const side of [-1,1]) {
+      const x=side*(reach*.35-close);
+      fxLine(ctx,x-side*28,-108,x,-60,'#81d6cc',3*weight,8,true);
+      fxLine(ctx,x,-60,x-side*28,-12,'#81d6cc',3*weight,8,true);
+      cross(ctx,x,-60,5*weight,'#d8f4df');
+    }
+    fxLine(ctx,-reach*.35+close,-60,reach*.35-close,-60,broken?'#687e7e':'#92d9cb',2*weight,9,true);
+  } else if(id==='coach-klopp') {
+    const recovering=effect==='recover',color=recovering?'#8da69c':'#ef8e75';
+    for(let row=0;row<3;row++) {
+      const travel=reduced?0:active?p*22:beat*7;
+      const y=-24-row*26;
+      if(recovering)fxLine(ctx,-32+row*10,y,20+row*10,y,color,3*weight,6,true);
+      else fxArrow(ctx,reach*.32+row*12-travel,y,-reach*.3+row*12-travel,y,color,3*weight);
+    }
+  } else if(id==='coach-ancelotti') {
+    const color=effect==='adapt-attack'?'#85d7fa':effect==='adapt-defense'?'#efac82':'#9fd5ae';
+    const rotation=reduced?0:active?p*.7:Math.sin((Number(time)||0)/1700)*.08;
+    const nodes=Array.from({length:3},(_,i)=>{const a=i*Math.PI*2/3+rotation;return[Math.cos(a)*54,-63+Math.sin(a)*34];});
+    for(let i=0;i<3;i++) {const a=nodes[i],b=nodes[(i+1)%3];fxArrow(ctx,...a,...b,color,2*weight);frame(ctx,a[0]-5,a[1]-5,10,10,'#e6d4b3',2*weight);}
+  } else if(id==='coach-arteta') {
+    const color=broken?'#809289':effect==='setpiece-shot'?'#ffd396':'#e0bc7d';
+    const arcSteps=active?24:16,travel=!reduced&&active&&effect==='setpiece-shot'?clamp(p*1.6,0,1):1;
+    for(let i=0;i<=arcSteps;i++) {
+      if(i%3===2 || (broken&&i%2))continue;
+      const t=i/arcSteps;
+      if(t>travel)continue;
+      rect(ctx,lerp(right+48,left+48,t),-18-Math.sin(t*Math.PI)*106,6*weight,4*weight,color);
+    }
+    if(active&&!reduced&&!broken&&effect==='setpiece-shot')ball(ctx,lerp(right+48,left+48,travel),-18-Math.sin(travel*Math.PI)*106,1.6);
+    const tx=left+48,ty=-18;
+    for(const side of [-1,1]){fxLine(ctx,tx+side*20,ty-14,tx+side*20,ty+14,color,3*weight,4);fxLine(ctx,tx+side*20,ty-14,tx+side*10,ty-14,color,3*weight,3);}
+    if(broken){fxLine(ctx,-12,-100,12,-76,'#b0d4bd',4*weight,6);fxLine(ctx,12,-100,-12,-76,'#b0d4bd',4*weight,6);}
+    else {rect(ctx,right+45,-50,3,33,color);rect(ctx,right+48,-50,15,10,color);}
+  } else if(id==='coach-wenger') {
+    const shift=reduced?0:Math.sin((Number(time)||0)/900)*3;
+    const nodes=[[-62,-22],[0,-70-shift],[62,-22]];
+    for(let i=0;i<2;i++) {
+      const a=nodes[i],b=nodes[i+1];
+      if(!broken)fxLine(ctx,...a,...b,'#a1d5b2',3*weight,10,true);
+      else {const dx=(b[0]-a[0])*.32,dy=(b[1]-a[1])*.32;fxLine(ctx,...a,a[0]+dx,a[1]+dy,'#7c9d86',3*weight,4);fxLine(ctx,b[0]-dx,b[1]-dy,...b,'#7c9d86',3*weight,4);}
+    }
+    for(const [x,y] of nodes)fxRing(ctx,x,y,8,'#d3e7b4',0,6,1,4*weight);
+  } else if(id==='coach-ferguson') {
+    const overtime=effect==='overtime',radius=(active&&!reduced?43:37)+(!reduced&&overtime?beat*4:0);
+    const color=overtime?'#ffca76':'#a79a82';
+    fxRing(ctx,0,-56,radius,color,0,12,1,4*weight);
+    const angle=reduced?-Math.PI/2:-Math.PI/2+(active?p*1.5:progress)*Math.PI;
+    fxLine(ctx,0,-56,Math.cos(angle)*(active?28:22),-56+Math.sin(angle)*(active?28:22),color,3*weight,9);
+    fxLine(ctx,0,-56,12,-48,color,3*weight,4);
+    rect(ctx,-8,-104,16,4,color);
+    if(overtime)for(const side of [-1,1])fxLine(ctx,side*50,-48,side*65,-68,color,3*weight,5);
+  }
+  ctx.restore();
+}
+function drawImpactBurst(ctx,x,y,fit,life,intensity,reduced,color='#f3b75f') {
+  if(life<0||life>=1)return;
+  ctx.save();ctx.translate(x,y);ctx.scale(fit,fit);
+  ctx.globalAlpha=reduced?.65:Math.pow(1-life,.7);
+  if(reduced){cross(ctx,0,0,9+intensity*4,color);ctx.restore();return;}
+  const count=10+Math.floor(intensity*14),radius=12+life*(40+intensity*66);
+  for(let i=0;i<count;i++) {
+    const angle=i*Math.PI*2/count+i*.17,reach=radius*(.65+(i%4)*.12),size=(i%3===0?6:4)+intensity*4;
+    rect(ctx,Math.cos(angle)*reach,Math.sin(angle)*reach*.72+life*life*16,size,size,i%3?'#f4c97c':'#fff0c5');
+  }
+  if(life<.62){
+    ctx.globalAlpha=(1-life/.7)*.94;
+    const length=18+intensity*30;
+    if(intensity>.55&&life<.42) {
+      ctx.beginPath();
+      for(let i=0;i<16;i++){
+        const a=i*Math.PI/8,r=i%2?length*.24:length*(i%4?1:.78);
+        const px=Math.cos(a)*r,py=Math.sin(a)*r*.78;
+        if(i)ctx.lineTo(px,py);else ctx.moveTo(px,py);
+      }
+      ctx.closePath();ctx.fillStyle='#ffd181';ctx.fill();
+    }
+    fxLine(ctx,-length,-length*.35,length,length*.35,'#ffe4a5',4+intensity*4,9);
+    fxLine(ctx,-length*.35,length,length*.35,-length,'#fff2d5',4+intensity*3,9);
+  }
+  if(intensity>.55){ctx.globalAlpha=(1-life)*.92;fxRing(ctx,0,0,20+life*62,color,0,12,.65);}
+  ctx.restore();
+}
+function drawGuardImpact(ctx,x,y,fit,life,broken,reduced,gain=false) {
+  if(life<0||life>=1)return;
+  const rise=gain&&!reduced?(1-life)*16:0;
+  ctx.save();ctx.translate(x,y+rise);ctx.scale(fit,fit);ctx.globalAlpha=reduced?.62:Math.sin(Math.min(.98,life+.12)*Math.PI)*.84;
+  const grow=reduced?1:.88+life*.2,points=[[-28,-33],[0,-43],[28,-33],[24,8],[0,32],[-24,8],[-28,-33]];
+  ctx.scale(grow,grow);ctx.beginPath();points.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();
+  ctx.fillStyle='#83d6fa22';ctx.fill();ctx.strokeStyle='#9bdef8';ctx.lineWidth=3;ctx.stroke();
+  if(broken){fxLine(ctx,-7,-24,7,-8,'#dff6ff',3,5);fxLine(ctx,7,-8,-3,8,'#dff6ff',3,5);}
+  else {rect(ctx,-2,-23,4,34,'#d9f6ff');rect(ctx,-13,-8,26,4,'#d9f6ff');}
+  if(!reduced&&!gain)for(let i=0;i<8;i++){const a=i*Math.PI/4;rect(ctx,Math.cos(a)*(32+life*28),Math.sin(a)*(35+life*18),4,4,'#b7eaff');}
+  ctx.restore();
+}
+
 /** Responsive stage: cover the background, keep people and effects uniformly scaled. */
 export function drawPitch(ctx, options = {}) {
   const width=options.width||ctx.canvas.width||960, height=options.height||ctx.canvas.height||400;
-  const animation=options.animation, p=clamp(Number(animation?.progress)||0,0,1), type=animation?.type;
+  const animation=options.animation,reduced=!!(options.reducedMotion||animation?.reducedMotion);
+  const rawProgress=clamp(Number(animation?.progress)||0,0,1),p=reduced?.64:rawProgress,type=animation?.type;
+  const damage=Math.max(0,Number(animation?.damage)||0),blocked=Math.max(0,Number(animation?.blocked)||0),defenseGain=Math.max(0,Number(animation?.defenseGain)||0);
+  const intensity=clamp(Number(animation?.intensity)||damage/30,0,1),target=animation?.target||(type==='concede'?'hero':'enemy');
+  const contact=['shot','goal'].includes(type)?.54:.36,impactLife=animation?(p-contact)/(1-contact):-1;
+  const impactPulse=impactLife>=0&&impactLife<1?Math.sin(Math.min(1,impactLife*2)*Math.PI):0;
   const defender=options.opponentId==='legend';
   const legendary=defender||options.opponentId==='legend-zidane'||options.opponentId==='legend-ronaldo';
   ctx.save(); ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#101722'; ctx.fillRect(0,0,width,height);
+  // Only the painted stage moves; controls and status buttons never shake.
+  if(!reduced&&damage>=10&&impactLife>=0&&impactLife<.4) {
+    const strength=Math.min(4,1+intensity*3)*(1-impactLife/.4);
+    ctx.translate(Math.sin(impactLife*83)*strength,Math.cos(impactLife*67)*strength*.45);
+  }
   ctx.save();
   ctx.filter='saturate(0.28) brightness(0.62)';
   if (rasterArt.stadium) {
@@ -494,24 +640,27 @@ export function drawPitch(ctx, options = {}) {
   // Only extremely narrow/tall layouts need an extra, continuous size reduction.
   const fit=Math.min(1,Math.max(.2,(Math.min(heroAnchor,stageWidth-enemyAnchor)-12)/Math.max(98,heroHalfWidth,enemyHalfWidth)));
   let heroX=heroAnchor,enemyX=enemyAnchor;
-  const heroY=340,enemyY=340,pulse=Math.sin(p*Math.PI);
-  const breathing=Math.sin((Number(options.time)||0)/720)*1.2*fit;
+  const heroY=340,enemyY=340,pulse=reduced?0:Math.sin(p*Math.PI);
+  const breathing=reduced?0:Math.sin((Number(options.time)||0)/720)*1.2*fit;
   if(type==='dribble')heroX+=pulse*Math.min(32*fit,(enemyAnchor-heroAnchor)*.08);
   if(type==='pass')heroX+=pulse*8*fit;
   if(type==='concede')heroX-=pulse*10*fit;
-  if(type==='shot'&&p>.55)enemyX+=Math.sin((p-.55)/.45*Math.PI)*10*fit;
-  if(type==='goal')enemyX+=pulse*10*fit;
+  if(!reduced&&damage>0) {
+    const recoil=impactPulse*(5+intensity*15)*fit;
+    if(target==='enemy')enemyX+=recoil;else heroX-=recoil;
+  }
   pixelEllipse(ctx,heroX+2,heroY+4,76*fit,13*fit,'#101b25');
   pixelEllipse(ctx,enemyX+2,enemyY+4,76*fit,13*fit,'#101b25');
   pixelEllipse(ctx,heroX,heroY+6,55*fit,7*fit,'#303d43');
   pixelEllipse(ctx,enemyX,enemyY+6,55*fit,7*fit,'#303d43');
+  if(options.phase==='match'||animation?.bossId)drawBossTactics(ctx,heroAnchor,enemyAnchor,heroY,fit,options.boss,animation,options.time,reduced);
   if(legendary) drawLegendRune(ctx,enemyX,enemyY,fit);
-  if(options.phase==='match') drawMomentumAura(ctx,heroX,heroY,fit,Number(options.heroMomentum),Number(options.time));
+  if(options.phase==='match') drawMomentumAura(ctx,heroX,heroY,fit,Number(options.heroMomentum),reduced?0:Number(options.time));
   ctx.save();ctx.translate(heroX,heroY);ctx.scale(fit,fit);ctx.globalAlpha=.7;
   frame(ctx,-38,4,78,10,'#81aa6a',2);
   rect(ctx,-12,16,24,2,'#aac077');rect(ctx,-6,19,12,2,'#aac077');ctx.restore();
-  const enemyHit=(type==='shot'||type==='goal')&&p>.58&&p<.78?.4:0;
-  const heroHit=type==='concede'&&p>.35&&p<.65?.35:0;
+  const contactTint=!reduced&&damage>0&&impactLife>=0&&impactLife<.2?.18+intensity*.22:0;
+  const enemyHit=target==='enemy'?contactTint:0,heroHit=target==='hero'?contactTint:0;
   const coachIndex=COACH_FRAMES[options.opponentId],coachCrop=atlasFrames.coaches[coachIndex];
   if(rasterArt.legends&&legendCrop)drawRasterFighter(ctx,rasterArt.legends,enemyX,enemyY,{crop:legendCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
   else if(rasterArt.coaches&&coachCrop)drawRasterFighter(ctx,rasterArt.coaches,enemyX,enemyY,{crop:coachCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
@@ -522,14 +671,14 @@ export function drawPitch(ctx, options = {}) {
     drawDefenderShield(ctx,enemyX-78*fit,enemyY-132*fit,.8*fit);
     cross(ctx,enemyX-92*fit,enemyY-155*fit,4*fit,'#e9d194');
   }
-  const lean=type==='concede'?-pulse*.04:type==='dribble'?pulse*.035:type==='shot'||type==='goal'?Math.sin(p*Math.PI*2)*-.045:type==='pass'?pulse*.02:0;
+  const lean=reduced?0:type==='concede'?-pulse*.04:type==='dribble'?pulse*.035:type==='shot'||type==='goal'?Math.sin(p*Math.PI*2)*-.045:type==='pass'?pulse*.02:0;
   if(rasterArt.striker)drawRasterFighter(ctx,rasterArt.striker,heroX,heroY,{crop:heroCrop,height:238*fit+breathing,lean,hit:heroHit});
   else {ctx.save();ctx.translate(heroX,heroY);ctx.scale(fit*238/240,fit*238/240);drawDuelist(ctx,0,0,{home:true,hit:heroHit});ctx.restore();}
   const startX=heroX+52*fit,startY=heroY-9*fit,targetX=enemyX-34*fit,targetY=enemyY-94*fit;
   let bx=startX,by=startY;
   if(type==='pass'){bx+=pulse*60*fit;by-=pulse*26*fit;}
   if(type==='dribble'){bx+=pulse*28*fit;by-=Math.abs(Math.sin(p*Math.PI*2))*12*fit;}
-  if(type==='shot'||type==='goal'){
+  if(!reduced&&(type==='shot'||type==='goal')){
     const flight=Math.min(1,p/.72);
     bx=lerp(startX,targetX,flight);by=lerp(startY,targetY,flight)-Math.sin(flight*Math.PI)*55*fit;
     if(p<.72)for(let i=1;i<6;i++){
@@ -537,33 +686,28 @@ export function drawPitch(ctx, options = {}) {
       rect(ctx,lerp(startX,targetX,f),lerp(startY,targetY,f)-Math.sin(f*Math.PI)*55*fit,(10-i)*fit,4*fit,i<3?'#e5bc68':'#527b4c');
     }
   }
-  if(type==='concede'){bx=lerp(enemyX-62*fit,heroX+42*fit,p);by=heroY-50*fit-Math.sin(p*Math.PI)*35*fit;}
-  if(type==='defense'){
-    ctx.save();ctx.translate(heroX,heroY);ctx.scale(fit,fit);ctx.globalAlpha=.23+.14*pulse;
-    rect(ctx,72,-162,8,112,'#b7e6ba');rect(ctx,64,-172,8,132,'#b7e6ba');
-    rect(ctx,56,-180,8,148,'#b7e6ba');rect(ctx,48,-186,8,160,'#b7e6ba');
-    ctx.globalAlpha=.8;rect(ctx,76,-150,4,88,'#d7f0bd');
-    cross(ctx,88,-110,9,'#d7f0bd');cross(ctx,68,-162,5,'#d7f0bd');ctx.restore();
-  }
-  if(type==='dribble'){
+  if(!reduced&&type==='concede'){bx=lerp(enemyX-62*fit,heroX+42*fit,p);by=heroY-50*fit-Math.sin(p*Math.PI)*35*fit;}
+  if(type==='dribble'&&!reduced){
     rect(ctx,heroX-108*fit,heroY-40*fit,34*fit,4*fit,'#82aa69');
     rect(ctx,heroX-97*fit,heroY-28*fit,20*fit,4*fit,'#82aa69');
   }
   // The hero image includes the football. Spells only add a moving light projectile.
   if(!rasterArt.striker){pixelEllipse(ctx,bx,heroY+4,14*fit,4*fit,'#183c29');ball(ctx,bx,by,3*fit);}
-  else if(type==='shot'||type==='goal'||type==='concede'){
+  else if(!reduced&&(type==='shot'||type==='goal'||type==='concede')){
     pixelEllipse(ctx,bx,by,11*fit,11*fit,type==='concede'?'#72bcdf66':'#f3c45b66');
     pixelEllipse(ctx,bx,by,6*fit,6*fit,type==='concede'?'#aeddf0':'#f8dc8e');
     cross(ctx,bx,by,8*fit,'#fff2c7');
   }
-  if((type==='shot'||type==='goal')&&p>.55){
-    const burst=(p-.55)/.45;
-    for(let i=0;i<12;i++){
-      const angle=i*Math.PI/6,radius=(18+burst*44)*fit;
-      rect(ctx,targetX+Math.cos(angle)*radius,targetY+Math.sin(angle)*radius,6*fit,6*fit,i%2?'#e9cb87':'#a9d994');
-    }
+  const impactX=target==='hero'?heroX+28*fit:enemyX-28*fit,impactY=heroY-100*fit;
+  if(damage>0)drawImpactBurst(ctx,impactX,impactY,fit,impactLife,intensity,reduced,target==='hero'?'#ed9e79':'#f3b75f');
+  if(blocked>0)drawGuardImpact(ctx,target==='hero'?heroX+52*fit:enemyX-52*fit,heroY-112*fit,fit,impactLife,damage>0,reduced);
+  if(defenseGain>0)drawGuardImpact(ctx,heroX+54*fit,heroY-112*fit,fit,p,false,reduced,true);
+  if(type==='debuff') {
+    ctx.save();ctx.globalAlpha=reduced?.5:Math.sin(p*Math.PI)*.7;
+    fxRing(ctx,enemyX-50*fit,enemyY-100*fit,(24+(reduced?0:p*18))*fit,'#d2a5df',reduced?0:p*.6,12);
+    cross(ctx,enemyX-50*fit,enemyY-100*fit,8*fit,'#e6c2ef');ctx.restore();
   }
-  if(type==='goal'&&p>.5){
+  if(type==='goal'&&p>.5&&!reduced){
     const life=(p-.5)*2,centre=(heroAnchor+enemyAnchor)/2;
     for(let i=0;i<32;i++){
       const angle=i*2.39996,radius=(24+life*(44+i%7*13))*fit;
@@ -571,7 +715,6 @@ export function drawPitch(ctx, options = {}) {
     }
     cross(ctx,centre-80*fit,heroY-180*fit,10*fit,C.gold);cross(ctx,centre+78*fit,heroY-208*fit,6*fit,C.mint);
   }
-  if(type==='concede'&&p>.35&&p<.8){cross(ctx,heroX+48*fit,heroY-138*fit,13*fit,'#f4a67a');cross(ctx,heroX-42*fit,heroY-88*fit,7*fit,'#e7b578');}
   ctx.restore();
 }
 

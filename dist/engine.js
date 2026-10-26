@@ -112,26 +112,26 @@ export const OPPONENTS = Object.freeze({
   champion: { id: 'champion', name: '서진', subtitle: '유소년 에이스 · 최종 선발전', color: '#d5b573', maxHp: 85, reward: 60,
     patterns: [['에이스의 견제', 15, 5], ['폭발적인 가속', 18, 2], ['완벽한 자세', 11, 9], ['결정적인 한 발', 20, 3]] },
   'coach-mourinho': { id: 'coach-mourinho', name: '무리뉴', subtitle: '감독 보스 · 철벽과 역습', coach: true, color: '#7f99ba', maxHp: 92, reward: 60,
-    intro: '빈틈 하나면 충분하지.', mechanic: '두 번의 단단한 수비 뒤 강력한 역습. 역습 전 방어를 준비하세요.',
+    intro: '빈틈 하나면 충분하지.', mechanic: '준비 턴에 남은 방어만큼 다음 역습이 강해집니다. 수비벽을 먼저 깨세요.',
     patterns: [['낮은 블록', 9, 11], ['두 겹 수비', 11, 9], ['빠른 역습', 21, 2], ['재정비', 8, 5]] },
   'coach-ancelotti': { id: 'coach-ancelotti', name: '안첼로티', subtitle: '감독 보스 · 노련한 전환', coach: true, color: '#c3b39a', maxHp: 90, reward: 60,
-    intro: '상황에 맞는 답은 언제나 있지.', mechanic: '전술 완성도가 절반 이하가 되면 다음 턴부터 역습 패턴으로 전환합니다.',
+    intro: '상황에 맞는 답은 언제나 있지.', mechanic: '직전 턴 가장 많이 사용한 카드 종류에 맞춰 다음 수비·공격 전술을 바꿉니다.',
     patterns: [['차분한 운영', 12, 6], ['균형 유지', 14, 5], ['조직 수비', 10, 8]],
     secondPatterns: [['자유로운 전환', 17, 4], ['결정적 역습', 20, 2], ['노련한 관리', 11, 8]] },
   'coach-guardiola': { id: 'coach-guardiola', name: '펩 과르디올라', subtitle: '감독 보스 · 압박과 통제', coach: true, color: '#8ebabc', maxHp: 90, reward: 60,
-    intro: '공간을 읽고, 다음 수를 준비하게.', mechanic: '강한 압박과 높은 방어를 번갈아 사용합니다.',
+    intro: '공간을 읽고, 다음 수를 준비하게.', mechanic: '압박 3에서 강공. 한 턴에 공격·수비·기술을 모두 쓰면 압박이 2 줄어듭니다.',
     patterns: [['전방 압박', 19, 2], ['공간 통제', 10, 10], ['빠른 연결', 16, 4], ['위치 재정렬', 10, 6]] },
   'coach-arteta': { id: 'coach-arteta', name: '아르테타', subtitle: '감독 보스 · 준비된 한 수', coach: true, color: '#c99d83', maxHp: 88, reward: 60,
-    intro: '준비한 장면을 완성할 시간이다.', mechanic: '준비 턴 다음에 세트피스 강타가 옵니다. 공격 예고를 놓치지 마세요.',
+    intro: '준비한 장면을 완성할 시간이다.', mechanic: '두 턴 동안 세트피스 준비. 준비 중 체력 피해 12를 주면 강타가 취소됩니다.',
     patterns: [['세트피스 준비', 8, 9], ['세트피스 강타', 23, 2], ['대형 회복', 10, 5]] },
   'coach-wenger': { id: 'coach-wenger', name: '벵거', subtitle: '감독 보스 · 이어지는 연계', coach: true, color: '#9db796', maxHp: 86, reward: 60,
-    intro: '너만의 창의적인 해답을 보여주게.', mechanic: '두 턴마다 연계 공격이 2씩 강해집니다.',
+    intro: '너만의 창의적인 해답을 보여주게.', mechanic: '연계마다 공격 +2. 한 턴에 피해 카드 3장을 쓰면 연계를 끊을 수 있습니다.',
     patterns: [['유기적인 연결', 10, 4], ['공간 침투', 12, 3], ['기술적인 정비', 8, 7]] },
   'coach-ferguson': { id: 'coach-ferguson', name: '퍼거슨', subtitle: '감독 보스 · 끝까지 몰아붙이는 힘', coach: true, color: '#c18b8a', maxHp: 92, reward: 60,
-    intro: '끝났다고 생각한 순간이 시작이지.', mechanic: '5턴부터 모든 공격이 4 강해집니다.',
+    intro: '끝났다고 생각한 순간이 시작이지.', mechanic: '체력 30% 이하에서 한 번만 3턴의 추가시간. 공격 14→18→24 뒤 빈틈이 열립니다.',
     patterns: [['주도권 싸움', 13, 4], ['직선적인 전진', 15, 3], ['집중력 유지', 10, 7]] },
   'coach-klopp': { id: 'coach-klopp', name: '클롭', subtitle: '감독 보스 · 폭발적인 압박', coach: true, color: '#d7ad72', maxHp: 88, reward: 60,
-    intro: '멈추지 마. 다음 움직임으로 답해!', mechanic: '초반 두 턴의 강공 뒤 방어가 열린 틈을 노리세요.',
+    intro: '멈추지 마. 다음 움직임으로 답해!', mechanic: '압박 턴의 첫 기술은 체력 3 소모. 압박 두 턴 뒤 받는 피해가 25% 늘어나는 빈틈이 열립니다.',
     patterns: [['전면 압박', 21, 1], ['연속 압박', 18, 2], ['숨 고르는 틈', 7, 0], ['다시 정렬', 9, 4]] },
 });
 export const ROUTE = Object.freeze([
@@ -259,6 +259,16 @@ export function createRun(seed, playerName = '루키') {
   ['through-pass', 'through-pass', 'quick-pass', 'dribble', 'dribble', 'feint', 'shot', 'shot', 'cover', 'cover', 'intercept', 'switch'].forEach(id => addCard(run, id));
   return run;
 }
+// Active pre-pattern saves keep their original intent text and numbers.
+const LEGACY_COACH_RULES = Object.freeze({
+  'coach-mourinho': '두 번의 단단한 수비 뒤 강력한 역습. 역습 전 방어를 준비하세요.',
+  'coach-ancelotti': '전술 완성도가 절반 이하가 되면 다음 턴부터 역습 패턴으로 전환합니다.',
+  'coach-guardiola': '강한 압박과 높은 방어를 번갈아 사용합니다.',
+  'coach-arteta': '준비 턴 다음에 세트피스 강타가 옵니다. 공격 예고를 놓치지 마세요.',
+  'coach-wenger': '두 턴마다 연계 공격이 2씩 강해집니다.',
+  'coach-ferguson': '5턴부터 모든 공격이 4 강해집니다.',
+  'coach-klopp': '초반 두 턴의 강공 뒤 방어가 열린 틈을 노리세요.',
+});
 function intentFor(opponentId, turn, hp = OPPONENTS[opponentId].maxHp) {
   const opponent = OPPONENTS[opponentId], secondPhase = !!opponent.secondPatterns && hp <= opponent.maxHp / 2;
   const patterns = secondPhase ? opponent.secondPatterns : opponent.patterns, [name, base, defense] = patterns[(turn - 1) % patterns.length];
@@ -267,10 +277,102 @@ function intentFor(opponentId, turn, hp = OPPONENTS[opponentId].maxHp) {
   const attack = base + pressure + coachBonus + (opponentId === 'legend-zidane' ? Math.floor((turn - 1) / 4) * 2 : 0);
   const counterDamage = opponentId === 'legend' && (turn - 1) % 3 === 0 ? 3 : 0;
   const rule = opponentId === 'legend' ? `${counterDamage ? '첫 공격에 체력 3 반사(방어 무시) · ' : ''}드리블로 상대 방어 6 파괴`
-    : opponent.coach ? (secondPhase ? '후반 역습 태세 · ' : '') + opponent.mechanic : opponent.mechanic ?? '';
+    : opponent.coach ? (secondPhase ? '후반 역습 태세 · ' : '') + LEGACY_COACH_RULES[opponentId] : opponent.mechanic ?? '';
   return { name: name + (pressure ? ' · 고조' : ''), attack, defense,
     description: `턴 종료 시 피해 ${attack}. 이번 턴 상대 방어 ${defense}.${pressure ? ` 장기전으로 공격 +${pressure}.` : ''}${rule ? ` ${rule}` : ''}`,
     ...(rule ? { rule } : {}), ...(opponentId === 'legend' ? { counterDamage, dribbleBreak: 6 } : {}) };
+}
+const NON_DAMAGE_CARDS = new Set(['cover', 'tackle', 'focus', 'read-opening', 'lure-dribble', 'high-press', 'checking-tackle']);
+const cardCategory = card => CARDS[card.id].type === 'defense' ? 'defense' : ['shot', 'pass'].includes(CARDS[card.id].type) ? 'attack' : 'skill';
+function coachCounts(m) {
+  const counts = { attack: 0, defense: 0, skill: 0, hits: 0 };
+  for (const card of m.played) { counts[cardCategory(card)]++; if (!NON_DAMAGE_CARDS.has(card.id)) counts.hits++; }
+  return counts;
+}
+function dominantCategory(counts) {
+  return ['attack', 'defense', 'skill'].reduce((best, kind) => counts[kind] > (counts[best] ?? 0) ? kind : best, 'none');
+}
+function setpieceDamage(m) {
+  const phase = (m.turn - 1) % 4, start = m.turn - phase;
+  const previous = m.history.filter(out => out.turn >= start && out.turn < start + 2 && out.turn < m.turn).reduce((total, out) => total + out.damageDealt, 0);
+  return Math.min(12, previous + (phase < 2 ? m.chance : 0));
+}
+function coachSpec(m) {
+  if (!m.boss || m.boss.version !== 1) return null;
+  const b = m.boss, counts = coachCounts(m), categories = Number(counts.attack > 0) + Number(counts.defense > 0) + Number(counts.skill > 0);
+  const spec = { id: m.opponentId, title: '', detail: '', effect: 'normal', progress: 0, max: 1, countered: false, attack: 10, defense: 4 };
+  switch (m.opponentId) {
+    case 'coach-mourinho': {
+      const phase = (m.turn - 1) % 3;
+      if (phase === 0) Object.assign(spec, { title: '철벽의 준비', effect: 'wall', attack: 8, defense: 12, progress: m.enemyBlock, max: 12, countered: m.enemyBlock === 0, detail: `남은 방어 ${m.enemyBlock} → 다음 역습에 추가. 방어를 깨면 역습이 약해집니다.` });
+      else if (phase === 1) Object.assign(spec, { title: '남겨 둔 역습', effect: 'counter', attack: 10 + b.counterCharge, defense: 2, progress: b.counterCharge, max: 12, countered: b.counterCharge === 0, detail: `기본 공격 10 + 준비 턴에 남긴 방어 ${b.counterCharge}. 다음 턴은 재정비입니다.` });
+      else Object.assign(spec, { title: '수비 재정비', effect: 'recover', attack: 7, defense: 3, detail: '다음 턴 다시 방어 12를 준비합니다. 기세와 공격 카드를 모으세요.' });
+      break;
+    }
+    case 'coach-guardiola':
+      Object.assign(spec, { title: b.pressure >= 3 ? '완성된 포위망' : '압박 포위망', effect: 'pressure', attack: b.pressure >= 3 ? 22 : 8 + b.pressure * 3, defense: b.pressure >= 3 ? 2 : 5, progress: b.pressure, max: 3, countered: categories === 3, detail: `압박 ${b.pressure}/3 · 이번 턴 공격·수비·기술 ${categories}/3. 세 종류를 모두 쓰면 압박 −2.` });
+      break;
+    case 'coach-klopp': {
+      const recovery = (m.turn - 1) % 3 === 2;
+      Object.assign(spec, recovery ? { title: '체력 소진', effect: 'recover', attack: 7, defense: 0, detail: '이번 턴 받는 카드 피해 +25%. 다음 턴 다시 압박이 시작됩니다.' } : { title: '게겐프레싱', effect: 'press', attack: (m.turn - 1) % 3 ? 17 : 15, defense: (m.turn - 1) % 3 ? 1 : 3, progress: counts.skill > 0 ? 1 : 0, max: 1, detail: counts.skill > 0 ? '이번 턴 첫 기술 압박을 이미 받았습니다. 다음 기술은 추가 체력 소모가 없습니다.' : '이번 턴 첫 기술 카드 사용 시 체력 3 소모. 압박 두 턴 뒤에 피해 +25%의 빈틈이 열립니다.' });
+      break;
+    }
+    case 'coach-ancelotti': {
+      const responses = { none: ['경기 읽기', 10, 5], attack: ['공격을 읽은 수비', 10, 12], defense: ['수비를 깨는 전환', 19, 2], skill: ['기술을 막는 압박', 15, 5] };
+      const [title, attack, defense] = responses[b.adaptation], next = dominantCategory(counts), labels = { none: '기본 운영', attack: '높은 방어', defense: '강한 공격', skill: '기술 압박' };
+      Object.assign(spec, { title, attack, defense, effect: b.adaptation === 'none' ? 'normal' : `adapt-${b.adaptation}`, progress: Math.max(counts.attack, counts.defense, counts.skill), max: Math.max(1, counts.attack + counts.defense + counts.skill), detail: `직전 턴 최다 카드에 대응합니다. 현재 공격 ${counts.attack}·수비 ${counts.defense}·기술 ${counts.skill} → 다음 ${labels[next]}. 동률은 공격→수비→기술 순.` });
+      break;
+    }
+    case 'coach-arteta': {
+      const phase = (m.turn - 1) % 4, dealt = setpieceDamage(m), stopped = dealt >= 12;
+      if (phase < 2) Object.assign(spec, { title: stopped ? '세트피스 준비 차단' : '세트피스 준비', effect: stopped ? 'setpiece-broken' : 'setpiece-prepare', attack: phase ? 8 : 6, defense: phase ? 3 : 5, progress: dealt, max: 12, countered: stopped, detail: stopped ? '준비를 끊었습니다. 예정된 강타가 약한 공격으로 바뀝니다.' : `세트피스까지 ${2 - phase}턴 · 준비 중 체력 피해 ${12 - dealt} 더 주면 강타 취소.` });
+      else if (phase === 2) Object.assign(spec, { title: stopped ? '무너진 세트피스' : '세트피스 강타', effect: stopped ? 'setpiece-broken' : 'setpiece-shot', attack: stopped ? 6 : 24, defense: stopped ? 0 : 2, progress: dealt, max: 12, countered: stopped, detail: stopped ? '준비 방해 성공: 공격 24 → 6. 다음 턴은 대형 회복입니다.' : '준비를 마친 강공입니다. 방어와 공격 약화로 버티세요.' });
+      else Object.assign(spec, { title: '대형 회복', effect: 'recover', attack: 7, defense: 2, detail: '다음 턴 새로운 세트피스 준비가 시작됩니다.' });
+      break;
+    }
+    case 'coach-wenger':
+      Object.assign(spec, { title: counts.hits >= 3 ? '끊긴 연계' : '유기적인 연계', effect: 'combo', attack: 8 + b.combo * 2, defense: 4, progress: Math.min(3, counts.hits), max: 3, countered: counts.hits >= 3, detail: `연계 ${b.combo} · 공격 +${b.combo * 2}. 이번 턴 피해 카드 ${Math.min(3, counts.hits)}/3장을 쓰면 연계가 0이 됩니다.` });
+      break;
+    case 'coach-ferguson': {
+      const overtime = b.overtimeStart ? m.turn - b.overtimeStart : -1;
+      if (overtime >= 0 && overtime < 3) Object.assign(spec, { title: overtime === 2 ? '추가시간 총공세' : '추가시간', effect: 'overtime', attack: [14, 18, 24][overtime], defense: [3, 2, 0][overtime], progress: overtime + 1, max: 3, detail: `추가시간 ${overtime + 1}/3 · 공격 14 → 18 → 24. 한 번만 발동하며 끝나면 회복 턴이 옵니다.` });
+      else if (overtime === 3) Object.assign(spec, { title: '총공세 뒤의 빈틈', effect: 'recover', attack: 6, defense: 0, detail: '추가시간이 끝났습니다. 다시 발동하지 않습니다.' });
+      else Object.assign(spec, { title: '끝까지 몰아붙이기', attack: m.turn % 2 ? 12 : 15, defense: m.turn % 2 ? 4 : 2, detail: b.overtimeStart ? '추가시간은 이미 사용했습니다. 기본 압박을 이어갑니다.' : `체력 ${Math.floor(m.enemyMaxHp * .3)} 이하가 되면 즉시 3턴의 추가시간이 시작됩니다.` });
+      break;
+    }
+    default: return null;
+  }
+  spec.attack += Math.max(0, m.turn - 12) * 2;
+  return spec;
+}
+export function getBossView(run) {
+  const spec = run?.match && coachSpec(run.match);
+  if (!spec) return null;
+  const { attack, defense, ...view } = spec;
+  return view;
+}
+function bossIntent(m) {
+  const spec = coachSpec(m);
+  return spec ? { name: spec.title, attack: spec.attack, defense: spec.defense, rule: spec.detail, description: `턴 종료 시 피해 ${spec.attack}. 이번 턴 상대 방어 ${spec.defense}. ${spec.detail}` } : intentFor(m.opponentId, m.turn, m.intentHp);
+}
+function refreshBossIntent(m) { if (m.boss) m.intent = bossIntent(m); }
+function coachAfterCard(m) {
+  const b = m.boss;
+  if (!b) return;
+  const counts = coachCounts(m), category = cardCategory(m.played.at(-1));
+  if (m.opponentId === 'coach-guardiola' && counts.attack && counts.defense && counts.skill && counts[category] === 1) b.pressure = Math.max(0, b.pressure - 2);
+  if (m.opponentId === 'coach-wenger' && !NON_DAMAGE_CARDS.has(m.played.at(-1).id) && counts.hits === 3) b.combo = 0;
+  if (m.opponentId === 'coach-ferguson' && !b.overtimeStart && m.enemyHp * 10 <= m.enemyMaxHp * 3) b.overtimeStart = m.turn;
+  refreshBossIntent(m);
+}
+function coachAfterTurn(m) {
+  const b = m.boss;
+  if (!b) return;
+  const counts = coachCounts(m);
+  if (m.opponentId === 'coach-mourinho') b.counterCharge = (m.turn - 1) % 3 === 0 ? Math.min(12, m.enemyBlock) : 0;
+  if (m.opponentId === 'coach-guardiola') b.pressure = b.pressure >= 3 ? 0 : b.pressure + 1;
+  if (m.opponentId === 'coach-ancelotti') b.adaptation = dominantCategory(counts);
+  if (m.opponentId === 'coach-wenger') b.combo = counts.hits >= 3 ? 0 : Math.min(5, b.combo + 1);
 }
 function drawCards(run, count) {
   const m = run.match;
@@ -287,7 +389,8 @@ function nextRound(run) {
   m.hand = []; m.played = []; m.energy = m.maxEnergy; m.chance = 0;
   m.defense = has(run, 'training-kit') ? 3 : 0; m.defenseCardPlayed = false; m.dribbleCardPlayed = false;
   m.passCardPlayed = false; m.tacticCardPlayed = false; m.shotCardPlayed = false; m.tempoTriggered = false;
-  m.intentHp = m.enemyHp; m.intent = intentFor(m.opponentId, m.turn, m.intentHp); m.enemyBlock = m.intent.defense;
+  m.intentHp = m.enemyHp; m.intent = bossIntent(m); m.enemyBlock = m.intent.defense;
+  refreshBossIntent(m);
   m.counterReady = (m.intent.counterDamage ?? 0) > 0;
   drawCards(run, has(run, 'scouting-bag') ? 6 : 5);
 }
@@ -298,7 +401,8 @@ function startMatch(run, opponentId) {
     enemyExposed: 0, enemyWeakened: 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
     hand: [], draw: shuffle(run, clone(run.deck)), discard: [], exhaust: [], played: [], intent: null,
-    lastOutcome: null, history: [], status: 'playing' };
+    lastOutcome: null, history: [], status: 'playing',
+    ...(OPPONENTS[opponentId].coach ? { boss: { version: 1, counterCharge: 0, pressure: opponentId === 'coach-guardiola' ? 1 : 0, adaptation: 'none', combo: 0, overtimeStart: 0 } } : {}) };
   nextRound(run);
 }
 export function getEnemyAttack(run) {
@@ -346,7 +450,8 @@ function winDuel(run) {
 }
 function dealDamage(run, power) {
   const m = run.match;
-  power = Math.floor(power * ((m.enemyExposed ?? 0) > 0 ? 1.5 : 1));
+  const recoveryBonus = m.boss && m.opponentId === 'coach-klopp' && (m.turn - 1) % 3 === 2 ? 1.25 : 1;
+  power = Math.floor(power * ((m.enemyExposed ?? 0) > 0 ? 1.5 : 1) * recoveryBonus);
   const absorbed = Math.min(m.enemyBlock, power);
   m.enemyBlock -= absorbed;
   const damage = Math.min(m.enemyHp, power - absorbed);
@@ -360,6 +465,8 @@ function playCard(run, uid) {
   m.energy -= cost(card); m.hand.splice(index, 1); m.played.push(card);
   const n = amount(card), up = card.upgraded;
   let damage = 0, reflectedDamage = 0, exposed = 0, weakened = 0;
+  const pressingCost = m.boss && m.opponentId === 'coach-klopp' && (m.turn - 1) % 3 !== 2 && cardCategory(card) === 'skill' && coachCounts(m).skill === 1 ? Math.min(3, run.condition) : 0;
+  run.condition -= pressingCost;
   switch (card.id) {
     case 'through-pass': case 'shot': case 'power-shot': case 'volley': damage = n; break;
     case 'quick-pass': case 'one-two': case 'long-pass': damage = n; drawCards(run, 1); break;
@@ -418,8 +525,9 @@ function playCard(run, uid) {
   // A hit benefits from the status already present, then applies its own debuff.
   m.enemyExposed = Math.min(99, (m.enemyExposed ?? 0) + exposed);
   m.enemyWeakened = Math.min(99, (m.enemyWeakened ?? 0) + weakened);
+  coachAfterCard(m);
   if (run.condition <= 0) {
-    const reason = reflectedDamage > 0 ? '레전드의 예고된 반격으로 체력을 모두 소모했습니다.' : '무리한 기술로 내 체력을 모두 소모했습니다. 다음 도전에서는 휴식도 챙겨 주세요.';
+    const reason = pressingCost > 0 ? '클롭의 압박으로 첫 기술을 사용하며 체력을 모두 소모했습니다.' : reflectedDamage > 0 ? '레전드의 예고된 반격으로 체력을 모두 소모했습니다.' : '무리한 기술로 내 체력을 모두 소모했습니다. 다음 도전에서는 휴식도 챙겨 주세요.';
     outcome(run, 0, 0, reason); failRun(run, reason);
   } else if (m.enemyHp <= 0) {
     outcome(run, 0, 0, `${OPPONENTS[m.opponentId].name}의 체력을 모두 깎았습니다. 반격 전에 승리!`); winDuel(run);
@@ -434,6 +542,7 @@ function endTurn(run) {
   m.enemyExposed = Math.max(0, (m.enemyExposed ?? 0) - 1);
   m.enemyWeakened = Math.max(0, (m.enemyWeakened ?? 0) - 1);
   if (run.condition <= 0) return failRun(run, '체력이 모두 소진되었습니다. 나만의 덱을 다시 다듬고 도전해 보세요.');
+  coachAfterTurn(m);
   m.turn++; nextRound(run);
 }
 export function act(run, action) {
@@ -615,6 +724,15 @@ export function validateSave(value) {
     if (!['match', 'reward', 'defeat'].includes(run.phase)) return null;
     const m = run.match, opponent = OPPONENTS[m?.opponentId];
     if (!record(m) || !opponent || m.enemyMaxHp !== opponent.maxHp || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
+    if (Object.hasOwn(m, 'boss')) {
+      const b = m.boss;
+      if (!opponent.coach || !record(b) || Object.keys(b).sort().join(',') !== 'adaptation,combo,counterCharge,overtimeStart,pressure,version' || b.version !== 1) return null;
+      if (!integer(b.counterCharge, 0, 12) || !integer(b.pressure, 0, 3) || !integer(b.combo, 0, 5) || !integer(b.overtimeStart, 0, m.turn) || !['none', 'attack', 'defense', 'skill'].includes(b.adaptation)) return null;
+      if (m.opponentId !== 'coach-mourinho' && b.counterCharge !== 0 || m.opponentId === 'coach-mourinho' && (m.turn - 1) % 3 !== 1 && b.counterCharge !== 0) return null;
+      if (m.opponentId !== 'coach-guardiola' && b.pressure !== 0 || m.opponentId !== 'coach-ancelotti' && b.adaptation !== 'none' || m.opponentId !== 'coach-wenger' && b.combo !== 0 || m.opponentId !== 'coach-ferguson' && b.overtimeStart !== 0) return null;
+      if (m.opponentId === 'coach-ferguson' && Boolean(b.overtimeStart) !== (m.enemyHp * 10 <= m.enemyMaxHp * 3)) return null;
+      if (m.opponentId === 'coach-wenger' && coachCounts(m).hits >= 3 && b.combo !== 0) return null;
+    }
     for (const status of ['enemyExposed', 'enemyWeakened']) {
       if (!Object.hasOwn(m, status)) m[status] = 0;
       if (!integer(m[status], 0, 99)) return null;
@@ -638,7 +756,7 @@ export function validateSave(value) {
     if (![m.chance, m.defense, m.momentum].every(n => integer(n, 0, 10000)) || typeof m.defenseCardPlayed !== 'boolean' || typeof m.dribbleCardPlayed !== 'boolean' || typeof m.counterReady !== 'boolean') return null;
     if (!integer(m.intentHp, m.enemyHp, m.enemyMaxHp) || m.intentHp !== (m.history?.[m.turn - 2]?.enemyHp ?? m.enemyMaxHp)) return null;
     if (!integer(m.enemyBlock, 0, m.intent?.defense ?? -1) || m.damageDealt !== m.enemyMaxHp - m.enemyHp || !integer(m.blocks, 0, 100000)) return null;
-    const intent = intentFor(m.opponentId, m.turn, m.intentHp);
+    const intent = bossIntent(m);
     if (!record(m.intent) || Object.keys(intent).some(key => m.intent[key] !== intent[key])) return null;
     const expectedStatus = run.phase === 'match' ? 'playing' : run.phase === 'reward' ? 'won' : 'lost';
     if (m.status !== expectedStatus || (m.status === 'won' && m.enemyHp !== 0) || (m.status === 'playing' && m.enemyHp <= 0)) return null;
@@ -655,7 +773,7 @@ export function validateSave(value) {
       if (m[flag] !== m.played.some(card => CARDS[card.id].type === type)) return null;
     }
     if (m.tempoTriggered !== (tempoOwnedDuringDuel && m.dribbleCardPlayed && m.shotCardPlayed)) return null;
-    if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !['cover', 'tackle', 'focus', 'read-opening', 'lure-dribble', 'high-press', 'checking-tackle'].includes(card.id)))) return null;
+    if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !NON_DAMAGE_CARDS.has(card.id)))) return null;
     if (used.size !== cards.size || !Array.isArray(m.history) || m.history.length !== m.turn - Number(m.status === 'playing')) return null;
     let dealt = 0, blocked = 0;
     for (let i = 0; i < m.history.length; i++) {
