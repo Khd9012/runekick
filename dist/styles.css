@@ -553,7 +553,7 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 }
 
 /* Names sit above the players; health and tappable stats sit below their feet. */
-.personal-duel[data-phase="match"] .duel-arena{margin-bottom:48px}
+.personal-duel[data-phase="match"] .duel-arena{margin-bottom:36px}
 .personal-duel .fighter-status{top:86%;bottom:auto}
 .fighter-nameplate{position:absolute;top:7px;max-width:22%;transform:translateX(-50%);z-index:2;text-align:center;text-shadow:0 1px 3px #000,0 0 7px #000}
 .hero-nameplate{left:29.2%}
@@ -563,19 +563,15 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .fighter-nameplate .fighter-role{display:none}
 .personal-duel:not([data-phase="match"]) .fighter-nameplate{display:none}
 .personal-duel[data-phase="match"] .enemy-intent{left:50%;top:7px;min-width:150px;max-width:28%}
-.combat-status{display:flex;justify-content:center;gap:7px;margin:6px 0 0;padding:0}
-.combat-stat{display:flex;flex:1 1 0;min-width:0;min-height:50px;align-items:center;justify-content:center;gap:7px;padding:4px 7px;border:1px solid #365169;border-radius:7px;background:#132536;color:#b7e9ff;box-shadow:0 2px 0 #080f18;cursor:pointer}
-.combat-stat>svg{flex:none;width:32px;height:36px;fill:#69bff2;stroke:#bbebff;stroke-width:1.6;stroke-linejoin:round}
+.combat-status{display:flex;justify-content:center;gap:12px;margin:0;padding:0}
+.combat-stat{display:flex;flex:0 1 auto;min-width:44px;min-height:44px;align-items:center;justify-content:center;gap:4px;padding:0 4px;border:0;border-radius:0;background:none;color:#b7e9ff;box-shadow:none;cursor:pointer}
+.combat-stat>svg{flex:none;width:22px;height:26px;fill:#69bff2;stroke:#bbebff;stroke-width:1.6;stroke-linejoin:round}
 .combat-stat .shield-detail{fill:none;stroke:#e2f5ff;stroke-width:2.2}
-.combat-stat strong{font-size:30px;line-height:1;font-weight:800;color:#b7e9ff;font-variant-numeric:tabular-nums}
-.combat-stat:hover{border-color:#a5d5ed;background:#193145}
+.combat-stat strong{font-size:22px;line-height:1;font-weight:800;color:#b7e9ff;font-variant-numeric:tabular-nums}
+.combat-stat:hover{filter:brightness(1.2)}
 .combat-stat:focus-visible{outline:2px solid #f0e4bd;outline-offset:3px}
-.momentum-stat{border-color:#625535;background:#28271f}
 .momentum-stat>svg{fill:#f6ca4d;stroke:#ffeb9b}
 .momentum-stat strong{color:#ffda67}
-.momentum-stat:hover{border-color:#d6b85f;background:#363020}
-.momentum-stat.charged{border-color:#b99b47;background:#302b1c;box-shadow:inset 0 0 16px #f6ca4d10}
-.defense-stat.charged{border-color:#69b6e2;background:#172f43}
 
 /* Keep the real card frame when choosing an upgrade or a card to remove. */
 .deck-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,196px));justify-content:center;gap:24px 20px;margin:24px 0 8px;padding:5px}
@@ -598,10 +594,9 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .removal-preview .phase-actions{margin:0;width:100%;justify-content:center}
 @media(max-width:800px), (max-width:1100px) and (max-height:520px){
  .personal-duel .hero-status{width:min(160px,44%)}
- .combat-status{gap:6px;margin-top:5px}
- .combat-stat{min-height:44px;gap:5px;padding:4px}
- .combat-stat>svg{width:27px;height:31px}
- .combat-stat strong{font-size:26px}
+ .combat-status{gap:10px}
+ .combat-stat>svg{width:20px;height:23px}
+ .combat-stat strong{font-size:20px}
  .fighter-nameplate{top:5px}
  .fighter-nameplate h2{font-size:13px}
  .personal-duel[data-phase="match"] .enemy-intent{top:5px;min-width:116px;max-width:34%}

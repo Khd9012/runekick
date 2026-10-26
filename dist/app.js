@@ -215,18 +215,19 @@ function render() {
   $('enemy-hp-bar').style.width = `${100*(match?.enemyHp??opponent.maxHp)/(match?.enemyMaxHp||opponent.maxHp)}%`;
   $('enemy-block-value').textContent = match?.enemyBlock||0; $('guard-value').textContent = match?.defense||0;
   $('combat-status').hidden = !active;
+  $('enemy-combat-status').hidden = !active;
   const momentum = match?.momentum || 0, defense = match?.defense || 0;
   $('momentum-value').textContent = momentum;
   $('momentum-badge').setAttribute('aria-label', `기세 ${momentum} · 효과 설명 보기`);
   $('defense-status').setAttribute('aria-label', `방어 ${defense} · 효과 설명 보기`);
+  $('enemy-defense-status').setAttribute('aria-label', `상대 방어 ${match?.enemyBlock || 0} · 효과 설명 보기`);
   $('momentum-badge').classList.toggle('charged', momentum > 0);
   $('defense-status').classList.toggle('charged', defense > 0);
+  $('enemy-defense-status').classList.toggle('charged', (match?.enemyBlock || 0) > 0);
   $('incoming-value').textContent = active ? match.intent.attack : 0; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
   $('intent-description').textContent = active ? `공격 ${match.intent.attack} − 내 방어 ${match.defense} = 체력 피해 ${prediction.incoming}` : '';
   $('danger-badge').textContent = active ? prediction.incoming ? `예상 피해 ${prediction.incoming}` : '모두 방어' : '대결 종료';
   $('danger-badge').className = `outcome-badge${active&&prediction.incoming?' danger':' good'}`;
-  $('goal-badge').textContent = match?.enemyHp===0 ? '돌파 성공' : opponent.coach ? '전술 완성도' : opponent.legend ? '레전드 시험' : '개인 대결';
-  $('goal-badge').className = `outcome-badge${match?.enemyHp===0?' good':''}`;
   $('hand-section').hidden = !active; $('phase-panel').hidden = active;
   if (active) {
     // Selecting a card must preserve its DOM node and the mobile scroll anchor.
@@ -316,12 +317,15 @@ function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장
 }
 function showCombatStat(kind) {
   if (run.phase !== 'match' || !run.match) return;
-  const momentum = run.match.momentum, defense = run.match.defense, shield = kind === 'defense';
-  const icon = $(shield ? 'defense-status' : 'momentum-badge').querySelector('svg').outerHTML;
-  const details = shield
+  const enemy = kind === 'enemy-defense', shield = enemy || kind === 'defense';
+  const momentum = run.match.momentum, defense = enemy ? run.match.enemyBlock : run.match.defense;
+  const icon = $(enemy ? 'enemy-defense-status' : shield ? 'defense-status' : 'momentum-badge').querySelector('svg').outerHTML;
+  const details = enemy
+    ? `<p>내 카드가 주는 피해를 <strong>상대 체력보다 먼저</strong> 막아요.</p><div class="rule-note">현재 상대 방어 <strong>${defense}</strong><br>방어가 막은 만큼 줄어들고,<br><strong>남은 피해만 상대 체력에 적용</strong>돼요.</div><p>다음 내 턴이 시작되면 상대의 새 행동에 맞춰 방어가 다시 정해져요. 이전 턴의 남은 방어에 더해지지는 않아요.</p>${run.match.intent.dribbleBreak ? `<p>현재 상대는 드리블 카드를 사용하면 방어가 <strong>${run.match.intent.dribbleBreak} 추가로 감소</strong>해요.</p>` : ''}`
+    : shield
     ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">상대 공격 ${run.match.intent.attack} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
     : `<p>드리블과 카드·장비 효과로 쌓는 공격 보너스예요.</p><div class="rule-note">현재 기세로 얻는 추가 피해<br>일반 슛: <strong>+${momentum}</strong><br>발리 슈팅: <strong>+${momentum * 2}</strong></div><p>기세는 <strong>턴이 지나도 유지</strong>돼요. 슛 카드를 사용하면 현재 기세를 <strong>전부 소모</strong>해 피해를 더합니다. 상대 방어에 막혀도 소모돼요. 기세가 높을수록 선수 주변의 금빛 기운도 강해져요.</p>`;
-  openDialog(shield ? '방어 · 상대 공격을 막는 힘' : '기세 · 다음 슛의 추가 피해', `<section class="combat-stat-help ${shield ? 'shield-help' : 'momentum-help'}"><div class="stat-help-value">${icon}<strong>${shield ? defense : momentum}</strong></div><div class="dialog-copy">${details}</div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
+  openDialog(enemy ? '상대 방어 · 내 공격을 막는 힘' : shield ? '방어 · 상대 공격을 막는 힘' : '기세 · 다음 슛의 추가 피해', `<section class="combat-stat-help ${shield ? 'shield-help' : 'momentum-help'}"><div class="stat-help-value">${icon}<strong>${shield ? defense : momentum}</strong></div><div class="dialog-copy">${details}</div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
   $('dialog').scrollTop = 0;
 }
 function showShopRemoval() {
@@ -465,6 +469,7 @@ document.addEventListener('click', e => {
     case 'equipment': return showEquipment();
     case 'shop-remove': return showShopRemoval();
     case 'defense-info': return showCombatStat('defense');
+    case 'enemy-defense-info': return showCombatStat('enemy-defense');
     case 'momentum-info': return showCombatStat('momentum');
     case 'log': return showLog();
     case 'sound': toggleSound(); return showMenu();

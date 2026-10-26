@@ -1,6 +1,6 @@
 {
   "name": "runekick",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "type": "module",
   "description": "A pixel-art football roguelike deckbuilder.",
