@@ -576,7 +576,94 @@ export function drawPitch(ctx, options = {}) {
 }
 
 
+const DEBUFF_CARD_POSES = Object.freeze({
+  scan: { head:[1,-40], shoulder:[0,-31], hip:[-1,-20], arms:[[-6,-29,-9,-37,-2,-39],[5,-29,15,-30,24,-34]], legs:[[-4,-20,-9,-9,-12,0],[3,-20,9,-10,11,0]] },
+  feint: { head:[1,-40], shoulder:[1,-30], hip:[-1,-20], arms:[[-5,-29,-15,-25,-22,-29],[6,-29,15,-23,23,-25]], legs:[[-4,-20,-13,-10,-18,0],[3,-20,12,-11,5,-2]] },
+  kick: { head:[2,-40], shoulder:[0,-30], hip:[3,-20], arms:[[-6,-29,-15,-32,-22,-27],[5,-29,14,-25,22,-28]], legs:[[-1,-20,-4,-9,-7,0],[7,-20,20,-18,30,-25]] },
+  press: { head:[10,-39], shoulder:[5,-29], hip:[0,-19], arms:[[-1,-28,-11,-21,-17,-24],[10,-28,19,-31,24,-27]], legs:[[-3,-19,-15,-10,-23,-1],[4,-19,16,-11,19,0]] },
+  tackle: { head:[8,-25], shoulder:[3,-16], hip:[-4,-9], arms:[[-3,-16,-13,-12,-20,-7],[8,-15,17,-11,23,-14]], legs:[[-5,-9,-12,-3,-22,-1],[1,-9,21,-5,36,-2]] },
+  mark: { head:[-1,-40], shoulder:[-1,-30], hip:[0,-20], arms:[[-7,-29,-13,-21,-10,-15],[5,-29,15,-26,20,-19]], legs:[[-4,-20,-10,-10,-16,0],[4,-20,10,-10,15,0]] },
+});
+const DEBUFF_CARD_IDS = new Set(['read-opening','lure-dribble','unsettling-shot','high-press','checking-tackle','close-mark']);
+
+// Jointed silhouettes use square pixel stamps: football movements stay readable
+// without introducing a second character art style or a new downloadable atlas.
+function drawCardSilhouette(ctx, x, footY, pose, scale = 1, facing = 1, ink = '#192325') {
+  const p=DEBUFF_CARD_POSES[pose];
+  ctx.save();ctx.translate(x,footY);ctx.scale(scale*facing,scale);ctx.fillStyle=ink;
+  const stamp=(x,y,w,h=w)=>ctx.fillRect(Math.round(x-w/2),Math.round(y-h/2),w,h);
+  const limb=(x1,y1,x2,y2,size)=>{
+    const steps=Math.ceil(Math.max(Math.abs(x2-x1),Math.abs(y2-y1))/2);
+    for(let i=0;i<=steps;i++){const t=steps?i/steps:0;stamp(lerp(x1,x2,t),lerp(y1,y2,t),size);}
+  };
+  for(const [x1,y1,x2,y2,x3,y3] of p.legs){limb(x1,y1,x2,y2,6);limb(x2,y2,x3,y3,4);stamp(x3+2,y3,8,3);}
+  limb(p.shoulder[0],p.shoulder[1],p.hip[0],p.hip[1],11);
+  stamp(p.hip[0],p.hip[1]+1,13,6);
+  for(const [x1,y1,x2,y2,x3,y3] of p.arms){limb(x1,y1,x2,y2,4);limb(x2,y2,x3,y3,3);stamp(x3,y3,3);}
+  limb(p.head[0],p.head[1]+5,p.shoulder[0],p.shoulder[1],4);
+  stamp(p.head[0],p.head[1],7,9);stamp(p.head[0],p.head[1]-4,5,2);stamp(p.head[0]+4,p.head[1],2,3);
+  ctx.restore();
+}
+
+function drawDebuffCardAction(ctx, type, options, width, height) {
+  if(!DEBUFF_CARD_IDS.has(options.id))return false;
+  const attack=type==='shot'||type==='pass';
+  const background=type==='defense'?'#d4e1e7':attack?'#ead9cd':'#dce3d2';
+  const ground=type==='defense'?'#c4d5de':attack?'#decbbe':'#cbd8bf';
+  const ink='#192325',ghost='#84918b',accent=options.id==='read-opening'||options.id==='lure-dribble'||options.id==='unsettling-shot'?'#8b586e':'#94734a';
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.fillStyle=background;ctx.fillRect(0,0,width,height);
+  ctx.fillStyle=ground;ctx.fillRect(0,Math.round(height*.84),width,Math.ceil(height*.16));
+  const scale=Math.min(width/120,height/64);
+  ctx.translate((width-120*scale)/2,(height-64*scale)/2);ctx.scale(scale,scale);
+  const line=(x1,y1,x2,y2,color=accent)=>{
+    const steps=Math.ceil(Math.max(Math.abs(x2-x1),Math.abs(y2-y1))/2);
+    for(let i=0;i<=steps;i++){const t=steps?i/steps:0;rect(ctx,lerp(x1,x2,t),lerp(y1,y2,t),2,2,color);}
+  };
+  const arrow=(x1,y1,x2,y2,color=accent)=>{
+    line(x1,y1,x2,y2,color);
+    const angle=Math.atan2(y2-y1,x2-x1);
+    for(const turn of [-.65,.65])line(x2,y2,x2-Math.cos(angle+turn)*7,y2-Math.sin(angle+turn)*7,color);
+  };
+  const target=(x,y,broken=false)=>{
+    const gap=broken?3:0;
+    for(const side of [-1,1]){
+      const left=x+side*(10+gap);line(left,y-8,left,y+8);line(left,y-8,left-side*5,y-8);line(left,y+8,left-side*5,y+8);
+    }
+    if(broken){line(x-3,y-9,x+2,y-2);line(x+2,y-2,x-3,y+3);line(x-3,y+3,x+3,y+9);}
+    else cross(ctx,x,y,4,accent);
+  };
+  if(options.id==='read-opening'){
+    drawCardSilhouette(ctx,91,56,'mark',.72,-1,ghost);
+    for(const x of [57,65,73])rect(ctx,x,24,4,2,accent);
+    target(91,26);drawCardSilhouette(ctx,31,57,'scan');ball(ctx,49,55,.64);
+  }else if(options.id==='lure-dribble'){
+    drawCardSilhouette(ctx,38,55,'feint',.85,1,'#b2bdb0');
+    drawCardSilhouette(ctx,92,56,'mark',.73,-1,ghost);
+    arrow(69,41,80,32);arrow(42,53,54,56);
+    drawCardSilhouette(ctx,55,55,'feint');ball(ctx,73,54,.78);
+  }else if(options.id==='unsettling-shot'){
+    drawCardSilhouette(ctx,36,57,'kick');
+    dashedPath(ctx,64,34,89,23,'#a18c85',0,7);ball(ctx,79,26,.85);target(101,23,true);
+  }else if(options.id==='high-press'){
+    drawCardSilhouette(ctx,92,56,'feint',.8,-1,ghost);
+    arrow(12,24,31,24);arrow(17,31,30,31);arrow(91,8,91,19);
+    drawCardSilhouette(ctx,43,57,'press');ball(ctx,78,55,.72);
+  }else if(options.id==='checking-tackle'){
+    drawCardSilhouette(ctx,91,55,'press',.85,-1,ghost);
+    drawCardSilhouette(ctx,37,57,'tackle');ball(ctx,77,53,.76);
+    line(69,35,69,43);line(65,39,74,39);arrow(101,13,101,25);
+    line(12,53,21,53,'#99acb5');line(18,58,28,58,'#99acb5');
+  }else{
+    drawCardSilhouette(ctx,76,56,'feint',.85,1,ghost);
+    drawCardSilhouette(ctx,48,57,'mark');ball(ctx,95,55,.72);
+    arrow(79,7,79,17);line(29,16,29,46,'#a29286');line(29,16,35,16,'#a29286');line(29,46,35,46,'#a29286');
+  }
+  if(options.upgraded)cross(ctx,115,5,2,'#a5792d');
+  ctx.restore();return true;
+}
+
 function drawCardAction(ctx, type, options, width, height) {
+  if(drawDebuffCardAction(ctx,type,options,width,height))return true;
   const [key, index] = CARD_ART[options.id] || CARD_ART[CARD_TYPE_DEFAULTS[type] || 'focus'];
   const picture = rasterArt[key], crop = atlasFrames[key][index];
   if (!picture || !crop) return false;

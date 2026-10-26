@@ -1,4 +1,4 @@
-import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes, getCardRemovalCost } from './engine.js';
+import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes, getCardRemovalCost, getEnemyAttack } from './engine.js';
 import { drawPitch, drawCardArt, drawItemArt, initArt } from './art.js';
 import { createTutorial } from './tutorial.js';
 
@@ -123,12 +123,14 @@ function dispatch(action) {
 function costOf(card) { return card.upgraded ? CARDS[card.id].upgradedCost : CARDS[card.id].cost; }
 function cardEffectHTML(card) {
   const [first, ...sentences] = cardText(card).split(/\.\s*/).filter(Boolean);
-  const effect = first.match(/^(피해|이번 턴 방어|에너지) (\+?\d+)(.*)$/);
-  if (!effect) return `<span class="card-rules">${esc(cardText(card))}</span>`;
+  const highlight = text => esc(text).replace(/(약점 노출)/g, '<b class="card-debuff-exposed">$1</b>').replace(/(공격 약화)/g, '<b class="card-debuff-weakened">$1</b>').replace(/(\+?\d+)/g, '<b class="card-rule-number">$1</b>');
+  const effect = first.match(/^(피해|이번 턴 방어|에너지|약점 노출|공격 약화|기세) (\+?\d+)(.*)$/);
+  if (!effect) return `<span class="card-rules">${highlight(cardText(card))}</span>`;
   const label = effect[1] === '이번 턴 방어' ? '방어' : effect[1];
-  const notes = [effect[1] === '이번 턴 방어' ? '이번 턴 동안 유지.' : '', effect[3].trim(), ...sentences.map(sentence => `${sentence}.`)].filter(Boolean);
-  const rules = notes.map(note => esc(note).replace(/(\+?\d+)/g, '<b class="card-rule-number">$1</b>')).join(' ');
-  return `<span class="card-stat"><span>${label}</span><strong class="card-effect-number">${effect[2]}</strong></span>${rules ? `<span class="card-rules">${rules}</span>` : ''}`;
+  const timed = ['약점 노출', '공격 약화'].includes(label);
+  const notes = [effect[1] === '이번 턴 방어' ? '이번 턴 동안 유지.' : '', (timed ? effect[3].replace(/^턴/, '') : effect[3]).trim(), ...sentences.map(sentence => `${sentence}.`)].filter(Boolean);
+  const rules = notes.map(highlight).join(' ');
+  return `<span class="card-stat${timed ? ' card-status-stat' : ''}"><span>${label}</span><strong class="card-effect-number">${effect[2]}</strong>${timed ? '<small>턴</small>' : ''}</span>${rules ? `<span class="card-rules">${rules}</span>` : ''}`;
 }
 function cardHTML(card, mode = 'view', index = 0, context = {}) {
   const def = CARDS[card.id]; if (!def) return '';
@@ -224,8 +226,18 @@ function render() {
   $('momentum-badge').classList.toggle('charged', momentum > 0);
   $('defense-status').classList.toggle('charged', defense > 0);
   $('enemy-defense-status').classList.toggle('charged', (match?.enemyBlock || 0) > 0);
-  $('incoming-value').textContent = active ? match.intent.attack : 0; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
-  $('intent-description').textContent = active ? `공격 ${match.intent.attack} − 내 방어 ${match.defense} = 체력 피해 ${prediction.incoming}` : '';
+  for (const [kind, turns] of [['exposed', match?.enemyExposed || 0], ['weakened', match?.enemyWeakened || 0]]) {
+    const label = kind === 'exposed' ? '약점 노출' : '공격 약화', button = $(`enemy-${kind}-status`);
+    button.hidden = !active || turns === 0;
+    $(`enemy-${kind}-value`).textContent = turns;
+    button.setAttribute('aria-label', `${label} ${turns}턴 · 효과 설명 보기`);
+    button.title = `${label} · ${turns}턴`;
+  }
+  const enemyAttack = active ? getEnemyAttack(run) : 0;
+  $('incoming-value').textContent = enemyAttack; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
+  $('attack-modifier').hidden = !active || !match.enemyWeakened;
+  $('attack-modifier').textContent = active && match.enemyWeakened ? `공격 약화 ${match.intent.attack} → ${enemyAttack}` : '';
+  $('intent-description').textContent = active ? `공격 ${enemyAttack} − 내 방어 ${match.defense} = 체력 피해 ${prediction.incoming}` : '';
   $('danger-badge').textContent = active ? prediction.incoming ? `예상 피해 ${prediction.incoming}` : '모두 방어' : '대결 종료';
   $('danger-badge').className = `outcome-badge${active&&prediction.incoming?' danger':' good'}`;
   $('hand-section').hidden = !active; $('phase-panel').hidden = active;
@@ -263,7 +275,10 @@ function render() {
       const preview=act(run,{type:'play-card',uid:chosen.uid});
       const damage=Math.max(0,match.enemyHp-(preview.match?.enemyHp??match.enemyHp)), block=Math.max(0,(preview.match?.defense||0)-match.defense);
       const healthCost=Math.max(0,run.condition-preview.condition), broken=Math.max(0,match.enemyBlock-(preview.match?.enemyBlock??match.enemyBlock));
-      $('damage-preview').textContent = [damage&&`피해 ${damage}`, block&&`방어 +${block}`, broken&&`상대 방어 −${broken}`, healthCost&&`내 체력 −${healthCost}`].filter(Boolean).join(' · ')||'카드 효과 적용';
+      const momentumGain=Math.max(0,(preview.match?.momentum??match.momentum)-match.momentum);
+      const exposedGain=Math.max(0,(preview.match?.enemyExposed||0)-(match.enemyExposed||0)), weakenedGain=Math.max(0,(preview.match?.enemyWeakened||0)-(match.enemyWeakened||0));
+      const previewEffects = [damage&&`피해 ${damage}`, block&&`방어 +${block}`, broken&&`상대 방어 −${broken}`, momentumGain&&`기세 +${momentumGain}`, exposedGain&&`약점 노출 +${exposedGain}턴`, weakenedGain&&`공격 약화 +${weakenedGain}턴`, weakenedGain&&getEnemyAttack(preview)!==enemyAttack&&`상대 공격 ${enemyAttack} → ${getEnemyAttack(preview)}`, healthCost&&`내 체력 −${healthCost}`].filter(Boolean);
+      $('damage-preview').textContent = previewEffects.join(' · ')||'카드 효과 적용';
     } else $('damage-preview').textContent=chosen?'에너지가 부족해요':'드리블 → 기세 → 강화된 슛';
     $('play-card-button').disabled=busy||!affordable; $('play-card-button').textContent=chosen&&!affordable?'에너지 부족':'카드 사용';
     $('end-turn').disabled=busy; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
@@ -323,9 +338,21 @@ function showCombatStat(kind) {
   const details = enemy
     ? `<p>내 카드가 주는 피해를 <strong>상대 체력보다 먼저</strong> 막아요.</p><div class="rule-note">현재 상대 방어 <strong>${defense}</strong><br>방어가 막은 만큼 줄어들고,<br><strong>남은 피해만 상대 체력에 적용</strong>돼요.</div><p>다음 내 턴이 시작되면 상대의 새 행동에 맞춰 방어가 다시 정해져요. 이전 턴의 남은 방어에 더해지지는 않아요.</p>${run.match.intent.dribbleBreak ? `<p>현재 상대는 드리블 카드를 사용하면 방어가 <strong>${run.match.intent.dribbleBreak} 추가로 감소</strong>해요.</p>` : ''}`
     : shield
-    ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">상대 공격 ${run.match.intent.attack} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
+    ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">${run.match.enemyWeakened ? `공격 약화: ${run.match.intent.attack} → ${getEnemyAttack(run)}<br>` : ''}상대 공격 ${getEnemyAttack(run)} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
     : `<p>드리블과 카드·장비 효과로 쌓는 공격 보너스예요.</p><div class="rule-note">현재 기세로 얻는 추가 피해<br>일반 슛: <strong>+${momentum}</strong><br>발리 슈팅: <strong>+${momentum * 2}</strong></div><p>기세는 <strong>턴이 지나도 유지</strong>돼요. 슛 카드를 사용하면 현재 기세를 <strong>전부 소모</strong>해 피해를 더합니다. 상대 방어에 막혀도 소모돼요. 기세가 높을수록 선수 주변의 금빛 기운도 강해져요.</p>`;
   openDialog(enemy ? '상대 방어 · 내 공격을 막는 힘' : shield ? '방어 · 상대 공격을 막는 힘' : '기세 · 다음 슛의 추가 피해', `<section class="combat-stat-help ${shield ? 'shield-help' : 'momentum-help'}"><div class="stat-help-value">${icon}<strong>${shield ? defense : momentum}</strong></div><div class="dialog-copy">${details}</div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
+  $('dialog').scrollTop = 0;
+}
+function showEnemyDebuff(kind) {
+  if (run.phase !== 'match' || !run.match) return;
+  const exposed = kind === 'exposed', turns = exposed ? run.match.enemyExposed : run.match.enemyWeakened;
+  if (!turns) return;
+  const title = exposed ? '약점 노출' : '공격 약화';
+  const icon = $(`enemy-${kind}-status`).querySelector('svg').outerHTML;
+  const effect = exposed
+    ? '<p>내 카드가 주는 피해가 <strong>50% 증가</strong>해요. 기세와 장비 보너스를 더한 뒤 계산하며, 소수점은 버리고 상대 방어를 적용합니다.</p><div class="rule-note">예: 카드 피해 10 → <strong>15</strong><br>상대 방어가 4라면 실제 체력 피해 <strong>11</strong></div><p>공격과 함께 약점을 거는 카드는 <strong>피해를 먼저 준 뒤</strong> 새 약점을 적용해요.</p>'
+    : `<p>턴 종료 시 상대가 주는 공격 피해가 <strong>25% 감소</strong>해요. 소수점을 버린 뒤 내 방어로 한 번 더 막습니다.</p><div class="rule-note">현재 상대 공격 ${run.match.intent.attack} → <strong>${getEnemyAttack(run)}</strong><br>내 방어 ${run.match.defense} 적용 후 예상 체력 피해 <strong>${forecast(run).incoming}</strong></div><p>반사 피해와 카드의 체력 소모에는 적용되지 않아요.</p>`;
+  openDialog(`${title} · ${turns}턴 남음`, `<section class="combat-stat-help ${exposed ? 'exposed-help' : 'weakened-help'}"><div class="stat-help-value">${icon}<strong>${turns}</strong><span>턴</span></div><div class="dialog-copy">${effect}<p>숫자는 <strong>지금 내 턴을 포함한 남은 턴</strong>이에요. 상대 행동이 끝날 때마다 1씩 줄고, 0이 되면 사라집니다.</p><p>같은 효과를 다시 걸면 <strong>남은 턴만 더해져요</strong>. 최대 99턴이며 피해 비율은 중첩되지 않습니다.</p></div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
   $('dialog').scrollTop = 0;
 }
 function showShopRemoval() {
@@ -354,6 +381,8 @@ function upgradeComparisonRows(card) {
     ['피해', /(?:^|\.\s*)피해 (\d+)/],
     ['방어', /이번 턴 방어 \+(\d+)/],
     ['기세 획득', /기세 \+(\d+)/],
+    ['약점 노출 (턴)', /약점 노출 (\d+)턴/],
+    ['공격 약화 (턴)', /공격 약화 (\d+)턴/],
     ['에너지 회복', /^에너지 \+(\d+)/],
     ['내 체력 소모', /내 체력 (\d+) 소모/],
     ['5턴부터 추가 피해', /5턴부터 피해 \+(\d+)/],
@@ -379,7 +408,16 @@ function confirmUpgrade(uid) {
   dispatch({ type: 'upgrade-card', uid });
 }
 function showHelp() {
-  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 겹친 손패 또는 아래 카드 이름 터치 → 카드 사용. 선택한 카드가 크게 표시됩니다.<br>공격수 1명 · 기술 18종 · 아이템 21종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>');
+  openDialog('플레이북 · 나만의 선수로 싸우는 법', `<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol>
+    <li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li>
+    <li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li>
+    <li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li>
+    <li><strong>약점 노출</strong>은 내 카드 피해를 50% 늘리고, <strong>공격 약화</strong>는 상대 공격 피해를 25% 줄입니다. 소수점은 버리고 방어를 적용합니다. 공격과 함께 거는 디버프는 그 공격이 끝난 뒤 적용됩니다.</li>
+    <li>상대 아래 디버프 아이콘의 숫자는 <strong>지금 내 턴을 포함한 남은 턴</strong>입니다. 상대 행동 후 1씩 줄어들며, 다시 걸면 기간만 늘어납니다. 아이콘을 누르면 자세한 설명을 볼 수 있습니다.</li>
+    <li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li>
+    <li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li>
+    <li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li>
+    </ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 겹친 손패 또는 아래 카드 이름 터치 → 카드 사용. 선택한 카드가 크게 표시됩니다.<br>공격수 1명 · 기술 ${Object.keys(CARDS).length}종 · 아이템 ${Object.keys(RELICS).length}종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>`);
 }
 function showMenu() {
   const previous = previousJourney();
@@ -470,6 +508,8 @@ document.addEventListener('click', e => {
     case 'shop-remove': return showShopRemoval();
     case 'defense-info': return showCombatStat('defense');
     case 'enemy-defense-info': return showCombatStat('enemy-defense');
+    case 'enemy-exposed-info': return showEnemyDebuff('exposed');
+    case 'enemy-weakened-info': return showEnemyDebuff('weakened');
     case 'momentum-info': return showCombatStat('momentum');
     case 'log': return showLog();
     case 'sound': toggleSound(); return showMenu();

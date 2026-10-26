@@ -89,7 +89,7 @@ test('pre-update maps, active combat and automatic libero rewards survive migrat
     assert.deepEqual(shape(restored.route), shape(saved.route));
     for (const key of ['condition', 'maxCondition', 'gold', 'deck', 'relics', 'seed', 'initialSeed', 'stats', 'phase', 'routeIndex', 'rewardRelic']) assert.deepEqual(restored[key], saved[key], key);
     const oldCombat = copy(restored.match);
-    for (const key of ['passCardPlayed', 'tacticCardPlayed', 'shotCardPlayed', 'tempoTriggered']) delete oldCombat[key];
+    for (const key of ['passCardPlayed', 'tacticCardPlayed', 'shotCardPlayed', 'tempoTriggered', 'enemyExposed', 'enemyWeakened']) delete oldCombat[key];
     assert.deepEqual(oldCombat, saved.match);
     assert.deepEqual(validateSave(restored), restored);
     const changed = copy(saved); changed.routeVersion = 2; assert.equal(validateSave(changed), null);

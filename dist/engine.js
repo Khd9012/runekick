@@ -18,6 +18,12 @@ const definitions = [
   ['clutch', '마지막 한 발', 'shot', 0, 'uncommon', [4, 7]],
   ['wall-pass', '발끝 컨트롤', 'pass', 1, 'uncommon', [6, 8]],
   ['long-pass', '폭발적인 돌파', 'pass', 2, 'rare', [13, 16]],
+  ['read-opening', '빈틈 포착', 'tactic', 1, 'common', [2, 3]],
+  ['lure-dribble', '유인 드리블', 'dribble', 1, 'uncommon', [3, 4]],
+  ['unsettling-shot', '흔드는 슈팅', 'shot', 1, 'common', [6, 9]],
+  ['high-press', '전방 압박', 'tactic', 1, 'common', [2, 3]],
+  ['checking-tackle', '견제 태클', 'defense', 1, 'uncommon', [5, 8]],
+  ['close-mark', '집요한 마크', 'pass', 1, 'uncommon', [5, 8]],
 ];
 const numbers = Object.fromEntries(definitions.map(([id, , , , , values]) => [id, values]));
 const amount = card => numbers[card.id]?.[card.upgraded ? 1 : 0] ?? 0;
@@ -42,6 +48,12 @@ export function cardText(card) {
     case 'switch': case 'captain': return `피해 ${n}. 이번 턴 방어 +${n}.`;
     case 'clutch': return `피해 ${n}. 5턴부터 피해 +${up ? 9 : 6}.` + shotText;
     case 'wall-pass': return `피해 ${n}. 기세 +${up ? 3 : 2}.`;
+    case 'read-opening': return `약점 노출 ${n}턴. 상대가 받는 카드 피해 +50%.`;
+    case 'lure-dribble': return `약점 노출 ${up ? 2 : 1}턴. 기세 +${n}. 기세는 턴이 끝나도 유지.`;
+    case 'unsettling-shot': return `피해 ${n}. 공격 후 약점 노출 ${up ? 2 : 1}턴.` + shotText;
+    case 'high-press': return `공격 약화 ${n}턴. 상대 공격 피해 −25%.`;
+    case 'checking-tackle': return `이번 턴 방어 +${n}. 공격 약화 ${up ? 2 : 1}턴.`;
+    case 'close-mark': return `피해 ${n}. 공격 후 공격 약화 ${up ? 2 : 1}턴.`;
     default: return '';
   }
 }
@@ -283,16 +295,22 @@ function startMatch(run, opponentId) {
   const maxEnergy = has(run, 'energy-flask') ? 4 : 3, enemyMaxHp = OPPONENTS[opponentId].maxHp;
   run.phase = 'match'; run.relicOffers = [];
   run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: has(run, 'burst-laces') ? 3 : 0,
+    enemyExposed: 0, enemyWeakened: 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
     hand: [], draw: shuffle(run, clone(run.deck)), discard: [], exhaust: [], played: [], intent: null,
     lastOutcome: null, history: [], status: 'playing' };
   nextRound(run);
 }
+export function getEnemyAttack(run) {
+  const m = run?.match;
+  if (!m) return 0;
+  return Math.floor(m.intent.attack * ((m.enemyWeakened ?? 0) > 0 ? .75 : 1));
+}
 export function forecast(run) {
   const m = run?.match;
-  if (!m) return { attack: 0, target: 0, incoming: 0, guard: 0, homeGoal: false, awayGoal: false };
-  const incoming = Math.max(0, m.intent.attack - m.defense);
-  return { attack: m.chance, target: m.enemyHp, incoming, guard: m.defense, homeGoal: false, awayGoal: incoming > 0, enemyBlock: m.enemyBlock, momentum: m.momentum };
+  if (!m) return { attack: 0, target: 0, incoming: 0, guard: 0, homeGoal: false, awayGoal: false, enemyAttack: 0, baseEnemyAttack: 0 };
+  const enemyAttack = getEnemyAttack(run), incoming = Math.max(0, enemyAttack - m.defense);
+  return { attack: m.chance, target: m.enemyHp, incoming, guard: m.defense, homeGoal: false, awayGoal: incoming > 0, enemyBlock: m.enemyBlock, momentum: m.momentum, enemyAttack, baseEnemyAttack: m.intent.attack };
 }
 function nodeRecord(run, result) {
   const node = run.activeNode;
@@ -327,7 +345,9 @@ function winDuel(run) {
   run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +5' : ''}. ${run.relicOffers.length ? '전용 유물 1개를 먼저 고른 뒤 ' : ''}카드 1장을 선택하거나 건너뛰세요.`;
 }
 function dealDamage(run, power) {
-  const m = run.match, absorbed = Math.min(m.enemyBlock, power);
+  const m = run.match;
+  power = Math.floor(power * ((m.enemyExposed ?? 0) > 0 ? 1.5 : 1));
+  const absorbed = Math.min(m.enemyBlock, power);
   m.enemyBlock -= absorbed;
   const damage = Math.min(m.enemyHp, power - absorbed);
   m.enemyHp -= damage; m.chance += damage; m.damageDealt += damage; run.stats.damage += damage;
@@ -339,7 +359,7 @@ function playCard(run, uid) {
   if (cost(card) > m.energy) return false;
   m.energy -= cost(card); m.hand.splice(index, 1); m.played.push(card);
   const n = amount(card), up = card.upgraded;
-  let damage = 0, reflectedDamage = 0;
+  let damage = 0, reflectedDamage = 0, exposed = 0, weakened = 0;
   switch (card.id) {
     case 'through-pass': case 'shot': case 'power-shot': case 'volley': damage = n; break;
     case 'quick-pass': case 'one-two': case 'long-pass': damage = n; drawCards(run, 1); break;
@@ -353,6 +373,12 @@ function playCard(run, uid) {
     case 'switch': case 'captain': damage = n; m.defense += n; break;
     case 'clutch': damage = n + (m.turn >= 5 ? (up ? 9 : 6) : 0); break;
     case 'wall-pass': damage = n; m.momentum += up ? 3 : 2; break;
+    case 'read-opening': exposed = n; break;
+    case 'lure-dribble': exposed = up ? 2 : 1; m.momentum += n; break;
+    case 'unsettling-shot': damage = n; exposed = up ? 2 : 1; break;
+    case 'high-press': weakened = n; break;
+    case 'checking-tackle': m.defense += n; weakened = up ? 2 : 1; break;
+    case 'close-mark': damage = n; weakened = up ? 2 : 1; break;
   }
   if (CARDS[card.id].type === 'dribble') {
     if (has(run, 'swift-boots')) m.momentum++;
@@ -389,6 +415,9 @@ function playCard(run, uid) {
     if (m.counterReady) { reflectedDamage = Math.min(run.condition, m.intent.counterDamage); run.condition -= reflectedDamage; m.counterReady = false; }
     dealDamage(run, damage);
   }
+  // A hit benefits from the status already present, then applies its own debuff.
+  m.enemyExposed = Math.min(99, (m.enemyExposed ?? 0) + exposed);
+  m.enemyWeakened = Math.min(99, (m.enemyWeakened ?? 0) + weakened);
   if (run.condition <= 0) {
     const reason = reflectedDamage > 0 ? '레전드의 예고된 반격으로 체력을 모두 소모했습니다.' : '무리한 기술로 내 체력을 모두 소모했습니다. 다음 도전에서는 휴식도 챙겨 주세요.';
     outcome(run, 0, 0, reason); failRun(run, reason);
@@ -398,10 +427,12 @@ function playCard(run, uid) {
   return true;
 }
 function endTurn(run) {
-  const m = run.match, incoming = forecast(run).incoming, blocked = Math.min(m.intent.attack, m.defense), damageTaken = Math.min(run.condition, incoming);
+  const m = run.match, incoming = forecast(run).incoming, blocked = Math.min(getEnemyAttack(run), m.defense), damageTaken = Math.min(run.condition, incoming);
   run.condition -= damageTaken; run.stats.blocks += blocked; m.blocks += blocked;
   if (run.condition > 0 && damageTaken === 0 && has(run, 'clean-sheet-crest')) run.condition = Math.min(run.maxCondition, run.condition + 2);
   outcome(run, damageTaken, blocked, `내가 준 피해 ${m.chance}. ${OPPONENTS[m.opponentId].name}의 반격 ${damageTaken}${blocked ? ` · 방어 ${blocked}` : ''}.`);
+  m.enemyExposed = Math.max(0, (m.enemyExposed ?? 0) - 1);
+  m.enemyWeakened = Math.max(0, (m.enemyWeakened ?? 0) - 1);
   if (run.condition <= 0) return failRun(run, '체력이 모두 소진되었습니다. 나만의 덱을 다시 다듬고 도전해 보세요.');
   m.turn++; nextRound(run);
 }
@@ -584,6 +615,10 @@ export function validateSave(value) {
     if (!['match', 'reward', 'defeat'].includes(run.phase)) return null;
     const m = run.match, opponent = OPPONENTS[m?.opponentId];
     if (!record(m) || !opponent || m.enemyMaxHp !== opponent.maxHp || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
+    for (const status of ['enemyExposed', 'enemyWeakened']) {
+      if (!Object.hasOwn(m, status)) m[status] = 0;
+      if (!integer(m[status], 0, 99)) return null;
+    }
     const sourceNode = run.activeNode ?? route[run.routeIndex]?.choices.find(choice => choice.id === run.history.at(-1)?.nodeId);
     if (sourceNode?.opponentId !== m.opponentId) return null;
     if (m.maxEnergy !== (has(run, 'energy-flask') ? 4 : 3) || !integer(m.energy, 0, m.maxEnergy)) return null;
@@ -620,7 +655,7 @@ export function validateSave(value) {
       if (m[flag] !== m.played.some(card => CARDS[card.id].type === type)) return null;
     }
     if (m.tempoTriggered !== (tempoOwnedDuringDuel && m.dribbleCardPlayed && m.shotCardPlayed)) return null;
-    if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !['cover', 'tackle', 'focus'].includes(card.id)))) return null;
+    if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !['cover', 'tackle', 'focus', 'read-opening', 'lure-dribble', 'high-press', 'checking-tackle'].includes(card.id)))) return null;
     if (used.size !== cards.size || !Array.isArray(m.history) || m.history.length !== m.turn - Number(m.status === 'playing')) return null;
     let dealt = 0, blocked = 0;
     for (let i = 0; i < m.history.length; i++) {

@@ -14,7 +14,7 @@ function playBestTurn(run) {
   function visit(state) {
     if (state.phase === 'defeat') return;
     const m = state.match, f = forecast(state);
-    const key = `${m.energy}|${m.enemyHp}|${m.enemyBlock}|${m.defense}|${m.momentum}|${m.defenseCardPlayed}|${m.dribbleCardPlayed}|${m.counterReady}|${m.hand.map(c => c.uid).sort()}|${m.draw.map(c => c.uid)}|${state.condition}`;
+    const key = `${m.energy}|${m.enemyHp}|${m.enemyBlock}|${m.defense}|${m.momentum}|${m.enemyExposed}|${m.enemyWeakened}|${m.defenseCardPlayed}|${m.dribbleCardPlayed}|${m.counterReady}|${m.hand.map(c => c.uid).sort()}|${m.draw.map(c => c.uid)}|${state.condition}`;
     if (seen.has(key)) return;
     seen.add(key);
     const value = state.phase === 'reward' ? 100000 + state.condition
@@ -36,7 +36,7 @@ function finishDuel(run, checkpoint = false) {
   }
   return state;
 }
-const rewardOrder = ['power-shot', 'shot', 'captain', 'switch', 'feint', 'clutch', 'volley', 'wall-pass', 'dribble', 'long-pass', 'cover', 'one-two', 'through-pass', 'intercept', 'quick-pass', 'focus', 'tackle', 'sprint'];
+const rewardOrder = ['power-shot', 'shot', 'captain', 'switch', 'feint', 'clutch', 'volley', 'wall-pass', 'dribble', 'long-pass', 'cover', 'one-two', 'through-pass', 'intercept', 'quick-pass', 'focus', 'tackle', 'sprint', 'read-opening', 'lure-dribble', 'unsettling-shot', 'high-press', 'checking-tackle', 'close-mark'];
 const relicOrder = ['energy-flask', 'power-cleats', 'training-kit', 'swift-boots', 'grip-socks', 'scouting-bag', 'captain-band', 'golden-whistle', 'lucky-coin'];
 function completeJourney(seed, { checkpoint = false, elite = false, event = false } = {}) {
   let run = createRun(seed), actions = 0;
@@ -92,7 +92,7 @@ test('schema2 retains its personal hero route and nine shop items beside the leg
   assert.equal(run.schema, 2);
   assert.equal(run.condition, 100);
   assert.equal(run.deck.length, 12);
-  assert.equal(Object.keys(CARDS).length, 18);
+  assert.equal(Object.keys(CARDS).length, 24);
   assert.equal(Object.values(RELICS).filter(relic => relic.shop !== false).length, 9);
   assert.equal(ROUTE.length, 7);
   assert.deepEqual(ROUTE.flatMap((stage, index) => stage.choices.filter(node => node.type === 'shop').map(node => [index, node.id])), [[3, 'market']]);

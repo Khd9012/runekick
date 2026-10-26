@@ -1,5 +1,18 @@
 # RUNEKICK art sources
 
+## v0.9 debuff cards · 2026-10-26
+
+Six additional card illustrations are native Canvas pixel silhouettes in `dist/art.js`, using the existing card background and football action style. They require no downloaded image, new font, or external service at runtime.
+
+- `read-opening`: scanning player and an opening target.
+- `lure-dribble`: feinting player, motion echo and a controlled football.
+- `unsettling-shot`: shooting player and a broken target.
+- `high-press`: player pressing forward toward an opponent.
+- `checking-tackle`: low sliding interception in front of an opponent.
+- `close-mark`: close marking with two distinct silhouettes.
+
+These are code-authored additions, not new image-generation outputs. The existing 18 raster card illustrations are preserved.
+
 Final project files:
 - `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/striker.png`
 - `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/rival.png`

@@ -572,6 +572,21 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .combat-stat:focus-visible{outline:2px solid #f0e4bd;outline-offset:3px}
 .momentum-stat>svg{fill:#f6ca4d;stroke:#ffeb9b}
 .momentum-stat strong{color:#ffda67}
+.personal-duel .enemy-status{width:190px}
+.enemy-combat-status{gap:4px}
+.enemy-combat-status .combat-stat{gap:2px;padding-inline:2px}
+.combat-stat.exposed-stat>svg{fill:none;stroke:#df9cea;stroke-width:2.4}
+.exposed-stat .debuff-core{fill:#f0c4f7;stroke:none}
+.exposed-stat strong{color:#e8b1f1}
+.combat-stat.weakened-stat>svg{fill:none;stroke:#edb17b;stroke-width:2.4;stroke-linecap:round}
+.weakened-stat .debuff-arrow{stroke:#ffcc94;stroke-width:3}
+.weakened-stat strong{color:#ffc98f}
+.attack-modifier{display:block;color:#ffc98f;font-size:8px;line-height:1.45;margin:2px 0}
+.card-debuff-exposed{color:#efc3ff}
+.card-debuff-weakened{color:#ffdbac}
+.card-status-stat{gap:5px}
+.card-status-stat>span{font-size:13px}
+.card-status-stat>small{font-size:11px;font-weight:700}
 
 /* Keep the real card frame when choosing an upgrade or a card to remove. */
 .deck-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,196px));justify-content:center;gap:24px 20px;margin:24px 0 8px;padding:5px}
@@ -593,8 +608,9 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .removal-price small{font-size:11px;color:#b7c0cb}
 .removal-preview .phase-actions{margin:0;width:100%;justify-content:center}
 @media(max-width:800px), (max-width:1100px) and (max-height:520px){
- .personal-duel .hero-status{width:min(160px,44%)}
+ .personal-duel .hero-status,.personal-duel .enemy-status{width:min(160px,44%)}
  .combat-status{gap:10px}
+ .enemy-combat-status{gap:4px}
  .combat-stat>svg{width:20px;height:23px}
  .combat-stat strong{font-size:20px}
  .fighter-nameplate{top:5px}
@@ -639,6 +655,15 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .momentum-help .stat-help-value{border-color:#6c5729;background:#292519}
 .momentum-help .stat-help-value svg{fill:#ffce45;stroke:#ffec97}
 .momentum-help .stat-help-value strong{color:#ffde66}
+.exposed-help .stat-help-value{border-color:#634c73;background:#251d31}
+.exposed-help .stat-help-value svg{fill:none;stroke:#df9cea}
+.exposed-help .stat-help-value .debuff-core{fill:#f0c4f7;stroke:none}
+.exposed-help .stat-help-value strong{color:#e8b1f1}
+.weakened-help .stat-help-value{border-color:#775538;background:#30251c}
+.weakened-help .stat-help-value svg{fill:none;stroke:#edb17b;stroke-width:2.4;stroke-linecap:round}
+.weakened-help .stat-help-value .debuff-arrow{stroke:#ffcc94;stroke-width:3}
+.weakened-help .stat-help-value strong{color:#ffc98f}
+.stat-help-value>span{font-size:14px;color:#b8c6d5;align-self:flex-end;padding-bottom:5px}
 .combat-stat-help .dialog-copy{padding-top:12px;line-height:1.8}
 .combat-stat-help .dialog-copy p{margin:12px 0}
 .combat-stat-help .phase-actions{justify-content:flex-end}
