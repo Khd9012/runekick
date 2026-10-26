@@ -1,0 +1,46 @@
+# RUNEKICK art sources
+
+Final project files:
+- `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/striker.png`
+- `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/rival.png`
+- `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/youth-stadium.png`
+
+Characters, coaches, equipment and background were created specifically for this prototype with the built-in OpenAI image generation tool on 2026-10-26. They are not downloaded third-party asset-pack artwork. Final generated PNGs are bundled unchanged in dist/assets and precached for offline play. Procedural fallback sprites, effects and the tactics map are drawn in code. Runtime source-rectangle cropping selects sprites from the two atlases; background desaturation is applied in the renderer. No third-party runtime assets or requests are used.
+
+v0.4 atlases:
+- `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/coaches.png` (4 columns x 2 rows, seven coaches)
+- `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/equipment.png` (4 columns x 3 rows, ten relics)
+
+Coach characters are stylized depictions of the seven named public football managers. Their dialogue and battle mechanics are fictional game adaptations.
+
+### coaches atlas generation
+
+Use case: stylized-concept. Asset type: ONE transparent sprite atlas for a pixel-art football fantasy card battle game. A precise 4-column by 2-row grid, equal rectangular cells, canvas landscape 1536x1024, NO grid lines. Each occupied cell contains exactly one complete full-body older adult football manager caricature facing LEFT in a three-quarter side view, holding a tactics clipboard or gesturing toward a football pitch. Same scale, feet on the same baseline in each row, generous transparent margins between figures, absolutely no overlap across cells. Top row left to right: Jose Mourinho (short silver-grey hair, dark navy suit, focused folded-arm stance); Carlo Ancelotti (silver hair, distinctive lifted eyebrow, charcoal suit and tie, calm clipboard stance); Pep Guardiola (bald head, short greying beard, black fitted sweater and trousers, animated pointing stance); Mikel Arteta (neatly cropped black hair, clean-shaven, black polo and trousers, tactical clipboard stance). Bottom row left to right: Arsene Wenger (tall lean figure, silver hair, long navy coat, composed stance); Alex Ferguson (older rounder face, grey hair, glasses, dark suit and red tie, emphatic pointing stance); Jurgen Klopp (brown/grey beard, black baseball cap, glasses, dark tracksuit, energetic clenched fist); last cell EMPTY transparent. Distinct recognizable stylized features, original game art, no logos or club badges. Style: polished 16-bit pixel illustration, finely controlled crisp pixel clusters, readable faces, 4-head-tall proportions to match an indie RPG battle sprite, indigo shadows, cream highlights, restrained vivid accents, clean outer silhouette. This is a single game sprite sheet, not a poster. No text, no names, no labels, no background, no floor rectangle, no border, no watermark. Every figure fully visible, never crop heads or feet.
+
+### equipment atlas generation
+
+Create a production game asset: a transparent PNG sprite atlas of TEN football relic inventory icons for RUNEKICK, a refined pixel-art deck-building game. Canvas 1536 by 1024, EXACTLY four columns and three rows, equal cells. Every icon centered inside its own cell with wide empty margins. No frames, no labels, no background, no floor, no glow, no shadows outside objects, no UI. Crisp hand-placed 16-bit pixel clusters with clear silhouettes; restrained ivory, blue-grey, navy, oxblood and antique-gold palette; light source upper left; polished detailed game props, no cute cartoon or flat emoji. Maintain coherent scale and detail. Row 1 left to right: (1) a single pearl-white football boot with dark navy trim and grey studs, (2) a single black football boot with understated gold studs and burgundy laces, (3) a folded dark red football training shirt with cream collar, (4) a rolled deep blue captain wristband with a simple gold stripe, NO text. Row 2 left to right: (5) a pair of cream ribbed football socks with navy bands, (6) a worn navy canvas football duffel bag with leather straps, (7) a brushed steel water bottle with dark cap and a small teal accent, (8) a thick antique gold coin embossed with a football geometry. Row 3 left to right: (9) a polished brass referee whistle attached to a short black cord, (10) an antique gold shield medal on a folded navy ribbon, (11) EMPTY, (12) EMPTY. All ten icons fully visible, no elements crossing between cells, all unused space must be alpha transparent. This is artwork for an inventory asset sheet, not a poster.
+
+### final atlas transparency edit (applied independently to both atlases)
+
+Edit this existing game sprite atlas. Preserve EXACTLY the same canvas size, grid, positions, scale, silhouettes, colors and details of every character or object. Remove ALL background, all ambient glow, all blurry halos, all grey/brown/gold light clouds and all floor/contact shadows. Every pixel outside the actual physical silhouettes must be fully alpha-transparent (alpha 0). Restore the solid physical figures/objects to opaque colors. Clean cutout edges. Do not redesign, add or move any element. No background, no gradients, no glow whatsoever. Return a transparent PNG sprite sheet.
+
+Final source images, copied without changing the originals:
+- coaches: `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-45f8b9c9-24a2-4db1-8ead-012354dc2b0f.png`
+- equipment: `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-0f71291e-9e35-46e1-b629-37dffb52296a.png`
+
+External candidates inspected but NOT included: [Soccorpia by Gamer Goon](https://ggstudios4.itch.io/soccorpia-pixel-art-asset-pack) (small 16x16-style sprites), [Goals in Pixels](https://n3cloud.itch.io/goals-in-pixels) (paid). No paid assets were purchased.
+
+## Final generation prompts
+
+### hero
+
+Use case: stylized-concept. Asset type: transparent 2D pixel art game character sprite for RUNEKICK, a football fantasy roguelike card battler. A single full-body original young adult athletic soccer striker, facing right in a dynamic three-quarter side view, confident poised stance, one foot lightly atop a small enchanted soccer ball. Expressive determined face, spiky dark brown hair, red headband with short flowing tail, crimson-red jersey with warm ivory trim, dark navy shorts, white knee socks, worn golden boots. High quality hand-crafted 16-bit pixel art with finely controlled pixel clusters, a 96x128 logical pixel aesthetic scaled up cleanly, subtle dithering, 4-head-tall athletic proportions, appealing detailed anatomy and bold silhouette. Rich warm crimson/cream highlights and indigo shadows. Full body fully visible with generous transparent margins; character centered, no background, no ground rectangle, no text, no logo, no badge, no UI, no other people. Must look like polished indie RPG battle sprite, not a blocky rectangular placeholder or 3D voxel art.
+
+### rival
+
+Use case: stylized-concept. Asset type: transparent 2D pixel art game character sprite for RUNEKICK, a football fantasy roguelike card battler. A single full-body original young adult athletic soccer rival, facing LEFT in a dynamic three-quarter side view, alert defensive ready stance with knees slightly bent and fists loose. Expressive confident face, swept silver-blue hair, azure-blue jersey with ivory trim, navy shorts, blue-and-white knee socks, dark blue boots. High quality hand-crafted 16-bit pixel art with finely controlled pixel clusters, a 96x128 logical pixel aesthetic scaled up cleanly, subtle dithering, 4-head-tall athletic proportions, appealing detailed anatomy and bold silhouette. Bright cyan and ivory highlights, indigo shadows, restrained fantasy sparkling blue aura around ankles. Full body fully visible with generous transparent margins; character centered, no background, no ground rectangle, no text, no logo, no badge, no UI, no other people. Must look like polished indie RPG battle sprite, not a blocky rectangular placeholder or 3D voxel art.
+
+### stadium
+
+Use case: stylized-concept. Asset type: wide 2D pixel art background for a side-view football fantasy card battle game RUNEKICK. A beautifully detailed small youth football stadium at golden hour, viewed from field level. Landscape composition approx 2.4:1. Layered background with terracotta European-style village rooftops, distant rolling mountains, warm apricot clouds in a dusky teal sky, tall floodlights at far edges, rows of small colorful spectator pixel shapes, weathered stone entry arch at center and low advertising-free barriers. Lower third is broad empty side-view grassy playing field with subtle field markings, space for two large characters on left and right. Polished indie game 16-bit pixel art, crisp intentional square pixel clusters, a logical 480x200 art aesthetic cleanly scaled, rich but controlled palette of deep teal, warm ochre, muted brick red, cream lighting. Strong depth and storytelling details, luminous sunset atmosphere, darker lower corners to blend into dark UI. NO characters in foreground, NO UI, no readable text, no logos, no trophy centerpiece. Not a top-down pitch, not a photograph, not 3D.
