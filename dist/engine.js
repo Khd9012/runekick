@@ -59,8 +59,25 @@ export const RELICS = Object.freeze({
   'lucky-coin': { id: 'lucky-coin', name: '행운의 첫 동전', category: 'charm', rarity: 'common', description: '대결 승리 보상 코인 +10.', price: 35 },
   'golden-whistle': { id: 'golden-whistle', name: '스카우트의 호루라기', category: 'whistle', rarity: 'uncommon', description: '대결에서 승리할 때마다 내 체력 5 회복.', price: 45 },
   'libero-seal': { id: 'libero-seal', name: '리베로의 증표', category: 'medal', rarity: 'legendary', shop: false, description: '매 턴 첫 드리블 카드 사용 시 방어 +4. 전설의 수비수를 꺾어 획득.', price: 0 },
+  'catenaccio-band': { id: 'catenaccio-band', name: '카테나치오 밴드', category: 'band', rarity: 'legendary', shop: false, description: '매 턴 첫 수비 카드의 방어 +3.', price: 0 },
+  'clean-sheet-crest': { id: 'clean-sheet-crest', name: '무실점의 문장', category: 'medal', rarity: 'legendary', shop: false, description: '턴 종료 시 상대에게 받은 피해가 0이면 내 체력 2 회복.', price: 0 },
+  'maestro-touch': { id: 'maestro-touch', name: '마에스트로의 터치', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 터치 카드 사용 시 기세 +2.', price: 0 },
+  'roulette-rune': { id: 'roulette-rune', name: '룰렛의 룬', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 전술 카드 사용 시 카드 1장 뽑기.', price: 0 },
+  'playmaker-lens': { id: 'playmaker-lens', name: '플레이메이커의 시선', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 슈팅을 쓸 때 기세가 3 이상이면 피해 +4.', price: 0 },
+  'fenom-cleats': { id: 'fenom-cleats', name: '페노메노의 스터드', category: 'boots', rarity: 'legendary', shop: false, description: '매 턴 첫 슈팅 카드의 피해 +5.', price: 0 },
+  'nine-crest': { id: 'nine-crest', name: '넘버 나인의 문장', category: 'medal', rarity: 'legendary', shop: false, description: '카드를 쓰기 전 상대 체력이 절반 이하라면 슈팅 피해 +3.', price: 0 },
+  'burst-laces': { id: 'burst-laces', name: '폭발적인 가속의 끈', category: 'socks', rarity: 'legendary', shop: false, description: '매 대결을 기세 3으로 시작합니다.', price: 0 },
+  'street-rhythm': { id: 'street-rhythm', name: '거리의 리듬', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 드리블 카드 사용 시 기세 +2.', price: 0 },
+  'ankle-tape': { id: 'ankle-tape', name: '흔들리지 않는 발목', category: 'socks', rarity: 'legendary', shop: false, description: '매 턴 첫 터치 카드 사용 시 방어 +3.', price: 0 },
+  'tempo-charm': { id: 'tempo-charm', name: '템포의 부적', category: 'charm', rarity: 'legendary', shop: false, description: '한 턴에 드리블과 슈팅을 모두 쓰면 한 번만 에너지 +1. 최대 에너지까지 회복.', price: 0 },
 });
 export const STARTER_RELICS = Object.freeze(['power-cleats', 'swift-boots', 'training-kit']);
+export const ELITE_RELICS = Object.freeze({
+  legend: Object.freeze(['libero-seal', 'catenaccio-band', 'clean-sheet-crest']),
+  'legend-zidane': Object.freeze(['maestro-touch', 'roulette-rune', 'playmaker-lens']),
+  'legend-ronaldo': Object.freeze(['fenom-cleats', 'nine-crest', 'burst-laces']),
+  elite: Object.freeze(['street-rhythm', 'ankle-tape', 'tempo-charm']),
+});
 export const OPPONENTS = Object.freeze({
   school: { id: 'school', name: '민준', subtitle: '재빠른 윙어 · 첫 번째 라이벌', color: '#70c9e8', maxHp: 42, reward: 25,
     patterns: [['가벼운 견제', 7, 2], ['빠른 발놀림', 9, 0], ['거리 재기', 6, 4], ['전력 돌파', 11, 0]] },
@@ -68,10 +85,16 @@ export const OPPONENTS = Object.freeze({
     patterns: [['기본기 대결', 8, 2], ['과감한 도전', 10, 0], ['숨 고르기', 5, 4], ['마지막 스퍼트', 11, 1]] },
   press: { id: 'press', name: '태오', subtitle: '끈질긴 수비수 · 골목의 벽', color: '#f1ac59', maxHp: 52, reward: 35,
     patterns: [['바짝 붙기', 10, 4], ['압박 전진', 12, 2], ['단단한 자세', 8, 7], ['거친 돌진', 13, 3]] },
-  elite: { id: 'elite', name: '도윤', subtitle: '거리의 드리블러 · 특별 평가전', color: '#f07d72', maxHp: 66, reward: 45,
+  elite: { id: 'elite', name: '도윤', subtitle: '거리의 드리블러 · 특별 평가전', color: '#f07d72', maxHp: 66, reward: 45, eliteRelics: ELITE_RELICS.elite,
     patterns: [['현란한 스텝', 13, 4], ['순간 가속', 15, 2], ['빈틈 봉쇄', 10, 8], ['날카로운 돌파', 16, 3]] },
-  legend: { id: 'legend', name: '파올로', subtitle: '레전드 수비수 · 완벽한 위치 선정', color: '#b5c7de', maxHp: 72, reward: 65,
+  legend: { id: 'legend', name: '파올로 말디니', subtitle: '레전드 수비수 · 완벽한 위치 선정', legend: true, color: '#b5c7de', maxHp: 72, reward: 65, eliteRelics: ELITE_RELICS.legend,
     patterns: [['철벽의 태세', 6, 12], ['읽어낸 역습', 18, 4], ['잠깐의 빈틈', 7, 0]] },
+  'legend-zidane': { id: 'legend-zidane', name: '지네딘 지단', subtitle: '레전드 플레이메이커 · 읽어내는 연계', legend: true, color: '#c7b9ed', maxHp: 70, reward: 65, eliteRelics: ELITE_RELICS['legend-zidane'],
+    mechanic: '높은 방어 뒤 연계 공격을 준비합니다. 4턴마다 연계 공격 +2. 방어가 열린 호흡 고르기를 노리세요.',
+    patterns: [['경기 읽기', 8, 10], ['루렛 연계', 12, 6], ['완성된 연계', 16, 2], ['호흡 고르기', 7, 0]] },
+  'legend-ronaldo': { id: 'legend-ronaldo', name: '호나우두', subtitle: '레전드 스트라이커 · 폭발적인 가속', legend: true, color: '#ead07b', maxHp: 68, reward: 65, eliteRelics: ELITE_RELICS['legend-ronaldo'],
+    mechanic: '가속 페인트 다음에는 강력한 페노메노 돌파가 옵니다. 낮은 방어를 노리고 강공을 대비하세요.',
+    patterns: [['폭발을 준비', 9, 2], ['가속 페인트', 12, 1], ['페노메노 돌파', 21, 0], ['숨 고르기', 6, 0]] },
   champion: { id: 'champion', name: '서진', subtitle: '유소년 에이스 · 최종 선발전', color: '#d5b573', maxHp: 85, reward: 60,
     patterns: [['에이스의 견제', 15, 5], ['폭발적인 가속', 18, 2], ['완벽한 자세', 11, 9], ['결정적인 한 발', 20, 3]] },
   'coach-mourinho': { id: 'coach-mourinho', name: '무리뉴', subtitle: '감독 보스 · 철벽과 역습', coach: true, color: '#7f99ba', maxHp: 92, reward: 60,
@@ -146,7 +169,7 @@ function shuffle(run, values) {
   return result;
 }
 function addCard(run, id) { run.deck.push({ uid: `c${run.nextUid++}`, id, upgraded: false }); }
-function generateRoute(initialSeed) {
+function generateRoute(initialSeed, version = 2) {
   // Map randomness never consumes the draw/reward RNG, so combat cannot change the map.
   const rng = { seed: (initialSeed ^ 0x9e3779b9) >>> 0 };
   const coachIds = Object.keys(OPPONENTS).filter(id => OPPONENTS[id].coach);
@@ -157,18 +180,20 @@ function generateRoute(initialSeed) {
   const event = name => ({ type: 'event', name, description: '안전한 회복과 코인, 또는 체력을 쓰는 희귀 카드 테스트를 선택합니다.' });
   const shop = name => ({ type: 'shop', name, description: '지정된 상점 포인트. 대결로 모은 코인으로 유물을 구매합니다.' });
   const cityShop = ['시내 스포츠점', '시내 쇼핑센터', '백화점 스포츠관'][initialSeed % 3];
-  const elite = id => ({ type: 'elite', opponentId: id, name: id === 'legend' ? '레전드 수비수 파올로' : '드리블러 도윤', description: id === 'legend' ? '드리블로 철벽을 깨세요. 승리 시 코인 65, 희귀 카드, 전용 유물을 획득합니다.' : '강력한 드리블러를 꺾으면 코인 45와 희귀 카드 선택지를 얻습니다.' });
+  const elite = id => ({ type: 'elite', opponentId: id, name: OPPONENTS[id].name, description: `${OPPONENTS[id].subtitle}. 승리 시 코인 ${OPPONENTS[id].reward}, 희귀 카드와 전용 유물 선택 보상을 얻습니다.` });
+  // Version 1 must consume exactly the original map RNG sequence for existing saves.
+  const eliteIds = version === 1 ? ['legend', 'legend', 'elite'] : shuffle(rng, Object.keys(ELITE_RELICS));
   const layout = [
     ['시작의 킥', [regular('school', '민준과의 첫 대결')]],
     ['첫 갈림길', [rest('라커룸'), training('훈련장')]],
     ['두 번째 도전', [regular('rookie', '하준의 도전장')]],
     ['모은 코인의 쓰임', [shop('동네 스포츠점'), event('스카우트와의 만남')]],
     ['중반을 위한 준비', [rest('라커룸'), training('훈련장')]],
-    ['첫 번째 강적', [elite('legend'), event('강적을 피해 돌아가는 길')]],
+    ['첫 번째 강적', [elite(eliteIds[0]), event('강적을 피해 돌아가는 길')]],
     ['마지막 장비 보급', [shop(cityShop), event('입단 테스트 제의')]],
     ['끈질긴 벽', [regular('press', '태오와의 본선 대결')]],
     ['나만의 준비', [rest('라커룸'), training('훈련장')]],
-    ['마지막 도전의 갈림길', [elite('legend'), elite('elite'), event('안전한 우회로')]],
+    ['마지막 도전의 갈림길', [elite(eliteIds[1]), elite(eliteIds[2]), event('안전한 우회로')]],
     ['에이스를 만나기 전에', [rest('라커룸'), training('훈련장')]],
     ['전설의 감독을 넘어서', [{ type: 'boss', opponentId: coachId, name: `${coach.name}의 최종 시험`, description: coach.mechanic }]],
   ];
@@ -213,9 +238,9 @@ function normalizedName(value) {
   return name && [...name].length <= 12 ? name : null;
 }
 export function createRun(seed, playerName = '루키') {
-  const initialSeed = seedNumber(seed), run = { schema: 3, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
+  const initialSeed = seedNumber(seed), run = { schema: 3, routeVersion: 2, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
     playerName: normalizedName(playerName) ?? '루키', starterRewardUnlocked: false, starterRelic: null,
-    deck: [], relics: [], offers: [], shopOffers: [], seed: initialSeed, initialSeed, nextUid: 1,
+    deck: [], relics: [], offers: [], relicOffers: [], shopOffers: [], seed: initialSeed, initialSeed, nextUid: 1,
     stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
   ['through-pass', 'through-pass', 'quick-pass', 'dribble', 'dribble', 'feint', 'shot', 'shot', 'cover', 'cover', 'intercept', 'switch'].forEach(id => addCard(run, id));
   return run;
@@ -225,10 +250,10 @@ function intentFor(opponentId, turn, hp = OPPONENTS[opponentId].maxHp) {
   const patterns = secondPhase ? opponent.secondPatterns : opponent.patterns, [name, base, defense] = patterns[(turn - 1) % patterns.length];
   const pressure = Math.max(0, turn - 12) * 2;
   const coachBonus = opponentId === 'coach-wenger' ? Math.floor((turn - 1) / 2) * 2 : opponentId === 'coach-ferguson' && turn >= 5 ? 4 : 0;
-  const attack = base + pressure + coachBonus;
+  const attack = base + pressure + coachBonus + (opponentId === 'legend-zidane' ? Math.floor((turn - 1) / 4) * 2 : 0);
   const counterDamage = opponentId === 'legend' && (turn - 1) % 3 === 0 ? 3 : 0;
   const rule = opponentId === 'legend' ? `${counterDamage ? '첫 공격에 체력 3 반사(방어 무시) · ' : ''}드리블로 상대 방어 6 파괴`
-    : opponent.coach ? (secondPhase ? '후반 역습 태세 · ' : '') + opponent.mechanic : '';
+    : opponent.coach ? (secondPhase ? '후반 역습 태세 · ' : '') + opponent.mechanic : opponent.mechanic ?? '';
   return { name: name + (pressure ? ' · 고조' : ''), attack, defense,
     description: `턴 종료 시 피해 ${attack}. 이번 턴 상대 방어 ${defense}.${pressure ? ` 장기전으로 공격 +${pressure}.` : ''}${rule ? ` ${rule}` : ''}`,
     ...(rule ? { rule } : {}), ...(opponentId === 'legend' ? { counterDamage, dribbleBreak: 6 } : {}) };
@@ -247,14 +272,15 @@ function nextRound(run) {
   for (const card of m.played) (card.id === 'focus' ? m.exhaust : m.discard).push(card);
   m.hand = []; m.played = []; m.energy = m.maxEnergy; m.chance = 0;
   m.defense = has(run, 'training-kit') ? 3 : 0; m.defenseCardPlayed = false; m.dribbleCardPlayed = false;
+  m.passCardPlayed = false; m.tacticCardPlayed = false; m.shotCardPlayed = false; m.tempoTriggered = false;
   m.intentHp = m.enemyHp; m.intent = intentFor(m.opponentId, m.turn, m.intentHp); m.enemyBlock = m.intent.defense;
   m.counterReady = (m.intent.counterDamage ?? 0) > 0;
   drawCards(run, has(run, 'scouting-bag') ? 6 : 5);
 }
 function startMatch(run, opponentId) {
   const maxEnergy = has(run, 'energy-flask') ? 4 : 3, enemyMaxHp = OPPONENTS[opponentId].maxHp;
-  run.phase = 'match';
-  run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: 0,
+  run.phase = 'match'; run.relicOffers = [];
+  run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: has(run, 'burst-laces') ? 3 : 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
     hand: [], draw: shuffle(run, clone(run.deck)), discard: [], exhaust: [], played: [], intent: null,
     lastOutcome: null, history: [], status: 'playing' };
@@ -273,11 +299,11 @@ function nodeRecord(run, result) {
 }
 function finishNode(run, result) {
   run.history.push(nodeRecord(run, result));
-  run.activeNode = null; run.match = null; run.offers = []; run.shopOffers = []; run.rewardRelic = null; run.routeIndex++;
+  run.activeNode = null; run.match = null; run.offers = []; run.relicOffers = []; run.shopOffers = []; run.rewardRelic = null; run.routeIndex++;
   run.phase = run.routeIndex >= routeFor(run).length ? 'victory' : 'map';
 }
 function failRun(run, reason) {
-  run.phase = 'defeat'; run.message = reason;
+  run.phase = 'defeat'; run.message = reason; run.relicOffers = [];
   if (run.match) run.match.status = 'lost';
   run.history.push(nodeRecord(run, 'defeat')); run.activeNode = null;
 }
@@ -292,11 +318,11 @@ function winDuel(run) {
   const reward = opponent.reward + (has(run, 'lucky-coin') ? 10 : 0);
   run.gold += reward; run.phase = 'reward';
   run.rewardRelic = null;
-  if (m.opponentId === 'legend' && !has(run, 'libero-seal')) { run.relics.push('libero-seal'); run.rewardRelic = 'libero-seal'; }
+  run.relicOffers = run.activeNode.type === 'elite' ? (opponent.eliteRelics ?? []).filter(id => !has(run, id)) : [];
   if (has(run, 'golden-whistle')) run.condition = Math.min(run.maxCondition, run.condition + 5);
   const pool = shuffle(run, Object.keys(CARDS)); run.offers = pool.slice(0, 3);
   if (run.activeNode.type === 'elite' && !run.offers.some(id => CARDS[id].rarity === 'rare')) run.offers[0] = pool.find(id => CARDS[id].rarity === 'rare');
-  run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +5' : ''}${run.rewardRelic ? ', 리베로의 증표 획득' : ''}. 카드 1장을 선택하거나 건너뛰세요.`;
+  run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +5' : ''}. ${run.relicOffers.length ? '전용 유물 1개를 먼저 고른 뒤 ' : ''}카드 1장을 선택하거나 건너뛰세요.`;
 }
 function dealDamage(run, power) {
   const m = run.match, absorbed = Math.min(m.enemyBlock, power);
@@ -329,13 +355,33 @@ function playCard(run, uid) {
   if (CARDS[card.id].type === 'dribble') {
     if (has(run, 'swift-boots')) m.momentum++;
     if (!m.dribbleCardPlayed && has(run, 'libero-seal')) m.defense += 4;
+    if (!m.dribbleCardPlayed && has(run, 'street-rhythm')) m.momentum += 2;
     m.dribbleCardPlayed = true;
     m.enemyBlock = Math.max(0, m.enemyBlock - (m.intent.dribbleBreak ?? 0));
   }
-  if (CARDS[card.id].type === 'shot') { damage += m.momentum * (card.id === 'volley' ? 2 : 1) + (has(run, 'power-cleats') ? 3 : 0); m.momentum = 0; }
+  if (CARDS[card.id].type === 'pass') {
+    if (!m.passCardPlayed && has(run, 'maestro-touch')) m.momentum += 2;
+    if (!m.passCardPlayed && has(run, 'ankle-tape')) m.defense += 3;
+    m.passCardPlayed = true;
+  }
+  if (CARDS[card.id].type === 'tactic') {
+    if (!m.tacticCardPlayed && has(run, 'roulette-rune')) drawCards(run, 1);
+    m.tacticCardPlayed = true;
+  }
+  if (CARDS[card.id].type === 'shot') {
+    if (!m.shotCardPlayed && has(run, 'fenom-cleats')) damage += 5;
+    if (!m.shotCardPlayed && has(run, 'playmaker-lens') && m.momentum >= 3) damage += 4;
+    if (has(run, 'nine-crest') && m.enemyHp <= m.enemyMaxHp / 2) damage += 3;
+    damage += m.momentum * (card.id === 'volley' ? 2 : 1) + (has(run, 'power-cleats') ? 3 : 0);
+    m.momentum = 0; m.shotCardPlayed = true;
+  }
   if (CARDS[card.id].type === 'defense') {
     if (!m.defenseCardPlayed && has(run, 'grip-socks')) m.defense += 2;
+    if (!m.defenseCardPlayed && has(run, 'catenaccio-band')) m.defense += 3;
     m.defenseCardPlayed = true;
+  }
+  if (has(run, 'tempo-charm') && m.dribbleCardPlayed && m.shotCardPlayed && !m.tempoTriggered) {
+    m.energy = Math.min(m.maxEnergy, m.energy + 1); m.tempoTriggered = true;
   }
   if (damage > 0) {
     if (m.counterReady) { reflectedDamage = Math.min(run.condition, m.intent.counterDamage); run.condition -= reflectedDamage; m.counterReady = false; }
@@ -352,6 +398,7 @@ function playCard(run, uid) {
 function endTurn(run) {
   const m = run.match, incoming = forecast(run).incoming, blocked = Math.min(m.intent.attack, m.defense), damageTaken = Math.min(run.condition, incoming);
   run.condition -= damageTaken; run.stats.blocks += blocked; m.blocks += blocked;
+  if (run.condition > 0 && damageTaken === 0 && has(run, 'clean-sheet-crest')) run.condition = Math.min(run.maxCondition, run.condition + 2);
   outcome(run, damageTaken, blocked, `내가 준 피해 ${m.chance}. ${OPPONENTS[m.opponentId].name}의 반격 ${damageTaken}${blocked ? ` · 방어 ${blocked}` : ''}.`);
   if (run.condition <= 0) return failRun(run, '체력이 모두 소진되었습니다. 나만의 덱을 다시 다듬고 도전해 보세요.');
   m.turn++; nextRound(run);
@@ -386,8 +433,13 @@ export function act(run, action) {
     }
     case 'play-card': if (run.phase !== 'match' || !playCard(next, action.uid)) return run; return next;
     case 'end-turn': if (run.phase !== 'match') return run; endTurn(next); return next;
+    case 'take-elite-relic':
+      if (run.phase !== 'reward' || run.activeNode?.type !== 'elite' || !run.relicOffers.includes(action.id) || !OPPONENTS[run.match.opponentId].eliteRelics?.includes(action.id) || has(run, action.id)) return run;
+      next.relics.push(action.id); next.rewardRelic = action.id; next.relicOffers = [];
+      next.message = `${RELICS[action.id].name} 획득! 카드 1장을 선택하거나 건너뛰세요.`;
+      return next;
     case 'take-reward':
-      if (run.phase !== 'reward' || (action.id !== null && (!run.offers.includes(action.id) || run.deck.length >= 40))) return run;
+      if (run.phase !== 'reward' || run.relicOffers.length || (action.id !== null && (!run.offers.includes(action.id) || run.deck.length >= 40))) return run;
       if (action.id !== null) addCard(next, action.id);
       next.message = action.id === null ? '보상을 건너뛰고 다음 길로 향합니다.' : `${CARDS[action.id].name} 카드를 덱에 추가했습니다.`;
       finishNode(next, 'win'); return next;
@@ -442,22 +494,28 @@ export function validateSave(value) {
     if (encoded.length > 500000) return null;
     const run = JSON.parse(encoded);
     if (![2, 3].includes(run.schema) || !phases.includes(run.phase) || !integer(run.routeIndex, 0, run.schema === 3 ? 12 : ROUTE.length)) return null;
+    if (!Object.hasOwn(run, 'routeVersion')) run.routeVersion = 1;
+    if (![1, 2].includes(run.routeVersion)) return null;
+    if (!Object.hasOwn(run, 'relicOffers')) run.relicOffers = [];
     if (!Object.hasOwn(run, 'playerName')) run.playerName = '루키';
     else { const name = normalizedName(run.playerName); if (!name) return null; run.playerName = name; }
     if (!uniqueKnown(run.relics, RELICS, Object.keys(RELICS).length) || !uniqueKnown(run.offers, CARDS, 3) || !uniqueKnown(run.shopOffers, RELICS, 4) || run.shopOffers.some(id => run.relics.includes(id) || RELICS[id].shop === false)) return null;
+    if (!uniqueKnown(run.relicOffers, RELICS, 3) || run.relicOffers.some(id => has(run, id))) return null;
     if (!Object.hasOwn(run, 'starterRewardUnlocked')) run.starterRewardUnlocked = false;
     if (!Object.hasOwn(run, 'starterRelic')) run.starterRelic = null;
     if (typeof run.starterRewardUnlocked !== 'boolean' || (run.starterRelic !== null && (!STARTER_RELICS.includes(run.starterRelic) || !run.starterRewardUnlocked || !has(run, run.starterRelic)))) return null;
     if (run.maxCondition !== 100 + (has(run, 'captain-band') ? 15 : 0) || !integer(run.condition, 0, run.maxCondition) || !integer(run.gold, 0, 100000)) return null;
     if (!integer(run.seed, 0, 0xffffffff) || !integer(run.initialSeed, 0, 0xffffffff) || !integer(run.nextUid, 1, 100000)) return null;
     if (run.schema === 3) {
-      const canonical = generateRoute(run.initialSeed);
+      const canonical = generateRoute(run.initialSeed, run.routeVersion);
       if (!Array.isArray(run.route) || JSON.stringify(routeShape(run.route)) !== JSON.stringify(routeShape(canonical))) return null;
       run.route = canonical;
     }
     const route = routeFor(run);
     if (!Object.hasOwn(run, 'rewardRelic') && run.schema === 2) run.rewardRelic = null;
-    if (run.rewardRelic !== null && !(run.phase === 'reward' && run.rewardRelic === 'libero-seal' && has(run, 'libero-seal') && run.match?.opponentId === 'legend')) return null;
+    const elitePool = OPPONENTS[run.match?.opponentId]?.eliteRelics ?? [];
+    if (run.rewardRelic !== null && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && elitePool.includes(run.rewardRelic) && has(run, run.rewardRelic) && !run.relicOffers.length)) return null;
+    if (run.relicOffers.length && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && run.rewardRelic === null && JSON.stringify(run.relicOffers) === JSON.stringify(elitePool.filter(id => !has(run, id))))) return null;
     if (!shortText(run.message) || !record(run.stats) || !integer(run.stats.wins, 0, run.schema === 3 ? 6 : 4) || !integer(run.stats.damage, 0, 1000) || !integer(run.stats.blocks, 0, 100000) || run.stats.goals !== 0) return null;
     if (!Array.isArray(run.deck) || !integer(run.deck.length, 8, 40)) return null;
     const cards = new Map();
@@ -525,6 +583,14 @@ export function validateSave(value) {
       if (!Object.hasOwn(m, 'counterReady')) m.counterReady = false;
       if (!Object.hasOwn(m, 'intentHp')) m.intentHp = m.history?.[m.turn - 2]?.enemyHp ?? m.enemyMaxHp;
     }
+    for (const [flag, type] of [['passCardPlayed', 'pass'], ['tacticCardPlayed', 'tactic'], ['shotCardPlayed', 'shot']]) {
+      if (!Object.hasOwn(m, flag)) m[flag] = Array.isArray(m.played) && m.played.some(card => CARDS[card.id]?.type === type);
+      if (typeof m[flag] !== 'boolean') return null;
+    }
+    // A relic chosen after victory must not retroactively activate the finished turn.
+    const tempoOwnedDuringDuel = has(run, 'tempo-charm') && run.rewardRelic !== 'tempo-charm';
+    if (!Object.hasOwn(m, 'tempoTriggered')) m.tempoTriggered = tempoOwnedDuringDuel && m.dribbleCardPlayed && m.shotCardPlayed;
+    if (typeof m.tempoTriggered !== 'boolean') return null;
     if (![m.chance, m.defense, m.momentum].every(n => integer(n, 0, 10000)) || typeof m.defenseCardPlayed !== 'boolean' || typeof m.dribbleCardPlayed !== 'boolean' || typeof m.counterReady !== 'boolean') return null;
     if (!integer(m.intentHp, m.enemyHp, m.enemyMaxHp) || m.intentHp !== (m.history?.[m.turn - 2]?.enemyHp ?? m.enemyMaxHp)) return null;
     if (!integer(m.enemyBlock, 0, m.intent?.defense ?? -1) || m.damageDealt !== m.enemyMaxHp - m.enemyHp || !integer(m.blocks, 0, 100000)) return null;
@@ -541,7 +607,10 @@ export function validateSave(value) {
         used.add(card.uid);
       }
     }
-    if (m.dribbleCardPlayed !== m.played.some(card => CARDS[card.id].type === 'dribble')) return null;
+    for (const [flag, type] of [['dribbleCardPlayed', 'dribble'], ['defenseCardPlayed', 'defense'], ['passCardPlayed', 'pass'], ['tacticCardPlayed', 'tactic'], ['shotCardPlayed', 'shot']]) {
+      if (m[flag] !== m.played.some(card => CARDS[card.id].type === type)) return null;
+    }
+    if (m.tempoTriggered !== (tempoOwnedDuringDuel && m.dribbleCardPlayed && m.shotCardPlayed)) return null;
     if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !['cover', 'tackle', 'focus'].includes(card.id)))) return null;
     if (used.size !== cards.size || !Array.isArray(m.history) || m.history.length !== m.turn - Number(m.status === 'playing')) return null;
     let dealt = 0, blocked = 0;

@@ -18,8 +18,8 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const lerp = (a, b, p) => a + (b - a) * p;
 const snap = n => Math.round(n / 2) * 2;
 
-const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, cardTechnique: null, cardAttack: null, cardControl: null };
-const atlasFrames = { coaches: [], equipment: [], cardTechnique: [], cardAttack: [], cardControl: [] };
+const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, legends: null, eliteRelics: null, cardTechnique: null, cardAttack: null, cardControl: null };
+const atlasFrames = { coaches: [], equipment: [], legends: [], eliteRelics: [], cardTechnique: [], cardAttack: [], cardControl: [] };
 const CARD_ART = Object.freeze({
   'through-pass': ['cardTechnique', 0], 'quick-pass': ['cardTechnique', 1], 'one-two': ['cardTechnique', 2],
   'wall-pass': ['cardTechnique', 3], 'long-pass': ['cardTechnique', 4], dribble: ['cardTechnique', 5],
@@ -32,6 +32,12 @@ const CARD_TYPE_DEFAULTS = Object.freeze({ pass: 'through-pass', dribble: 'dribb
 const COACH_FRAMES = Object.freeze({
   'coach-mourinho': 0, 'coach-ancelotti': 1, 'coach-guardiola': 2, 'coach-arteta': 3,
   'coach-wenger': 4, 'coach-ferguson': 5, 'coach-klopp': 6,
+});
+const LEGEND_FRAMES = Object.freeze({ legend: 0, 'legend-zidane': 1, 'legend-ronaldo': 2, elite: 3 });
+const ELITE_RELIC_FRAMES = Object.freeze({
+  'libero-seal': 0, 'catenaccio-band': 1, 'clean-sheet-crest': 2, 'maestro-touch': 3,
+  'roulette-rune': 4, 'playmaker-lens': 5, 'fenom-cleats': 6, 'nine-crest': 7,
+  'burst-laces': 8, 'street-rhythm': 9, 'ankle-tape': 10, 'tempo-charm': 11,
 });
 const EQUIPMENT_FRAMES = Object.freeze({
   'swift-boots': 0, 'power-cleats': 1, 'training-kit': 2, 'captain-band': 3,
@@ -63,7 +69,7 @@ function characterBounds(pixels, imageWidth, x, y, width, height) {
   return best;
 }
 
-function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = null) {
+function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = null, characterPadding = 8) {
   const width=picture.naturalWidth,height=picture.naturalHeight;
   const frames=Array.from({length:columns*rows},(_,index)=>{
     const col=index%columns,row=Math.floor(index/columns),x=Math.round(col*width/columns),y=Math.round((rowEdges?.[row]??row/rows)*height);
@@ -80,7 +86,7 @@ function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = 
     return frames.map(([cellX,cellY,cellW,cellH])=>{
       // A pointing hand can cross a nominal cell edge. Keep the main connected
       // silhouette, excluding stray pixels from an adjacent coach or row.
-      const pad=characters?8:0,x=Math.max(0,cellX-pad),y=Math.max(0,cellY-pad);
+      const pad=characters?characterPadding:0,x=Math.max(0,cellX-pad),y=Math.max(0,cellY-pad);
       const w=Math.min(width,cellX+cellW+pad)-x,h=Math.min(height,cellY+cellH+pad)-y;
       let left=x+w,top=y+h,right=-1,bottom=-1;
       if(characters){
@@ -100,7 +106,7 @@ function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = 
 export function initArt() {
   if (artLoading) return artLoading;
   if (typeof Image === 'undefined') return Promise.resolve(Object.fromEntries(Object.keys(rasterArt).map(key => [key, false])));
-  const sources = { striker: 'striker.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png' };
+  const sources = { striker: 'striker.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', legends: 'legends.png', eliteRelics: 'elite-relics.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png' };
   artLoading = Promise.all(Object.entries(sources).map(([key, filename]) => new Promise(resolve => {
     const picture = new Image();
     picture.decoding = 'async';
@@ -108,6 +114,10 @@ export function initArt() {
       rasterArt[key] = picture;
       if(key==='coaches')atlasFrames.coaches=readAtlasFrames(picture,4,2,true);
       if(key==='equipment')atlasFrames.equipment=readAtlasFrames(picture,4,3);
+      // Use each atlas's empty gutters; connected bounds keep the wide Ronaldo
+      // stance intact without including a neighbouring figure's boots.
+      if(key==='legends')atlasFrames.legends=readAtlasFrames(picture,2,2,true,[0,.52,1],24);
+      if(key==='eliteRelics')atlasFrames.eliteRelics=readAtlasFrames(picture,4,3,false,[0,1/3,.65,1]);
       // The focus halo begins above the mathematical midline; all three sheets
       // have an empty gutter at 46%, so no adjacent action leaks into a crop.
       if(key.startsWith('card'))atlasFrames[key]=readAtlasFrames(picture,3,2,false,[0,.46,1]);
@@ -401,7 +411,8 @@ function drawLegendRune(ctx, x, y, scale) {
 export function drawPitch(ctx, options = {}) {
   const width=options.width||ctx.canvas.width||960, height=options.height||ctx.canvas.height||400;
   const animation=options.animation, p=clamp(Number(animation?.progress)||0,0,1), type=animation?.type;
-  const legendary=options.opponentId==='legend';
+  const defender=options.opponentId==='legend';
+  const legendary=defender||options.opponentId==='legend-zidane'||options.opponentId==='legend-ronaldo';
   ctx.save(); ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#101722'; ctx.fillRect(0,0,width,height);
   ctx.save();
@@ -422,8 +433,10 @@ export function drawPitch(ctx, options = {}) {
   const scale=height/400,stageWidth=width/scale,mobile=width<=520;
   ctx.scale(scale,scale);
   const heroAnchor=stageWidth*(mobile?.23:.292),enemyAnchor=stageWidth*(mobile?.77:.708);
+  const legendIndex=LEGEND_FRAMES[options.opponentId],legendCrop=atlasFrames.legends[legendIndex];
+  const enemyHalfWidth=legendCrop?118*legendCrop[2]/legendCrop[3]+4:98;
   // Only extremely narrow/tall layouts need an extra, continuous size reduction.
-  const fit=Math.min(1,Math.max(.2,(Math.min(heroAnchor,stageWidth-enemyAnchor)-12)/98));
+  const fit=Math.min(1,Math.max(.2,(Math.min(heroAnchor,stageWidth-enemyAnchor)-12)/Math.max(98,enemyHalfWidth)));
   let heroX=heroAnchor,enemyX=enemyAnchor;
   const heroY=340,enemyY=340,pulse=Math.sin(p*Math.PI);
   const breathing=Math.sin((Number(options.time)||0)/720)*1.2*fit;
@@ -443,11 +456,12 @@ export function drawPitch(ctx, options = {}) {
   const enemyHit=(type==='shot'||type==='goal')&&p>.58&&p<.78?.4:0;
   const heroHit=type==='concede'&&p>.35&&p<.65?.35:0;
   const coachIndex=COACH_FRAMES[options.opponentId],coachCrop=atlasFrames.coaches[coachIndex];
-  if(rasterArt.coaches&&coachCrop)drawRasterFighter(ctx,rasterArt.coaches,enemyX,enemyY,{crop:coachCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
+  if(rasterArt.legends&&legendCrop)drawRasterFighter(ctx,rasterArt.legends,enemyX,enemyY,{crop:legendCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
+  else if(rasterArt.coaches&&coachCrop)drawRasterFighter(ctx,rasterArt.coaches,enemyX,enemyY,{crop:coachCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
   else if(rasterArt.rival)drawRasterFighter(ctx,rasterArt.rival,enemyX,enemyY,{crop:[116,111,929,1257],height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
   else {ctx.save();ctx.translate(enemyX,enemyY);ctx.scale(fit*236/240,fit*236/240);drawDuelist(ctx,0,0,{home:false,shirt:options.opponentColor,hit:enemyHit});ctx.restore();}
   // This heraldic shield sits beside the torso, leaving the face and intent panel clear.
-  if(legendary) {
+  if(defender) {
     drawDefenderShield(ctx,enemyX-78*fit,enemyY-132*fit,.8*fit);
     cross(ctx,enemyX-92*fit,enemyY-155*fit,4*fit,'#e9d194');
   }
@@ -601,12 +615,15 @@ export function drawItemArt(ctx, category = 'rune', options = {}) {
   const width = options.width || ctx.canvas.width || 64;
   const height = options.height || ctx.canvas.height || 48;
   const index = EQUIPMENT_FRAMES[options.id] ?? EQUIPMENT_CATEGORIES[category];
-  const crop = atlasFrames.equipment[index];
-  if (rasterArt.equipment && crop) {
+  const eliteCrop = atlasFrames.eliteRelics[ELITE_RELIC_FRAMES[options.id]];
+  const useElite = rasterArt.eliteRelics && eliteCrop;
+  const picture = useElite ? rasterArt.eliteRelics : rasterArt.equipment;
+  const crop = useElite ? eliteCrop : atlasFrames.equipment[index];
+  if (picture && crop) {
     ctx.save(); ctx.imageSmoothingEnabled=false; ctx.clearRect(0,0,width,height);
     const scale=Math.min(width*.92/crop[2],height*.92/crop[3]);
     const drawWidth=crop[2]*scale,drawHeight=crop[3]*scale;
-    ctx.drawImage(rasterArt.equipment,...crop,(width-drawWidth)/2,(height-drawHeight)/2,drawWidth,drawHeight);
+    ctx.drawImage(picture,...crop,(width-drawWidth)/2,(height-drawHeight)/2,drawWidth,drawHeight);
     ctx.restore();
     return;
   }

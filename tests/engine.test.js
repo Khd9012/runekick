@@ -50,7 +50,9 @@ function completeJourney(seed, { checkpoint = false, elite = false, event = fals
         run = act(run, { type: 'choose-node', id: choices[run.routeIndex] ?? ROUTE[run.routeIndex].choices[0].id }); break;
       }
       case 'match': run = finishDuel(run, checkpoint); break;
-      case 'reward': run = act(run, { type: 'take-reward', id: rewardOrder.find(id => run.offers.includes(id)) }); break;
+      case 'reward':
+        if (run.relicOffers.length) run = act(run, { type: 'take-elite-relic', id: run.relicOffers[0] });
+        run = act(run, { type: 'take-reward', id: rewardOrder.find(id => run.offers.includes(id)) }); break;
       case 'training': {
         const card = ['power-shot', 'shot', 'feint', 'switch'].flatMap(id => run.deck.filter(c => c.id === id && !c.upgraded))[0];
         run = act(run, { type: 'upgrade-card', uid: card.uid }); break;
@@ -475,7 +477,9 @@ function completeNewJourney(seed, { elites = 0, checkpoint = false, stopStage = 
         run = act(run, { type: 'choose-node', id: node.id }); break;
       }
       case 'match': run = finishDuel(run, checkpoint); break;
-      case 'reward': run = act(run, { type: 'take-reward', id: rewardOrder.find(id => run.offers.includes(id)) }); break;
+      case 'reward':
+        if (run.relicOffers.length) run = act(run, { type: 'take-elite-relic', id: run.relicOffers[0] });
+        run = act(run, { type: 'take-reward', id: rewardOrder.find(id => run.offers.includes(id)) }); break;
       case 'training': {
         const card = [...['power-shot', 'shot', 'feint', 'switch'].flatMap(id => run.deck.filter(c => c.id === id && !c.upgraded)), ...run.deck.filter(c => !c.upgraded)][0];
         run = card ? act(run, { type: 'upgrade-card', uid: card.uid }) : act(run, { type: 'leave-node' }); break;
@@ -492,6 +496,9 @@ function completeNewJourney(seed, { elites = 0, checkpoint = false, stopStage = 
   return { run, trace };
 }
 function newEncounterFixture(seed, stage, opponentId, ids) {
+  for (let attempt = 0; !routeFor(createNewRun(seed))[stage].choices.some(node => node.opponentId === opponentId); attempt++) {
+    assert.ok(attempt < 64, `seed containing ${opponentId}`); seed = `${seed}:${attempt}`;
+  }
   const journey = completeNewJourney(seed, { stopStage: stage });
   let run = journey.run;
   assert.equal(run.phase, 'map'); assert.equal(run.routeIndex, stage);
@@ -584,9 +591,13 @@ test('legend rewards guarantee a rare option, currency and one exclusive relic t
   const gold = run.gold, before = copy(run);
   run = finishDuel(run, true);
   assert.equal(run.phase, 'reward'); assert.equal(run.gold, gold + 65); assert.ok(run.offers.some(id => CARDS[id].rarity === 'rare'));
+  assert.deepEqual(run.relicOffers, ['libero-seal', 'catenaccio-band', 'clean-sheet-crest']); assert.equal(run.rewardRelic, null); assert.ok(!run.relics.includes('libero-seal'));
+  assert.equal(act(run, { type: 'take-reward', id: null }), run);
+  run = act(run, { type: 'take-elite-relic', id: 'libero-seal' });
   assert.equal(run.rewardRelic, 'libero-seal'); assert.equal(run.relics.filter(id => id === 'libero-seal').length, 1); assert.equal(RELICS['libero-seal'].category, 'medal');
   const duplicate = copy(before); duplicate.relics.push('libero-seal'); const second = finishDuel(duplicate, true);
   assert.equal(second.phase, 'reward'); assert.equal(second.rewardRelic, null); assert.equal(second.gold, gold + 65); assert.equal(second.relics.filter(id => id === 'libero-seal').length, 1);
+  assert.deepEqual(second.relicOffers, ['catenaccio-band', 'clean-sheet-crest']);
   let next = act(run, { type: 'take-reward', id: null }); assert.equal(next.rewardRelic, null);
   const shop = availableNodes(next).find(n => n.type === 'shop');
   if (shop) { next = act(next, { type: 'choose-node', id: shop.id }); assert.ok(!next.shopOffers.includes('libero-seal')); assert.equal(act(next, { type: 'buy-relic', id: 'libero-seal' }), next); }
