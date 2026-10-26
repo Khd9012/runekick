@@ -402,7 +402,7 @@ test('legacy early-shop recovery preserves a purchased bag, HP, currency and dec
   assert.equal(restored.condition, 96); assert.equal(restored.gold, 10); assert.equal(restored.deck.length, 13);
   for (const field of ['deck', 'relics', 'stats', 'seed', 'initialSeed', 'nextUid', 'maxCondition']) assert.deepEqual(restored[field], old[field]);
   assert.equal(restored.history[1].nodeId, 'early-shop'); assert.equal(restored.history[1].type, 'shop'); assert.equal(restored.history[1].result, 'skip');
-  assert.equal(restored.history[1].name, '길모퉁이 장비점'); assert.equal(restored.history[1].description, '첫 보상 코인으로 나에게 맞는 유물을 찾아보세요.');
+  assert.equal(restored.history[1].name, '동네 스포츠점'); assert.equal(restored.history[1].description, '첫 보상 코인으로 나에게 맞는 유물을 찾아보세요.');
   assert.deepEqual(validateSave(restored), restored, 'migration is idempotent');
   assert.equal(act(restored, { type: 'choose-node', id: 'early-shop' }), restored);
   assert.equal(act(restored, { type: 'buy-relic', id: 'grip-socks' }), restored);
@@ -422,14 +422,14 @@ test('legacy final-shop and historical visits remain recoverable only at their o
   old.phase = 'shop'; old.activeNode = { id: 'final-shop', type: 'shop', name: '옛 노점', description: '옛 안내' }; old.shopOffers = ['grip-socks'];
   const restored = validateSave(old);
   assert.ok(restored); assert.equal(restored.routeIndex, 6); assert.equal(restored.phase, 'map');
-  assert.equal(restored.history[5].nodeId, 'final-shop'); assert.equal(restored.history[5].name, '선발장 앞 노점');
+  assert.equal(restored.history[5].nodeId, 'final-shop'); assert.equal(restored.history[5].name, '백화점 스포츠관');
   for (const field of ['condition', 'gold', 'deck', 'relics', 'stats']) assert.deepEqual(restored[field], old[field]);
   assert.deepEqual(validateSave(restored), restored);
   assert.equal(act(restored, { type: 'choose-node', id: 'final-shop' }), restored);
   const resumed = act(restored, { type: 'choose-node', id: 'championship' }); assert.equal(resumed.phase, 'match'); assert.ok(validateSave(resumed));
   const swapped = copy(restored); swapped.history[5].nodeId = 'early-shop'; assert.equal(validateSave(swapped), null);
   const mislabeled = copy(restored); mislabeled.history[5].name = '옛 이름'; mislabeled.history[5].description = '옛 설명';
-  const normalized = validateSave(mislabeled); assert.ok(normalized); assert.equal(normalized.history[5].name, '선발장 앞 노점');
+  const normalized = validateSave(mislabeled); assert.ok(normalized); assert.equal(normalized.history[5].name, '백화점 스포츠관');
 });
 
 test('a full seven-stage personal victory is deterministic through save recovery in every phase', () => {

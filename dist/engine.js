@@ -60,6 +60,7 @@ export const RELICS = Object.freeze({
   'golden-whistle': { id: 'golden-whistle', name: '스카우트의 호루라기', category: 'whistle', rarity: 'uncommon', description: '대결에서 승리할 때마다 내 체력 5 회복.', price: 45 },
   'libero-seal': { id: 'libero-seal', name: '리베로의 증표', category: 'medal', rarity: 'legendary', shop: false, description: '매 턴 첫 드리블 카드 사용 시 방어 +4. 전설의 수비수를 꺾어 획득.', price: 0 },
 });
+export const STARTER_RELICS = Object.freeze(['power-cleats', 'swift-boots', 'training-kit']);
 export const OPPONENTS = Object.freeze({
   school: { id: 'school', name: '민준', subtitle: '재빠른 윙어 · 첫 번째 라이벌', color: '#70c9e8', maxHp: 42, reward: 25,
     patterns: [['가벼운 견제', 7, 2], ['빠른 발놀림', 9, 0], ['거리 재기', 6, 4], ['전력 돌파', 11, 0]] },
@@ -213,7 +214,7 @@ function normalizedName(value) {
 }
 export function createRun(seed, playerName = '루키') {
   const initialSeed = seedNumber(seed), run = { schema: 3, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
-    playerName: normalizedName(playerName) ?? '루키',
+    playerName: normalizedName(playerName) ?? '루키', starterRewardUnlocked: false, starterRelic: null,
     deck: [], relics: [], offers: [], shopOffers: [], seed: initialSeed, initialSeed, nextUid: 1,
     stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
   ['through-pass', 'through-pass', 'quick-pass', 'dribble', 'dribble', 'feint', 'shot', 'shot', 'cover', 'cover', 'intercept', 'switch'].forEach(id => addCard(run, id));
@@ -359,6 +360,16 @@ export function act(run, action) {
   if (!run || !action || typeof action.type !== 'string' || (['victory', 'defeat'].includes(run.phase) && action.type !== 'rename-player')) return run;
   const next = clone(run);
   switch (action.type) {
+    case 'complete-tutorial':
+      if (run.starterRewardUnlocked) return run;
+      next.starterRewardUnlocked = true; return next;
+    case 'take-starter-relic': {
+      if (!run.starterRewardUnlocked || run.starterRelic !== null || !STARTER_RELICS.includes(action.id) || has(run, action.id)) return run;
+      next.relics.push(action.id); next.starterRelic = action.id;
+      next.shopOffers = next.shopOffers.filter(id => id !== action.id);
+      if (action.id === 'training-kit' && next.phase === 'match' && next.match.turn === 1 && !next.match.played.length) next.match.defense += 3;
+      return next;
+    }
     case 'rename-player': {
       const name = normalizedName(action.name);
       if (!name || name === run.playerName) return run;
@@ -434,6 +445,9 @@ export function validateSave(value) {
     if (!Object.hasOwn(run, 'playerName')) run.playerName = '루키';
     else { const name = normalizedName(run.playerName); if (!name) return null; run.playerName = name; }
     if (!uniqueKnown(run.relics, RELICS, Object.keys(RELICS).length) || !uniqueKnown(run.offers, CARDS, 3) || !uniqueKnown(run.shopOffers, RELICS, 4) || run.shopOffers.some(id => run.relics.includes(id) || RELICS[id].shop === false)) return null;
+    if (!Object.hasOwn(run, 'starterRewardUnlocked')) run.starterRewardUnlocked = false;
+    if (!Object.hasOwn(run, 'starterRelic')) run.starterRelic = null;
+    if (typeof run.starterRewardUnlocked !== 'boolean' || (run.starterRelic !== null && (!STARTER_RELICS.includes(run.starterRelic) || !run.starterRewardUnlocked || !has(run, run.starterRelic)))) return null;
     if (run.maxCondition !== 100 + (has(run, 'captain-band') ? 15 : 0) || !integer(run.condition, 0, run.maxCondition) || !integer(run.gold, 0, 100000)) return null;
     if (!integer(run.seed, 0, 0xffffffff) || !integer(run.initialSeed, 0, 0xffffffff) || !integer(run.nextUid, 1, 100000)) return null;
     if (run.schema === 3) {

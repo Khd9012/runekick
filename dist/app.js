@@ -1,10 +1,12 @@
-import { CARDS, RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes } from './engine.js';
+import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes } from './engine.js';
 import { drawPitch, drawCardArt, drawItemArt, initArt } from './art.js';
+import { createTutorial } from './tutorial.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SAVE_KEY = 'runekick-personal-v2';
 const SOUND_KEY = 'runekick-sound-v1';
+const TUTORIAL_KEY = 'runekick-tutorial-v1';
 const CARD_CATEGORIES = {
   attack: { name: '공격', icon: '<path d="m5 19 3-3m-3-3 6 6m-3-7 9-9 4-1-1 4-9 9"/>' },
   defense: { name: '수비', icon: '<path d="m12 3 8 3v5c0 5-8 10-8 10S4 16 4 11V6l8-3Z"/><path d="m8 11 3 3 5-6"/>' },
@@ -21,6 +23,34 @@ let run = load();
 const firstVisit = !run;
 if (!run) run = startRun();
 try { sound = localStorage.getItem(SOUND_KEY) === 'true'; } catch { /* Browser storage may be disabled. */ }
+let tutorialStatus = '';
+try { tutorialStatus = localStorage.getItem(TUTORIAL_KEY) || ''; } catch { /* Learning also works without storage. */ }
+let tutorialWelcomePending = firstVisit && !['completed', 'skipped'].includes(tutorialStatus);
+const tutorial = createTutorial({
+  renderCard: (card, context) => cardHTML(card, 'tutorial', 0, context),
+  paintCards,
+  rewardAvailable: canEarnStarterReward,
+  completionLabel: () => canEarnStarterReward() ? '시작 장비 고르기 →' : '경기로 돌아가기',
+  onClose: result => {
+    tutorialStatus = result;
+    try { localStorage.setItem(TUTORIAL_KEY, result); } catch { /* Optional preference. */ }
+    if (result === 'completed' && canEarnStarterReward()) {
+      if (changedElsewhere) return toast('다른 창의 진행이 변경됐어요. 새로고침 후 튜토리얼을 다시 완료해 주세요.');
+      run = act(run, { type: 'complete-tutorial' });
+      save(); render();
+      return showStarterReward();
+    }
+    toast(result === 'completed' ? '연습 완료! 이제 나만의 경기를 시작하세요.' : '튜토리얼을 건너뛰었어요. 메뉴에서 다시 볼 수 있어요.');
+  },
+});
+function showTutorial() {
+  if (busy || tutorial.active) return;
+  tutorialWelcomePending = false;
+  $('dialog').close(); $('route-dialog').close();
+  tutorialStatus = 'active';
+  try { localStorage.setItem(TUTORIAL_KEY, tutorialStatus); } catch { /* Optional preference. */ }
+  tutorial.open();
+}
 
 function startRun(playerName = '루키') {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -100,15 +130,17 @@ function cardEffectHTML(card) {
   const rules = notes.map(note => esc(note).replace(/(\+?\d+)/g, '<b class="card-rule-number">$1</b>')).join(' ');
   return `<span class="card-stat"><span>${label}</span><strong class="card-effect-number">${effect[2]}</strong></span>${rules ? `<span class="card-rules">${rules}</span>` : ''}`;
 }
-function cardHTML(card, mode = 'view', index = 0) {
+function cardHTML(card, mode = 'view', index = 0, context = {}) {
   const def = CARDS[card.id]; if (!def) return '';
   const category = def.type === 'defense' ? 'defense' : ['shot', 'pass'].includes(def.type) ? 'attack' : 'skill';
   const categoryInfo = CARD_CATEGORIES[category];
-  const unaffordable = mode === 'hand' && costOf(card) > run.match.energy;
-  const isSelected = mode === 'hand' ? selected === card.uid : mode === 'reward' && rewardSelection === card.id;
+  const practice = mode === 'tutorial';
+  const unaffordable = (mode === 'hand' && costOf(card) > run.match.energy) || (practice && costOf(card) > context.energy);
+  const isSelected = practice ? context.selectedUid === card.uid : mode === 'hand' ? selected === card.uid : mode === 'reward' && rewardSelection === card.id;
+  const expected = practice && context.allowedCardId === card.id;
   const tag = mode === 'view' ? 'article' : 'button';
-  const data = mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : '';
-  return `<${tag} class="card ${def.type} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}" ${data} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${costOf(card)}, ${esc(cardText(card))}${unaffordable ? ' 에너지 부족.' : ''}" aria-pressed="${isSelected}"` : ''}>
+  const data = practice ? `data-tutorial-hand="${esc(card.uid)}"` : mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : '';
+  return `<${tag} class="card ${def.type} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}${expected ? ' tutorial-card-target' : ''}" ${data} ${practice && !expected ? 'disabled' : ''} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${costOf(card)}, ${esc(cardText(card))}${unaffordable ? ' 에너지 부족.' : ''}" aria-pressed="${isSelected}"` : ''}>
     <span class="card-top"><span class="card-cost">${costOf(card)}</span><span class="card-title">${esc(def.name)}${card.upgraded ? '<span class="upmark"> +</span>' : ''}</span></span>
     <canvas class="card-art" data-art="${def.type}" data-card-id="${def.id}" data-upgraded="${!!card.upgraded}" width="384" height="240" aria-hidden="true"></canvas>
     <span class="card-type"><span><svg class="card-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${categoryInfo.icon}</svg>${categoryInfo.name}${CARD_SUBTYPES[def.type] ? `<small class="card-subtype">· ${CARD_SUBTYPES[def.type]}</small>` : ''}</span><span class="card-rarity">${RARITY_NAMES[def.rarity]}</span></span>
@@ -235,11 +267,11 @@ function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장
   openDialog(title, cards.length ? `<div class="dialog-cards">${cards.map(c => cardHTML(c)).join('')}</div>` : '<p class="dialog-copy">아직 카드가 없어요.</p>');
 }
 function showHelp() {
-  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 카드 터치 → 카드 사용. 손패는 좌우로 넘겨보세요.<br>공격수 1명 · 기술 18종 · 아이템 10종 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 레전드는 선택해서 도전하며, 승리하면 희귀 카드와 첫 전용 유물을 얻습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><button class="button primary" data-action="close">내 플레이를 시작하자 →</button></div>');
+  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 카드 터치 → 카드 사용. 손패는 좌우로 넘겨보세요.<br>공격수 1명 · 기술 18종 · 아이템 10종 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 레전드는 선택해서 도전하며, 승리하면 희귀 카드와 첫 전용 유물을 얻습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>');
 }
 function showMenu() {
   const previous = previousJourney();
-  openDialog('라커룸', `<div class="dialog-copy"><strong>${esc(run.playerName||'루키')}의 이야기는 저장되어 있어요.</strong><p>언제든 돌아와 지금의 카드와 대결 상황으로 이어할 수 있습니다.</p><div class="choice-grid"><button class="choice-button" data-action="rename"><strong>선수 이름 변경</strong><small>덱과 진행 상황은 그대로 유지</small></button><button class="choice-button" data-action="deck"><strong>나의 덱</strong><small>카드와 강화 상태 확인</small></button><button class="choice-button" data-action="help"><strong>플레이 방법</strong><small>피해, 방어와 카드의 규칙</small></button><button class="choice-button" data-action="equipment"><strong>내 아이템</strong><small>보유한 아이템 효과 확인</small></button><button class="choice-button" data-action="sound"><strong>소리 ${sound ? '끄기' : '켜기'}</strong><small>경기 효과음 ${sound ? '켜짐' : '꺼짐'}</small></button><button class="choice-button" data-action="credits"><strong>아트 크레딧</strong><small>에셋 제작 및 출처</small></button>${previous ? `<button class="choice-button" data-action="restore-previous"><strong>이전 지도에서 하던 도전</strong><small>체력 ${previous.condition} · 골드 ${previous.gold} · 아이템 ${previous.relics.length}개를 되살려 이어하기</small></button>` : ''}<button class="choice-button" data-action="restart-confirm"><strong>새로운 도전</strong><small>현재 도전을 끝내고 다시 시작</small></button></div></div>`);
+  openDialog('라커룸', `<div class="dialog-copy"><strong>${esc(run.playerName||'루키')}의 이야기는 저장되어 있어요.</strong><p>언제든 돌아와 지금의 카드와 대결 상황으로 이어할 수 있습니다.</p><div class="choice-grid">${starterRewardPending() ? '<button class="choice-button" data-action="starter-reward"><strong>시작 장비 받기</strong><small>완료한 튜토리얼의 장비 1개 선택</small></button>' : ''}<button class="choice-button" data-action="rename"><strong>선수 이름 변경</strong><small>덱과 진행 상황은 그대로 유지</small></button><button class="choice-button" data-action="deck"><strong>나의 덱</strong><small>카드와 강화 상태 확인</small></button><button class="choice-button" data-action="tutorial"><strong>튜토리얼</strong><small>직접 연습하기 · 언제든 전체 건너뛰기</small></button><button class="choice-button" data-action="help"><strong>플레이 방법</strong><small>피해, 방어와 카드의 규칙</small></button><button class="choice-button" data-action="equipment"><strong>내 아이템</strong><small>보유한 아이템 효과 확인</small></button><button class="choice-button" data-action="sound"><strong>소리 ${sound ? '끄기' : '켜기'}</strong><small>경기 효과음 ${sound ? '켜짐' : '꺼짐'}</small></button><button class="choice-button" data-action="credits"><strong>아트 크레딧</strong><small>에셋 제작 및 출처</small></button>${previous ? `<button class="choice-button" data-action="restore-previous"><strong>이전 지도에서 하던 도전</strong><small>체력 ${previous.condition} · 골드 ${previous.gold} · 아이템 ${previous.relics.length}개를 되살려 이어하기</small></button>` : ''}<button class="choice-button" data-action="restart-confirm"><strong>새로운 도전</strong><small>현재 도전을 끝내고 다시 시작</small></button></div></div>`);
 }
 function previousJourney() {
   try { const raw=JSON.parse(localStorage.getItem(`${SAVE_KEY}-previous-version`)); return raw && (['early-shop','final-shop'].includes(raw.activeNode?.id) || raw.history?.some(h=>['early-shop','final-shop'].includes(h.nodeId))) ? validateSave(raw) : null; } catch { return null; }
@@ -256,9 +288,30 @@ function showEquipment() {
   openDialog('나의 아이템 · 효과 누적', run.relics.length ? run.relics.map(id=>`<div class="equipped-item">${itemCanvas(RELICS[id])}<div><strong>${esc(RELICS[id].name)}</strong><p>${esc(RELICS[id].description)}</p></div></div>`).join('') : '<p class="dialog-copy">아직 아이템이 없어요. 상대를 이겨 골드를 모은 뒤 지도 중간의 상점 지점을 선택해 나만의 조합을 만들어보세요.</p>');
 }
 
+function canEarnStarterReward() {
+  return !run.starterRelic && !['victory', 'defeat'].includes(run.phase) && STARTER_RELICS.some(id => !run.relics.includes(id));
+}
+function starterRewardPending() { return run.starterRewardUnlocked && canEarnStarterReward(); }
+function showStarterReward() {
+  if (!starterRewardPending()) return;
+  const roles = ['공격 강화', '기세 강화', '방어 강화'];
+  openDialog('튜토리얼 완료 · 시작 장비', `<section class="starter-reward"><span class="phase-eyebrow">YOUR FIRST GEAR</span><h3>나만의 플레이를 골라보세요.</h3><p>장비 3개 중 하나를 무료로 받습니다. 선택 즉시 적용되며 이번 도전 동안 유지됩니다.</p><div class="starter-reward-grid">${STARTER_RELICS.map((id, i) => {
+    const relic = RELICS[id], owned = run.relics.includes(id);
+    return `<article class="shop-item"><span class="item-tag">${roles[i]}</span>${itemCanvas(relic)}<h4>${esc(relic.name)}</h4><p>${esc(relic.description)}</p><button data-starter-relic="${id}" aria-label="${esc(relic.name)} 선택"${owned ? ' disabled' : ''}>${owned ? '이미 보유한 장비' : '이 장비로 시작 →'}</button></article>`;
+  }).join('')}</div><p>한 도전에서 한 번만 받을 수 있어요. 창을 닫아도 메뉴의 ‘시작 장비 받기’에서 이어서 선택할 수 있습니다.</p></section>`);
+}
+function takeStarterReward(id) {
+  if (changedElsewhere) return toast('다른 창의 진행을 먼저 새로고침해 주세요.');
+  const next = act(run, { type: 'take-starter-relic', id });
+  if (next === run) return;
+  run = next; save(); render(); $('dialog').close();
+  toast(`${RELICS[id].name} 획득! 나만의 플레이를 시작하세요.`);
+}
+
 document.addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button || button.disabled) return;
   const d = button.dataset;
+  if (d.starterRelic) return takeStarterReward(d.starterRelic);
   if (d.hand) { selected = d.hand; render(); return; }
   if (d.reward) { rewardSelection = d.reward; render(); return; }
   if (d.node) { $('route-dialog').close(); return dispatch({ type: 'choose-node', id: d.node }); }
@@ -274,6 +327,8 @@ document.addEventListener('click', e => {
     case 'leave': return dispatch({ type: 'leave-node' });
     case 'deck': return showDeck();
     case 'help': return showHelp();
+    case 'tutorial': return showTutorial();
+    case 'starter-reward': return showStarterReward();
     case 'equipment': return showEquipment();
     case 'sound': toggleSound(); return showMenu();
     case 'credits': return openDialog('아트 크레딧', '<div class="dialog-copy"><p>선수·감독·장비·유소년 경기장: RUNEKICK을 위해 이미지 생성 도구로 제작한 전용 도트 스타일 아트.</p><p>전술 지도·카드 프레임·이펙트: 게임 코드로 제작. 감독의 대사와 전투 패턴은 게임을 위한 창작입니다.</p><p>Soccorpia 등 무료 축구 에셋을 검토했으며, 현재 큰 캐릭터 구도에 맞춰 전용 아트를 사용합니다.</p></div>');
@@ -313,11 +368,14 @@ $('help-button').addEventListener('click', showHelp); $('menu-button').addEventL
 $('draw-pile').addEventListener('click', () => showDeck([...run.match.draw].sort((a, b) => a.id.localeCompare(b.id)), '뽑을 카드 · 순서는 비공개'));
 $('discard-pile').addEventListener('click', () => showDeck(run.match.discard, '버린 카드'));
 $('close-dialog').addEventListener('click', () => $('dialog').close());
+$('dialog').addEventListener('close', () => {
+  if (tutorialWelcomePending) showTutorial();
+});
 $('dialog').addEventListener('click', e => { if (e.target === $('dialog')) { const r = $('dialog').getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) $('dialog').close(); } });
 $('sound-button').addEventListener('click', toggleSound);
 $('log-button').addEventListener('click', () => openDialog('대결 기록', run.match?.history.length ? run.match.history.map(out => `<div class="log-row"><strong>TURN ${out.turn}</strong><br>${esc(out.summary)}</div>`).join('') : '<p class="dialog-copy">첫 플레이가 기록될 차례입니다.</p>'));
 document.addEventListener('keydown', e => {
-  if ($('dialog').open || $('route-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (tutorial.active || $('dialog').open || $('route-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[1-9]$/.test(e.key)) { const card = run.match.hand[Number(e.key) - 1]; if (card) { selected = card.uid; render(); } }
   else if (e.code === 'Space' && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); dispatch({ type: 'end-turn' }); }
   else if (e.key === 'Enter' && selected && (document.activeElement.matches('[data-hand]') || !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))) { e.preventDefault(); dispatch({ type: 'play-card', uid: selected }); }
@@ -336,7 +394,7 @@ fitPitch();
 let lastFrame = 0;
 function frame(now) {
   requestAnimationFrame(frame);
-  const idle = !motion.matches && run.phase === 'match';
+  const idle = !motion.matches && run.phase === 'match' && !tutorial.active;
   if (document.hidden || (!animation && !pitchDirty && !idle) || now - lastFrame < 1000 / (animation ? 30 : 15)) return;
   lastFrame = now;
   let current = null;
@@ -347,6 +405,8 @@ function frame(now) {
 render(); save(); requestAnimationFrame(frame);
 initArt().then(() => { pitchDirty = true; paintCards(); });
 if (firstVisit) showNameForm('welcome');
+else if (tutorialStatus === 'active') showTutorial();
+else if (starterRewardPending()) showStarterReward();
 if (saveError) toast(previousSaveBackedUp ? '변경된 지도에 맞춰 새 도전을 시작했어요. 이전 저장 원본은 보관했습니다.' : '이전 저장을 읽지 못해 새 도전을 시작했어요.');
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').then(() => navigator.serviceWorker.ready).then(() => { $('offline-status').textContent = '● 오프라인 플레이 준비 완료'; }).catch(() => { $('offline-status').textContent = '온라인 플레이 · 오프라인 준비 실패'; });
