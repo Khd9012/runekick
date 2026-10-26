@@ -99,18 +99,18 @@ export const OPPONENTS = Object.freeze({
 export const ROUTE = Object.freeze([
   { id: 'opening', name: '첫 번째 도전', choices: [{ id: 'opening-match', type: 'match', name: '민준과의 일대일', description: '빠른 발을 가진 민준과 첫 대결을 펼칩니다.', opponentId: 'school' }] },
   { id: 'prepare', name: '나만의 플레이', choices: [
-    { id: 'first-training', type: 'training', name: '동네 헬스장', description: '개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' },
-    { id: 'first-rest', type: 'rest', name: '동네 휴식처', description: '잠시 쉬어 내 체력을 30 회복합니다.' }] },
+    { id: 'first-training', type: 'training', name: '훈련장', description: '개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' },
+    { id: 'first-rest', type: 'rest', name: '라커룸', description: '잠시 쉬어 내 체력을 30 회복합니다.' }] },
   { id: 'qualifier', name: '벽을 넘어서', choices: [{ id: 'press-match', type: 'match', name: '태오의 도전장', description: '끈질긴 수비수 태오의 방어를 무너뜨리세요.', opponentId: 'press' }] },
   { id: 'crossroads', name: '길 위의 선택', choices: [
-    { id: 'market', type: 'shop', name: '작은 장비 가게', description: '이 갈림길에서만 들를 수 있는 상점. 모은 코인으로 유물을 구매합니다.' },
+    { id: 'market', type: 'shop', name: '동네 스포츠점', description: '이 갈림길에서만 들를 수 있는 상점. 모은 코인으로 유물을 구매합니다.' },
     { id: 'scout-event', type: 'event', name: '뜻밖의 스카우트', description: '안전한 휴식 또는 체력을 쓰는 추가 테스트를 선택합니다.' }] },
   { id: 'semifinal', name: '나를 증명할 시간', choices: [
     { id: 'elite-match', type: 'elite', name: '도윤과의 특별 대결', description: '강력한 드리블러를 꺾고 희귀 카드 보상을 노립니다.', opponentId: 'elite' },
-    { id: 'semifinal-rest', type: 'rest', name: '강변 휴식처', description: '특별 대결 대신 쉬어 내 체력을 30 회복합니다.' }] },
-  { id: 'last-preparation', name: '선발전 전날', choices: [
-    { id: 'final-training', type: 'training', name: '선발장 헬스장', description: '마지막 개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' },
-    { id: 'final-rest', type: 'rest', name: '선발장 휴식처', description: '최종 대결 전에 쉬어 내 체력을 30 회복합니다.' }] },
+    { id: 'semifinal-rest', type: 'rest', name: '라커룸', description: '특별 대결 대신 쉬어 내 체력을 30 회복합니다.' }] },
+  { id: 'last-preparation', name: '경기 전날', choices: [
+    { id: 'final-training', type: 'training', name: '훈련장', description: '마지막 개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' },
+    { id: 'final-rest', type: 'rest', name: '라커룸', description: '최종 대결 전에 쉬어 내 체력을 30 회복합니다.' }] },
   { id: 'final', name: '에이스를 향한 한 발', choices: [{ id: 'championship', type: 'boss', name: '서진과의 최종 대결', description: '유소년 에이스 서진을 넘고 나의 가능성을 증명하세요.', opponentId: 'champion' }] },
 ]);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -120,8 +120,8 @@ const phases = ['map', 'match', 'reward', 'training', 'rest', 'shop', 'event', '
 // Retired nodes are accepted only while recovering their original schema2 saves.
 // They never enter ROUTE, so new runs cannot select or revisit them.
 const LEGACY_SHOPS = Object.freeze({
-  1: { id: 'early-shop', type: 'shop', name: '길모퉁이 장비점', description: '첫 보상 코인으로 나에게 맞는 유물을 찾아보세요.' },
-  5: { id: 'final-shop', type: 'shop', name: '선발장 앞 노점', description: '남은 코인으로 마지막 유물을 준비합니다.' },
+  1: { id: 'early-shop', type: 'shop', name: '동네 스포츠점', description: '첫 보상 코인으로 나에게 맞는 유물을 찾아보세요.' },
+  5: { id: 'final-shop', type: 'shop', name: '백화점 스포츠관', description: '남은 코인으로 마지막 유물을 준비합니다.' },
 });
 const legacyShop = (stage, id) => LEGACY_SHOPS[stage]?.id === id ? LEGACY_SHOPS[stage] : null;
 const LEGACY_ROUTE_LINKED = ROUTE.map((stage, i) => ({ ...stage, choices: stage.choices.map((node, j) => ({
@@ -152,22 +152,23 @@ function generateRoute(initialSeed) {
   const coachId = coachIds[Math.floor(random(rng) * coachIds.length)], coach = OPPONENTS[coachId];
   const regular = (opponentId, name) => ({ type: 'match', opponentId, name, description: `${OPPONENTS[opponentId].name}과 일대일로 실력을 겨룹니다. 승리하면 코인 ${OPPONENTS[opponentId].reward}과 카드 보상을 얻습니다.` });
   const rest = name => ({ type: 'rest', name, description: '내 체력을 30 회복하고 다음 대결을 준비합니다.' });
-  const training = name => ({ type: 'training', name, description: '헬스장 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' });
+  const training = name => ({ type: 'training', name, description: '개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' });
   const event = name => ({ type: 'event', name, description: '안전한 회복과 코인, 또는 체력을 쓰는 희귀 카드 테스트를 선택합니다.' });
   const shop = name => ({ type: 'shop', name, description: '지정된 상점 포인트. 대결로 모은 코인으로 유물을 구매합니다.' });
+  const cityShop = ['시내 스포츠점', '시내 쇼핑센터', '백화점 스포츠관'][initialSeed % 3];
   const elite = id => ({ type: 'elite', opponentId: id, name: id === 'legend' ? '레전드 수비수 파올로' : '드리블러 도윤', description: id === 'legend' ? '드리블로 철벽을 깨세요. 승리 시 코인 65, 희귀 카드, 전용 유물을 획득합니다.' : '강력한 드리블러를 꺾으면 코인 45와 희귀 카드 선택지를 얻습니다.' });
   const layout = [
     ['시작의 킥', [regular('school', '민준과의 첫 대결')]],
-    ['첫 갈림길', [rest('동네 휴식처'), training('동네 헬스장')]],
+    ['첫 갈림길', [rest('라커룸'), training('훈련장')]],
     ['두 번째 도전', [regular('rookie', '하준의 도전장')]],
-    ['모은 코인의 쓰임', [shop('거리의 장비점'), event('스카우트와의 만남')]],
-    ['중반을 위한 준비', [rest('강변 휴식처'), training('강변 헬스장')]],
+    ['모은 코인의 쓰임', [shop('동네 스포츠점'), event('스카우트와의 만남')]],
+    ['중반을 위한 준비', [rest('라커룸'), training('훈련장')]],
     ['첫 번째 강적', [elite('legend'), event('강적을 피해 돌아가는 길')]],
-    ['마지막 장비 보급', [shop('선발장 장비점'), event('뜻밖의 개인 테스트')]],
+    ['마지막 장비 보급', [shop(cityShop), event('입단 테스트 제의')]],
     ['끈질긴 벽', [regular('press', '태오와의 본선 대결')]],
-    ['나만의 준비', [rest('공원 휴식처'), training('선발장 헬스장')]],
+    ['나만의 준비', [rest('라커룸'), training('훈련장')]],
     ['마지막 도전의 갈림길', [elite('legend'), elite('elite'), event('안전한 우회로')]],
-    ['에이스를 만나기 전에', [rest('마지막 휴식처'), training('마지막 개인 훈련')]],
+    ['에이스를 만나기 전에', [rest('라커룸'), training('훈련장')]],
     ['전설의 감독을 넘어서', [{ type: 'boss', opponentId: coachId, name: `${coach.name}의 최종 시험`, description: coach.mechanic }]],
   ];
   const route = layout.map(([name, choices], i) => {

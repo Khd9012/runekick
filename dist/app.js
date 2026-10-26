@@ -5,9 +5,14 @@ const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SAVE_KEY = 'runekick-personal-v2';
 const SOUND_KEY = 'runekick-sound-v1';
-const TYPE_NAMES = { pass: '기술', dribble: '돌파', shot: '슈팅', defense: '수비', tactic: '전술' };
+const CARD_CATEGORIES = {
+  attack: { name: '공격', icon: '<path d="m5 19 3-3m-3-3 6 6m-3-7 9-9 4-1-1 4-9 9"/>' },
+  defense: { name: '수비', icon: '<path d="m12 3 8 3v5c0 5-8 10-8 10S4 16 4 11V6l8-3Z"/><path d="m8 11 3 3 5-6"/>' },
+  skill: { name: '기술', icon: '<path d="m13 2-8 12h6l-1 8 9-13h-7l1-7Z"/>' },
+};
+const CARD_SUBTYPES = { shot: '슈팅', pass: '터치', dribble: '드리블', tactic: '전술' };
 const NODE_ICONS = { match: '⚽', elite: '◇', boss: '♛', training: '↗', rest: '☾', shop: '▣', event: '✧' };
-const NODE_NAMES = { match: '대결', elite: '엘리트', boss: '감독 보스', training: '헬스장', rest: '휴식처', shop: '상점', event: '이벤트' };
+const NODE_NAMES = { match: '대결', elite: '엘리트', boss: '감독 보스', training: '훈련장', rest: '라커룸', shop: '상점', event: '이벤트' };
 const RARITY_NAMES = {common:'기본', uncommon:'특별', rare:'희귀', legendary:'전설'};
 const NODE_HINTS = { match:'카드 · 골드', elite:'희귀 카드 · 골드', boss:'최종 시험', training:'강화 / 덱 정리', rest:'체력 +30', shop:'골드로 아이템 구매', event:'선택형 이벤트' };
 let selected = null, rewardSelection = null, busy = false, animation = null, audio = null, sound = false, toastTimer, announcementTimer, saveError = false, pitchDirty = true;
@@ -86,20 +91,32 @@ function dispatch(action) {
   }
 }
 function costOf(card) { return card.upgraded ? CARDS[card.id].upgradedCost : CARDS[card.id].cost; }
+function cardEffectHTML(card) {
+  const [first, ...sentences] = cardText(card).split(/\.\s*/).filter(Boolean);
+  const effect = first.match(/^(피해|이번 턴 방어|에너지) (\+?\d+)(.*)$/);
+  if (!effect) return `<span class="card-rules">${esc(cardText(card))}</span>`;
+  const label = effect[1] === '이번 턴 방어' ? '방어' : effect[1];
+  const notes = [effect[1] === '이번 턴 방어' ? '이번 턴 동안 유지.' : '', effect[3].trim(), ...sentences.map(sentence => `${sentence}.`)].filter(Boolean);
+  const rules = notes.map(note => esc(note).replace(/(\+?\d+)/g, '<b class="card-rule-number">$1</b>')).join(' ');
+  return `<span class="card-stat"><span>${label}</span><strong class="card-effect-number">${effect[2]}</strong></span>${rules ? `<span class="card-rules">${rules}</span>` : ''}`;
+}
 function cardHTML(card, mode = 'view', index = 0) {
   const def = CARDS[card.id]; if (!def) return '';
+  const category = def.type === 'defense' ? 'defense' : ['shot', 'pass'].includes(def.type) ? 'attack' : 'skill';
+  const categoryInfo = CARD_CATEGORIES[category];
+  const unaffordable = mode === 'hand' && costOf(card) > run.match.energy;
   const isSelected = mode === 'hand' ? selected === card.uid : mode === 'reward' && rewardSelection === card.id;
   const tag = mode === 'view' ? 'article' : 'button';
   const data = mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : '';
-  return `<${tag} class="card ${def.type}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}" ${data} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, 에너지 ${costOf(card)}, ${esc(cardText(card))}" aria-pressed="${isSelected}"` : ''}>
+  return `<${tag} class="card ${def.type} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}" ${data} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${costOf(card)}, ${esc(cardText(card))}${unaffordable ? ' 에너지 부족.' : ''}" aria-pressed="${isSelected}"` : ''}>
     <span class="card-top"><span class="card-cost">${costOf(card)}</span><span class="card-title">${esc(def.name)}${card.upgraded ? '<span class="upmark"> +</span>' : ''}</span></span>
-    <canvas class="card-art" data-art="${def.type}" data-upgraded="${!!card.upgraded}" width="240" height="128" aria-hidden="true"></canvas>
-    <span class="card-type"><span>${TYPE_NAMES[def.type]}</span><span>${def.rarity === 'rare' ? '✦✦' : def.rarity === 'uncommon' ? '✦' : '•'}</span></span>
-    <span class="card-description">${esc(cardText(card))}</span>${mode === 'hand' ? `<span class="card-key">${index + 1}</span>` : ''}
+    <canvas class="card-art" data-art="${def.type}" data-card-id="${def.id}" data-upgraded="${!!card.upgraded}" width="384" height="240" aria-hidden="true"></canvas>
+    <span class="card-type"><span><svg class="card-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${categoryInfo.icon}</svg>${categoryInfo.name}${CARD_SUBTYPES[def.type] ? `<small class="card-subtype">· ${CARD_SUBTYPES[def.type]}</small>` : ''}</span><span class="card-rarity">${RARITY_NAMES[def.rarity]}</span></span>
+    <span class="card-description">${cardEffectHTML(card)}</span>${mode === 'hand' ? `<span class="card-key">${unaffordable ? '에너지 부족' : index + 1}</span>` : ''}
   </${tag}>`;
 }
 function paintCards(container = document) {
-  container.querySelectorAll('canvas[data-art]').forEach(canvas => drawCardArt(canvas.getContext('2d'), canvas.dataset.art, {width:canvas.width,height:canvas.height,upgraded:canvas.dataset.upgraded === 'true'}));
+  container.querySelectorAll('canvas[data-art]').forEach(canvas => drawCardArt(canvas.getContext('2d'), canvas.dataset.art, {width:canvas.width,height:canvas.height,id:canvas.dataset.cardId,upgraded:canvas.dataset.upgraded === 'true'}));
   container.querySelectorAll('canvas[data-item]').forEach(canvas => drawItemArt(canvas.getContext('2d'), canvas.dataset.item, {width:canvas.width,height:canvas.height,id:canvas.dataset.itemId}));
 }
 function itemCanvas(item) { return `<canvas data-item="${esc(item.category)}" data-item-id="${esc(item.id)}" width="240" height="192" aria-hidden="true"></canvas>`; }
@@ -130,7 +147,7 @@ function routeMap(interactive = false) {
   const intro = run.schema === 3
     ? `<div class="route-brief"><span>12개 지점 · 연결된 길을 따라 이동</span><strong>레전드는 선택, 마지막 정비는 확실하게.</strong><p>초반 훈련 → 장비와 도전 → 보스 전 휴식·강화</p></div><div class="boss-preview"><span>FINAL COACH</span><strong>${esc(coach.name)}</strong><p>${esc(coach.mechanic)}</p></div>`
     : '<div class="legacy-notice">이어하던 7지점 경로입니다. 새 도전부터 12지점 지도와 감독 보스가 적용됩니다.<button class="button" data-action="restart-confirm">새 지도 시작하기</button></div>';
-  return `${intro}<div class="tactics-board" style="--board-height:${Math.max(720,route.length*112)}px" aria-label="갈림길 전술 지도"><div class="board-pitch" aria-hidden="true"><i></i><b></b></div><span class="board-label">YOUTH / YOUR OWN PATH</span><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${edges}</svg>${nodes}<span class="board-start">KICK OFF ↑</span></div><div class="map-legend"><span>⚽ 대결</span><span>◇ 엘리트</span><span>↗ 헬스장</span><span>☾ 휴식처</span><span>▣ 상점</span><span>✧ 이벤트</span><span>♛ 최종 시험</span></div>`;
+  return `${intro}<div class="tactics-board" style="--board-height:${Math.max(720,route.length*112)}px" aria-label="갈림길 전술 지도"><div class="board-pitch" aria-hidden="true"><i></i><b></b></div><span class="board-label">YOUTH / YOUR OWN PATH</span><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${edges}</svg>${nodes}<span class="board-start">KICK OFF ↑</span></div><div class="map-legend"><span>⚽ 대결</span><span>◇ 엘리트</span><span>↗ 훈련장</span><span>☾ 라커룸</span><span>▣ 상점</span><span>✧ 이벤트</span><span>♛ 최종 시험</span></div>`;
 }
 function render() {
   pitchDirty = true;
@@ -156,7 +173,7 @@ function render() {
   $('opponent-name').textContent = opponent.name; $('enemy-role').textContent = opponent.coach?'THE COACH':match?.opponentId==='legend'?'THE LEGEND':run.activeNode?.type==='boss'?'THE ACE':'THE RIVAL';
   $('pitch').setAttribute('aria-label', `${run.playerName||'루키'}와 ${opponent.name}의 개인 대결`);
   $('combat-rule').hidden = !active || !(match.intent.rule || opponent.mechanic);
-  $('combat-rule').textContent = active ? match.intent.rule || opponent.mechanic || '' : '';
+  $('combat-rule').textContent = active ? (match.intent.rule || opponent.mechanic || '').replace('첫 공격에', '처음 피해를 주는 카드에') : '';
   document.body.dataset.encounter = opponent.coach ? 'coach' : match?.opponentId === 'legend' ? 'legend' : 'rival';
   $('away-score').textContent = match?.enemyHp ?? opponent.maxHp; $('enemy-max-hp').textContent = match?.enemyMaxHp || opponent.maxHp;
   $('enemy-hp-bar').style.width = `${100*(match?.enemyHp??opponent.maxHp)/(match?.enemyMaxHp||opponent.maxHp)}%`;
@@ -185,7 +202,7 @@ function render() {
     $('play-card-button').disabled=busy||!affordable; $('play-card-button').textContent=chosen&&!affordable?'에너지 부족':'카드 사용';
     $('end-turn').disabled=busy; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
   } else renderPhase();
-  $('commentary').textContent=run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.';
+  $('commentary').textContent=(run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.').replaceAll('헬스장','훈련장').replaceAll('휴식처','라커룸');
   $('sound-button').setAttribute('aria-pressed',String(sound)); $('sound-button').setAttribute('aria-label',sound?'소리 끄기':'소리 켜기'); $('sound-button').style.color=sound?'var(--mint)':'';
   paintCards();
   if(focusHand) document.querySelector(`[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
@@ -218,7 +235,7 @@ function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장
   openDialog(title, cards.length ? `<div class="dialog-cards">${cards.map(c => cardHTML(c)).join('')}</div>` : '<p class="dialog-copy">아직 카드가 없어요.</p>');
 }
 function showHelp() {
-  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 헬스장에 도착하면 카드 강화·정리를, 휴식처에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 카드 터치 → 카드 사용. 손패는 좌우로 넘겨보세요.<br>공격수 1명 · 기술 18종 · 아이템 10종 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 레전드는 선택해서 도전하며, 승리하면 희귀 카드와 첫 전용 유물을 얻습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><button class="button primary" data-action="close">내 플레이를 시작하자 →</button></div>');
+  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 카드 터치 → 카드 사용. 손패는 좌우로 넘겨보세요.<br>공격수 1명 · 기술 18종 · 아이템 10종 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 레전드는 선택해서 도전하며, 승리하면 희귀 카드와 첫 전용 유물을 얻습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><button class="button primary" data-action="close">내 플레이를 시작하자 →</button></div>');
 }
 function showMenu() {
   const previous = previousJourney();

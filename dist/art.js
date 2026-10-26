@@ -1,7 +1,7 @@
 /**
- * RuneKick's procedural pixel artwork. All coordinates snap to a logical grid.
+ * RuneKick's generated sprite atlases and procedural pixel effects.
  * drawPitch(ctx, { width, height, time, opponentColor, phase, animation })
- * drawCardArt(ctx, type, { width, height, upgraded })
+ * drawCardArt(ctx, type, { width, height, upgraded, id })
  * drawPlayer(ctx, x, y, { scale, team, shirt, facing, pose, selected })
  * Player x/y is the centre of the player's feet. Time is in milliseconds.
  */
@@ -18,8 +18,17 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const lerp = (a, b, p) => a + (b - a) * p;
 const snap = n => Math.round(n / 2) * 2;
 
-const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null };
-const atlasFrames = { coaches: [], equipment: [] };
+const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, cardTechnique: null, cardAttack: null, cardControl: null };
+const atlasFrames = { coaches: [], equipment: [], cardTechnique: [], cardAttack: [], cardControl: [] };
+const CARD_ART = Object.freeze({
+  'through-pass': ['cardTechnique', 0], 'quick-pass': ['cardTechnique', 1], 'one-two': ['cardTechnique', 2],
+  'wall-pass': ['cardTechnique', 3], 'long-pass': ['cardTechnique', 4], dribble: ['cardTechnique', 5],
+  feint: ['cardAttack', 0], sprint: ['cardAttack', 1], shot: ['cardAttack', 2],
+  'power-shot': ['cardAttack', 3], volley: ['cardAttack', 4], clutch: ['cardAttack', 5],
+  cover: ['cardControl', 0], intercept: ['cardControl', 1], tackle: ['cardControl', 2],
+  focus: ['cardControl', 3], switch: ['cardControl', 4], captain: ['cardControl', 5],
+});
+const CARD_TYPE_DEFAULTS = Object.freeze({ pass: 'through-pass', dribble: 'dribble', shot: 'shot', defense: 'cover', tactic: 'focus' });
 const COACH_FRAMES = Object.freeze({
   'coach-mourinho': 0, 'coach-ancelotti': 1, 'coach-guardiola': 2, 'coach-arteta': 3,
   'coach-wenger': 4, 'coach-ferguson': 5, 'coach-klopp': 6,
@@ -54,11 +63,11 @@ function characterBounds(pixels, imageWidth, x, y, width, height) {
   return best;
 }
 
-function readAtlasFrames(picture, columns, rows, characters = false) {
+function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = null) {
   const width=picture.naturalWidth,height=picture.naturalHeight;
   const frames=Array.from({length:columns*rows},(_,index)=>{
-    const col=index%columns,row=Math.floor(index/columns),x=Math.round(col*width/columns),y=Math.round(row*height/rows);
-    return [x,y,Math.round((col+1)*width/columns)-x,Math.round((row+1)*height/rows)-y];
+    const col=index%columns,row=Math.floor(index/columns),x=Math.round(col*width/columns),y=Math.round((rowEdges?.[row]??row/rows)*height);
+    return [x,y,Math.round((col+1)*width/columns)-x,Math.round((rowEdges?.[row+1]??(row+1)/rows)*height)-y];
   });
   if(typeof document==='undefined')return frames;
   try {
@@ -90,8 +99,8 @@ function readAtlasFrames(picture, columns, rows, characters = false) {
 /** Load the original PNG assets once. Missing assets retain their procedural fallback. */
 export function initArt() {
   if (artLoading) return artLoading;
-  if (typeof Image === 'undefined') return Promise.resolve({ striker: false, rival: false, stadium: false, coaches: false, equipment: false });
-  const sources = { striker: 'striker.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png' };
+  if (typeof Image === 'undefined') return Promise.resolve(Object.fromEntries(Object.keys(rasterArt).map(key => [key, false])));
+  const sources = { striker: 'striker.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png' };
   artLoading = Promise.all(Object.entries(sources).map(([key, filename]) => new Promise(resolve => {
     const picture = new Image();
     picture.decoding = 'async';
@@ -99,6 +108,9 @@ export function initArt() {
       rasterArt[key] = picture;
       if(key==='coaches')atlasFrames.coaches=readAtlasFrames(picture,4,2,true);
       if(key==='equipment')atlasFrames.equipment=readAtlasFrames(picture,4,3);
+      // The focus halo begins above the mathematical midline; all three sheets
+      // have an empty gutter at 46%, so no adjacent action leaks into a crop.
+      if(key.startsWith('card'))atlasFrames[key]=readAtlasFrames(picture,3,2,false,[0,.46,1]);
       resolve([key, true]);
     };
     picture.onerror = () => resolve([key, false]);
@@ -492,49 +504,36 @@ export function drawPitch(ctx, options = {}) {
   ctx.restore();
 }
 
-function drawIllustratedCard(ctx, type, accent, bg) {
+
+function drawCardAction(ctx, type, options, width, height) {
+  const [key, index] = CARD_ART[options.id] || CARD_ART[CARD_TYPE_DEFAULTS[type] || 'focus'];
+  const picture = rasterArt[key], crop = atlasFrames[key][index];
+  if (!picture || !crop) return false;
+  const isAttack = type === 'shot' || type === 'pass';
+  const background = type === 'defense' ? '#d4e1e7' : isAttack ? '#ead9cd' : '#dce3d2';
+  const ground = type === 'defense' ? '#c4d5de' : isAttack ? '#decbbe' : '#cbd8bf';
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, 0, 120, 64); ctx.clip();
-  // The same protagonist anchors the card collection; crop only at draw time.
-  ctx.drawImage(rasterArt.striker, 210, 30, 610, 940, 6, -5, 66, 102);
-  ctx.globalAlpha = .24;
-  rect(ctx, 74, 0, 46, 64, bg);
-  ctx.globalAlpha = 1;
-  if (type === 'pass') {
-    dashedPath(ctx, 68, 48, 108, 24, accent, 10, 10);
-    rect(ctx, 97, 17, 14, 4, accent); rect(ctx, 107, 17, 4, 14, accent);
-    ball(ctx, 88, 36, 1.7);
-  } else if (type === 'dribble') {
-    cone(ctx, 100, 54, 1);
-    dashedPath(ctx, 76, 50, 110, 18, accent, 9, 10);
-    rect(ctx, 75, 25, 10, 3, accent); rect(ctx, 80, 19, 10, 3, accent);
-    cross(ctx, 105, 14, 4, '#f4d286');
-  } else if (type === 'shot') {
-    for (let i=0;i<5;i++) rect(ctx, 69+i*5, 43-i*3, 14, 3, i<2?'#bd724d':'#edb66a');
-    pixelEllipse(ctx, 98, 27, 13, 13, '#cb754b');
-    pixelEllipse(ctx, 98, 27, 10, 10, '#efbd6c');
-    ball(ctx, 98, 27, 1.7);
-    cross(ctx, 111, 12, 4, '#ffe6a2');
-  } else if (type === 'defense') {
-    rect(ctx, 78, 12, 30, 4, accent); rect(ctx, 74, 16, 38, 22, accent);
-    rect(ctx, 78, 38, 30, 6, accent); rect(ctx, 84, 44, 18, 6, accent); rect(ctx, 90, 50, 6, 4, accent);
-    rect(ctx, 80, 18, 26, 18, '#36525a'); rect(ctx, 84, 36, 18, 6, '#36525a');
-    rect(ctx, 90, 22, 6, 18, '#d9e5cc'); rect(ctx, 84, 28, 18, 6, '#d9e5cc');
-  } else {
-    frame(ctx, 76, 12, 36, 42, accent, 2);
-    rect(ctx, 78, 32, 32, 2, '#6b647f');
-    dashedPath(ctx, 83, 44, 104, 20, '#e7d9ef', 3, 9);
-    cross(ctx, 84, 20, 4, '#dda777'); cross(ctx, 104, 44, 4, '#dda777');
-    pixelEllipse(ctx, 84, 44, 4, 4, accent, 2); pixelEllipse(ctx, 104, 20, 4, 4, accent, 2);
-  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, Math.round(height * .84), width, Math.ceil(height * .16));
+  // Contain the complete action, including its ball and motion trail. Source
+  // rectangles are cached at load time; every card retains its own silhouette.
+  const scale = Math.min(width * .91 / crop[2], height * .89 / crop[3]);
+  const drawWidth = crop[2] * scale, drawHeight = crop[3] * scale;
+  ctx.drawImage(picture, ...crop, Math.round((width - drawWidth) / 2), Math.round((height - drawHeight) / 2), drawWidth, drawHeight);
+  if (options.upgraded) cross(ctx, width - height * .065, height * .065, Math.max(2, height * .018), '#a5792d');
   ctx.restore();
+  return true;
 }
 
-/** Draw a compact, opaque, text-free illustration for a card type. */
+/** Draw an opaque, text-free action illustration selected by its card ID. */
 export function drawCardArt(ctx, type = 'tactic', options = {}) {
   const width = options.width || ctx.canvas.width || 120;
   const height = options.height || ctx.canvas.height || 64;
   const upgraded = !!options.upgraded;
+  if (drawCardAction(ctx, type, options, width, height)) return;
   const palettes = {
     pass: ['#192a39', '#99d4c5'], dribble: ['#302c2c', '#e7bc65'],
     shot: ['#35242c', '#ec9770'], defense: ['#1c2c40', '#8ebdcb'],
@@ -548,13 +547,6 @@ export function drawCardArt(ctx, type = 'tactic', options = {}) {
   ctx.globalAlpha = 0.07;
   for (let y = 0; y < 64; y += 8) for (let x = (y / 8) % 2 ? 8 : 0; x < 120; x += 16) rect(ctx, x, y, 8, 8, accent);
   ctx.globalAlpha = 1;
-
-  if (rasterArt.striker) {
-    drawIllustratedCard(ctx, type, accent, bg);
-    if (upgraded) { cross(ctx, 112, 8, 4, C.gold); rect(ctx, 4, 58, 112, 2, '#c1a45e'); }
-    ctx.restore();
-    return;
-  }
 
   if (type === 'pass') {
     dashedPath(ctx, 32, 40, 92, 26, accent, 12, 13);
