@@ -23,14 +23,18 @@
     <div id="combat-rule" class="combat-rule" role="note" hidden></div>
     <section class="arena duel-arena" aria-label="개인 대결">
       <canvas id="pitch" width="960" height="400" aria-label="왼쪽의 붉은 스트라이커와 오른쪽의 라이벌 선수"></canvas>
+      <div class="fighter-nameplate hero-nameplate"><h2><button id="hero-name" data-action="rename" aria-label="선수 이름 변경">루키</button></h2></div>
+      <div class="fighter-nameplate enemy-nameplate"><span id="enemy-role" class="fighter-role">THE RIVAL</span><h2 id="opponent-name">첫 번째 라이벌</h2></div>
       <div class="enemy-intent"><span class="intent-label">상대의 다음 행동</span><div><span class="intent-blade">⚔</span><strong id="incoming-value">0</strong><b id="intent-name">돌파 준비</b></div><p id="intent-description"></p><span id="danger-badge" class="outcome-badge">피해 예고</span></div>
       <div id="pitch-announcement" class="pitch-announcement" aria-live="polite"></div>
-      <div class="fighter-status hero-status"><span class="fighter-role">THE STRIKER</span><h2><button id="hero-name" data-action="rename" aria-label="선수 이름 변경">루키</button></h2><div class="fighter-health"><i id="hero-hp-bar"></i><span><b id="home-score">100</b> / <span id="hero-max-hp">100</span></span></div></div>
-      <div class="fighter-status enemy-status"><span id="enemy-role" class="fighter-role">THE RIVAL</span><h2 id="opponent-name">첫 번째 라이벌</h2><div class="fighter-health enemy-health"><i id="enemy-hp-bar"></i><span><b id="away-score">40</b> / <span id="enemy-max-hp">40</span></span></div><div class="fighter-buffs"><span class="block-buff">⬡ <b id="enemy-block-value">0</b> 방어</span><span id="goal-badge" class="outcome-badge">대결 중</span></div></div>
-    </section>
-    <section id="combat-status" class="combat-status" aria-label="내 전투 능력">
-      <div id="defense-status" class="combat-stat defense-stat"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M16 2 29 7v10c0 8-6 14-13 17C9 31 3 25 3 17V7Z"/><path class="shield-detail" d="M16 8v19M9 14h14"/></svg><div><span class="combat-stat-label">방어</span><strong id="guard-value">0</strong></div><small id="defense-detail">이번 턴 피해 감소 · 다음 턴 초기화</small></div>
-      <div id="momentum-badge" class="combat-stat momentum-stat"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M19 2 4 21h11l-3 13L29 13H18Z"/></svg><div><span class="combat-stat-label">기세</span><strong id="momentum-value">0</strong></div><small id="momentum-detail">다음 슛 추가 피해 · 슛 사용 시 소모</small></div>
+      <div class="fighter-status hero-status">
+        <div class="fighter-health"><i id="hero-hp-bar"></i><span><b id="home-score">100</b> / <span id="hero-max-hp">100</span></span></div>
+        <div id="combat-status" class="combat-status" role="group" aria-label="내 전투 능력">
+          <button type="button" id="defense-status" class="combat-stat defense-stat" data-action="defense-info" aria-label="방어 0, 설명 보기" aria-haspopup="dialog"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M16 2 29 7v10c0 8-6 14-13 17C9 31 3 25 3 17V7Z"/><path class="shield-detail" d="M16 8v19M9 14h14"/></svg><strong id="guard-value">0</strong></button>
+          <button type="button" id="momentum-badge" class="combat-stat momentum-stat" data-action="momentum-info" aria-label="기세 0, 설명 보기" aria-haspopup="dialog"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M19 2 4 21h11l-3 13L29 13H18Z"/></svg><strong id="momentum-value">0</strong></button>
+        </div>
+      </div>
+      <div class="fighter-status enemy-status"><div class="fighter-health enemy-health"><i id="enemy-hp-bar"></i><span><b id="away-score">40</b> / <span id="enemy-max-hp">40</span></span></div><div class="fighter-buffs"><span class="block-buff">⬡ <b id="enemy-block-value">0</b> 방어</span><span id="goal-badge" class="outcome-badge">대결 중</span></div></div>
     </section>
     <section id="phase-panel" class="phase-panel" hidden></section>
     <section id="hand-section" class="hand-section battle-hand" aria-label="손패">
@@ -38,7 +42,7 @@
       <div class="hand-zone"><div id="hand" class="hand" aria-label="사용할 카드를 선택하세요"></div><div id="mobile-hand-tabs" class="mobile-hand-tabs" role="group" aria-label="손패 바로 선택"></div><div class="battle-controls" role="group" aria-label="전투 조작"><div class="energy"><span class="energy-orb"><strong id="energy-value">3</strong></span><span id="energy-cap">/ 3 에너지</span><button id="draw-pile" class="pile-orb" aria-label="뽑을 카드 확인">▤ <b>0</b><small>뽑기</small></button></div><div class="turn-actions"><button id="discard-pile" class="pile-orb" aria-label="버린 카드 확인">▤ <b>0</b><small>버림</small></button><button id="play-card-button" class="button card-use" disabled>카드 사용</button><button id="end-turn" class="button primary">턴 종료 →</button></div></div></div>
     </section>
     <div class="match-foot"><p id="commentary" role="status">내 기술, 내 장비, 나만의 플레이.</p><button id="log-button">대결 기록 ↗</button></div>
-    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 0.8</span></footer>
+    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 0.8.1</span></footer>
   </main>
   <dialog id="route-dialog" aria-labelledby="route-title"><div class="dialog-top"><span id="route-title">전설로 향하는 길 <small id="route-progress">1 / 12</small></span><button id="close-route" class="icon-button" aria-label="지도 닫기">×</button></div><div class="route-dialog-body"><div class="map-chapters"><span class="current">Ⅰ 유소년</span><span>Ⅱ 프로 리그 · 준비 중</span><span>Ⅲ 유럽대항전 · 준비 중</span></div><div id="route-list" class="route-list" aria-label="이번 도전 경로"></div><p class="map-note">카드 보상을 고른 뒤 밝은 지점으로 이동하세요. 훈련장·라커룸·상점은 해당 지점에서만 이용할 수 있어요.</p></div></dialog>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span id="dialog-title">나의 덱</span><button id="close-dialog" class="icon-button" aria-label="창 닫기">×</button></div><div id="dialog-body"></div></dialog>

@@ -217,8 +217,8 @@ function render() {
   $('combat-status').hidden = !active;
   const momentum = match?.momentum || 0, defense = match?.defense || 0;
   $('momentum-value').textContent = momentum;
-  $('momentum-detail').textContent = `슛 피해 +${momentum} · 발리는 +${momentum * 2} · 사용 시 소모`;
-  $('defense-detail').textContent = `피해 ${defense}까지 방어 · 다음 턴 초기화`;
+  $('momentum-badge').setAttribute('aria-label', `기세 ${momentum} · 효과 설명 보기`);
+  $('defense-status').setAttribute('aria-label', `방어 ${defense} · 효과 설명 보기`);
   $('momentum-badge').classList.toggle('charged', momentum > 0);
   $('defense-status').classList.toggle('charged', defense > 0);
   $('incoming-value').textContent = active ? match.intent.attack : 0; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
@@ -298,8 +298,9 @@ function renderPhase() {
   }
   if (run.phase === 'training') panel.innerHTML = heading('TRAINING DAY', esc(name), '카드를 눌러 강화 전후를 비교하세요. 한 장을 강화하거나 무료로 제거하면 훈련을 마칩니다. 무료 제거는 덱이 9장 이상일 때 가능합니다.') + `<div class="deck-choice-grid">${run.deck.map(c => `<section class="deck-choice">${cardHTML(c, c.upgraded ? 'view' : 'upgrade')}<div class="deck-choice-actions"><button class="button" data-upgrade="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} ${c.upgraded ? '강화 완료' : '강화 전후 비교'}" ${c.upgraded ? 'disabled' : ''}>${c.upgraded ? '강화 완료' : '강화 비교'}</button><button class="button" data-remove="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} 무료 제거" ${run.deck.length <= 8 ? 'disabled' : ''}>무료 제거</button></div></section>`).join('')}</div><div class="phase-actions"><button class="button" data-action="leave">훈련 건너뛰기 →</button></div>`;
   if (run.phase === 'rest') panel.innerHTML = heading('TAKE A BREATH', esc(name), '잠시 멈추는 것도 앞으로 나아가는 방법입니다. 체력을 30 회복하고 다음 여정을 준비하세요.') + `<div class="stats-row"><span><b>${run.condition}</b>현재 체력</span><span><b>→</b></span><span><b>${Math.min(run.maxCondition, run.condition + 30)}</b>휴식 후 체력</span></div><div class="phase-actions"><button class="button primary" data-action="rest">충분히 쉬기 →</button></div>`;
-  if (run.phase === 'shop') panel.innerHTML = heading('THE TRAVELLING MERCHANT', esc(name), '승리로 번 골드를 나만의 힘으로. 장착 부위 제한 없이 모든 아이템 효과가 누적됩니다.') + `<div class="shop-balance"><strong>보유 골드 ● ${run.gold}</strong><span>구입 즉시 적용 · 이번 도전 동안 유지</span></div><div class="shop-grid">${run.shopOffers.map(id=>{const r=RELICS[id]; return `<article class="shop-item"><span class="item-tag">${RARITY_NAMES[r.rarity]||'특별'} 아이템</span>${itemCanvas(r)}<h4>${esc(r.name)}</h4><p>${esc(r.description)}</p><button data-buy="${id}" ${run.gold<r.price?'disabled':''}>● ${r.price} · ${run.gold<r.price?'골드 부족':'구매'}</button></article>`;}).join('')||'<p class="dialog-copy">이 가게의 아이템을 모두 구입했어요.</p>'}</div><div class="phase-actions"><button class="button" data-action="equipment">내 아이템 확인</button><button class="button primary" data-action="leave">다음 여정으로 →</button></div>`;
   if (run.phase === 'shop') {
+    const merchantLine = run.shopOffers.length ? '좋은 선수는 좋은 선택에 투자하지. 필요한 장비부터 골라봐.' : '오늘 준비한 장비는 전부 나갔군. 떠나기 전에 덱도 한 번 살펴보게.';
+    panel.innerHTML = `<section class="shop-hero" aria-labelledby="shop-title"><div class="shop-portrait"><img src="./assets/merchant-levy.png" alt="다니엘 레비를 모티브로 한 도트 상인이 축구 장비 카운터에서 맞이합니다." width="512" height="512" decoding="async" draggable="false"></div><div class="shop-welcome"><span class="phase-eyebrow">SPORTS SHOP</span><h3 id="shop-title">${esc(name)}</h3><div class="merchant-identity"><strong>다니엘 레비</strong><span>스포츠 상점 주인</span></div><p class="merchant-dialogue">${merchantLine}</p><p class="shop-promise">장착 제한 없이 효과 누적 · 이번 도전 동안 유지</p></div></section><div class="shop-balance"><strong>보유 골드 ● ${run.gold}</strong><span>장비는 구입 즉시 적용</span></div><div class="shop-grid">${run.shopOffers.map(id=>{const r=RELICS[id]; return `<article class="shop-item"><span class="item-tag">${RARITY_NAMES[r.rarity]||'특별'} 아이템</span>${itemCanvas(r)}<h4>${esc(r.name)}</h4><p>${esc(r.description)}</p><button data-buy="${id}" ${run.gold<r.price?'disabled':''}>● ${r.price} · ${run.gold<r.price?'골드 부족':'구매'}</button></article>`;}).join('')||'<p class="dialog-copy shop-empty">진열된 장비를 모두 구입했어요. 카드 제거 서비스를 이용하거나 다음 여정으로 떠날 수 있습니다.</p>'}</div><div class="phase-actions"><button class="button" data-action="equipment">내 아이템 확인</button><button class="button primary" data-action="leave">다음 여정으로 →</button></div>`;
     const price = getCardRemovalCost(run), blocked = run.deck.length <= 1 || run.gold < price;
     panel.querySelector('.shop-grid').insertAdjacentHTML('beforebegin', `<section class="shop-removal"><div><span class="phase-eyebrow">DECK SERVICE</span><h4>카드 제거 <strong>● ${price}</strong></h4><p>내 덱에서 한 장을 고릅니다. 제거할 때마다 25골드씩 오르며 다음 상점에도 이어집니다.</p></div><button class="button" data-action="shop-remove" ${blocked ? 'disabled' : ''}>${run.deck.length <= 1 ? '마지막 카드는 유지' : run.gold < price ? '골드 부족' : '제거할 카드 고르기'}</button></section>`);
   }
@@ -312,6 +313,16 @@ function renderPhase() {
 function openDialog(title, content) { $('dialog-title').textContent = title; $('dialog-body').innerHTML = content; if (!$('dialog').open) $('dialog').showModal(); paintCards($('dialog')); }
 function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장`) {
   openDialog(title, cards.length ? `<div class="dialog-cards">${cards.map(c => cardHTML(c)).join('')}</div>` : '<p class="dialog-copy">아직 카드가 없어요.</p>');
+}
+function showCombatStat(kind) {
+  if (run.phase !== 'match' || !run.match) return;
+  const momentum = run.match.momentum, defense = run.match.defense, shield = kind === 'defense';
+  const icon = $(shield ? 'defense-status' : 'momentum-badge').querySelector('svg').outerHTML;
+  const details = shield
+    ? `<p>턴 종료 시 상대 공격 피해를 <strong>최대 ${defense}까지</strong> 막아요.</p><div class="rule-note">상대 공격 ${run.match.intent.attack} − 내 방어 ${defense}<br><strong>예상 체력 피해 ${forecast(run).incoming}</strong></div><p>방어 카드를 사용해 쌓을 수 있어요. 남은 방어는 <strong>다음 내 턴 시작 시 초기화</strong>되고, 장비로 얻는 턴 시작 방어는 다시 적용돼요.</p><p>반사 피해와 카드의 체력 소모는 막지 못해요.</p>`
+    : `<p>드리블과 카드·장비 효과로 쌓는 공격 보너스예요.</p><div class="rule-note">현재 기세로 얻는 추가 피해<br>일반 슛: <strong>+${momentum}</strong><br>발리 슈팅: <strong>+${momentum * 2}</strong></div><p>기세는 <strong>턴이 지나도 유지</strong>돼요. 슛 카드를 사용하면 현재 기세를 <strong>전부 소모</strong>해 피해를 더합니다. 상대 방어에 막혀도 소모돼요. 기세가 높을수록 선수 주변의 금빛 기운도 강해져요.</p>`;
+  openDialog(shield ? '방어 · 상대 공격을 막는 힘' : '기세 · 다음 슛의 추가 피해', `<section class="combat-stat-help ${shield ? 'shield-help' : 'momentum-help'}"><div class="stat-help-value">${icon}<strong>${shield ? defense : momentum}</strong></div><div class="dialog-copy">${details}</div><div class="phase-actions"><button class="button primary" data-action="close">확인</button></div></section>`);
+  $('dialog').scrollTop = 0;
 }
 function showShopRemoval() {
   const price = getCardRemovalCost(run);
@@ -453,6 +464,8 @@ document.addEventListener('click', e => {
     case 'starter-reward': return showStarterReward();
     case 'equipment': return showEquipment();
     case 'shop-remove': return showShopRemoval();
+    case 'defense-info': return showCombatStat('defense');
+    case 'momentum-info': return showCombatStat('momentum');
     case 'log': return showLog();
     case 'sound': toggleSound(); return showMenu();
     case 'credits': return openDialog('아트 크레딧', '<div class="dialog-copy"><p>선수·감독·장비·유소년 경기장: RUNEKICK을 위해 이미지 생성 도구로 제작한 전용 도트 스타일 아트.</p><p>전술 지도·카드 프레임·이펙트: 게임 코드로 제작. 감독의 대사와 전투 패턴은 게임을 위한 창작입니다.</p><p>Soccorpia 등 무료 축구 에셋을 검토했으며, 현재 큰 캐릭터 구도에 맞춰 전용 아트를 사용합니다.</p></div>');

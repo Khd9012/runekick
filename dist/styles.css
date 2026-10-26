@@ -552,19 +552,28 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .personal-duel[data-phase="match"] #hand>.card{transition:none}
 }
 
-/* Values, symbols and plain-language rules share one stable combat readout. */
-.combat-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:620px;margin:8px auto 0;padding:0 12px}
-.combat-stat{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:2px 10px;padding:9px 12px;border:1px solid #365169;border-radius:8px;background:#132536}
-.combat-stat>svg{width:34px;height:38px;grid-column:1;grid-row:1;fill:#69bff2;stroke:#bbebff;stroke-width:1.6;stroke-linejoin:round}
+/* Names sit above the players; health and tappable stats sit below their feet. */
+.personal-duel[data-phase="match"] .duel-arena{margin-bottom:48px}
+.personal-duel .fighter-status{top:86%;bottom:auto}
+.fighter-nameplate{position:absolute;top:7px;max-width:22%;transform:translateX(-50%);z-index:2;text-align:center;text-shadow:0 1px 3px #000,0 0 7px #000}
+.hero-nameplate{left:29.2%}
+.enemy-nameplate{left:70.8%}
+.fighter-nameplate h2{margin:0;color:#eef0f3;font-size:15px;line-height:30px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fighter-nameplate #hero-name{display:block;min-height:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+.fighter-nameplate .fighter-role{display:none}
+.personal-duel:not([data-phase="match"]) .fighter-nameplate{display:none}
+.personal-duel[data-phase="match"] .enemy-intent{left:50%;top:7px;min-width:150px;max-width:28%}
+.combat-status{display:flex;justify-content:center;gap:7px;margin:6px 0 0;padding:0}
+.combat-stat{display:flex;flex:1 1 0;min-width:0;min-height:50px;align-items:center;justify-content:center;gap:7px;padding:4px 7px;border:1px solid #365169;border-radius:7px;background:#132536;color:#b7e9ff;box-shadow:0 2px 0 #080f18;cursor:pointer}
+.combat-stat>svg{flex:none;width:32px;height:36px;fill:#69bff2;stroke:#bbebff;stroke-width:1.6;stroke-linejoin:round}
 .combat-stat .shield-detail{fill:none;stroke:#e2f5ff;stroke-width:2.2}
-.combat-stat>div{display:flex;align-items:center;gap:12px;grid-column:2;grid-row:1}
-.combat-stat-label{font-size:12px;font-weight:700;color:#b9dbef}
-.combat-stat strong{font-size:30px;line-height:1.1;font-weight:800;color:#b7e9ff;font-variant-numeric:tabular-nums}
-.combat-stat>small{grid-column:1/-1;font-size:10px;line-height:1.5;color:#b7ccdf;word-break:keep-all}
+.combat-stat strong{font-size:30px;line-height:1;font-weight:800;color:#b7e9ff;font-variant-numeric:tabular-nums}
+.combat-stat:hover{border-color:#a5d5ed;background:#193145}
+.combat-stat:focus-visible{outline:2px solid #f0e4bd;outline-offset:3px}
 .momentum-stat{border-color:#625535;background:#28271f}
 .momentum-stat>svg{fill:#f6ca4d;stroke:#ffeb9b}
-.momentum-stat .combat-stat-label,.momentum-stat strong{color:#ffda67}
-.momentum-stat>small{color:#d8cba5}
+.momentum-stat strong{color:#ffda67}
+.momentum-stat:hover{border-color:#d6b85f;background:#363020}
 .momentum-stat.charged{border-color:#b99b47;background:#302b1c;box-shadow:inset 0 0 16px #f6ca4d10}
 .defense-stat.charged{border-color:#69b6e2;background:#172f43}
 
@@ -588,19 +597,21 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .removal-price small{font-size:11px;color:#b7c0cb}
 .removal-preview .phase-actions{margin:0;width:100%;justify-content:center}
 @media(max-width:800px), (max-width:1100px) and (max-height:520px){
- .combat-status{gap:8px;margin-top:4px;padding:0 12px}
- .combat-stat{gap:1px 7px;grid-template-columns:30px minmax(0,1fr);padding:6px 8px}
- .combat-stat>svg{width:28px;height:32px}
- .combat-stat>div{gap:9px}
- .combat-stat strong{font-size:27px}
- .combat-stat-label{font-size:11px}
- .combat-stat>small{font-size:10px;line-height:1.45}
+ .personal-duel .hero-status{width:min(160px,44%)}
+ .combat-status{gap:6px;margin-top:5px}
+ .combat-stat{min-height:44px;gap:5px;padding:4px}
+ .combat-stat>svg{width:27px;height:31px}
+ .combat-stat strong{font-size:26px}
+ .fighter-nameplate{top:5px}
+ .fighter-nameplate h2{font-size:13px}
+ .personal-duel[data-phase="match"] .enemy-intent{top:5px;min-width:116px;max-width:34%}
  .personal-duel[data-phase="match"] .duel-arena{height:clamp(200px,calc(100dvh - 660px - env(safe-area-inset-bottom)),280px)}
  .personal-duel[data-phase="match"] #hand{height:calc(288px + (var(--hand-rows,1) - 1) * 190px)}
  .personal-duel[data-phase="match"] #hand>.card{transition:border-color .15s,box-shadow .15s}
  .personal-duel[data-phase="match"]{overflow-x:clip}
 }
 @media(min-width:601px) and (max-width:1100px) and (max-height:520px){
+ .personal-duel[data-phase="match"] .duel-arena{height:clamp(140px,calc(100dvh - 220px),200px)}
  .personal-duel[data-phase="match"] #hand{height:calc(236px + (var(--hand-rows,1) - 1) * 170px)}
  .personal-duel[data-phase="match"] #hand>.card{min-height:216px;top:calc(10px + var(--hand-row,0) * 170px)}
  .personal-duel[data-phase="match"] #hand .card-top{min-height:37px;padding-block:6px}
@@ -613,10 +624,65 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .personal-duel[data-phase="match"] #hand .card-rules{font-size:11px;line-height:1.45}
 }
 @media(max-width:520px){
+ .hero-nameplate{left:23%}
+ .enemy-nameplate{left:77%}
+ .fighter-nameplate{max-width:calc(25% - 18px)}
+ .fighter-nameplate h2{font-size:12px}
  .deck-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px;margin-top:20px;padding:4px}
  .deck-choice-grid .card{min-height:266px}
  .deck-choice-actions{grid-template-columns:1fr;gap:5px}
  .shop-removal{align-items:stretch;flex-direction:column;gap:12px;padding:14px}
  .shop-removal p{font-size:11px}
  .shop-removal>.button{width:100%}
+}
+
+.combat-stat-help{padding-top:20px}
+.stat-help-value{display:flex;align-items:center;justify-content:center;gap:14px;padding:18px;border:1px solid #394b60;border-radius:10px;background:#142132}
+.stat-help-value svg{width:48px;height:54px;fill:#79cfff;stroke:#c3eeff;stroke-width:2;stroke-linejoin:round}
+.stat-help-value .shield-detail{fill:none;stroke:#e6f8ff;stroke-width:2}
+.stat-help-value strong{font-size:44px;line-height:1;color:#bcecff;font-variant-numeric:tabular-nums}
+.momentum-help .stat-help-value{border-color:#6c5729;background:#292519}
+.momentum-help .stat-help-value svg{fill:#ffce45;stroke:#ffec97}
+.momentum-help .stat-help-value strong{color:#ffde66}
+.combat-stat-help .dialog-copy{padding-top:12px;line-height:1.8}
+.combat-stat-help .dialog-copy p{margin:12px 0}
+.combat-stat-help .phase-actions{justify-content:flex-end}
+
+/* A shop visit has its own keeper and counter instead of the previous opponent. */
+.personal-duel[data-phase="shop"] .duel-arena,
+.personal-duel[data-phase="shop"] .match-heading{display:none}
+.personal-duel[data-phase="shop"] .phase-panel{margin-top:0;max-width:1100px}
+.shop-hero{display:grid;grid-template-columns:250px minmax(0,1fr);align-items:center;gap:25px;min-height:240px;padding:0 24px 0 8px;border:1px solid #3d4b5d;border-radius:8px;background:#172332;text-align:left;overflow:hidden}
+.shop-portrait{display:flex;align-self:stretch;align-items:flex-end;justify-content:center;min-width:0}
+.shop-portrait img{display:block;width:250px;height:245px;max-width:100%;object-fit:contain;object-position:center bottom;image-rendering:pixelated;user-select:none}
+.shop-welcome{padding:20px 0}
+.shop-welcome .phase-eyebrow{font-size:9px;letter-spacing:1.5px;color:#c5b17f}
+.personal-duel .shop-welcome h3{margin:7px 0 14px;font-size:26px;line-height:1.3;letter-spacing:-.6px}
+.merchant-identity{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.merchant-identity strong{font-size:14px;color:#eadab6}
+.merchant-identity span{font-size:10px;color:#91a6bd}
+.merchant-dialogue{position:relative;margin-top:10px;padding:12px 15px;border-left:2px solid #b39b66;background:#1e2d3f;border-radius:0 6px 6px 0;color:#e3eaf1;font-size:14px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word}
+.shop-promise{margin-top:11px;color:#9aadc1;font-size:10px;line-height:1.6;word-break:keep-all}
+.personal-duel[data-phase="shop"] .shop-balance{margin-top:16px;padding:12px 14px;border:1px solid #334154;border-radius:6px;align-items:center}
+.shop-empty{grid-column:1/-1;padding:20px;border:1px dashed #44546b;border-radius:7px;text-align:center}
+@media(max-width:800px){
+ .shop-hero{grid-template-columns:180px minmax(0,1fr);gap:16px;min-height:200px;padding-right:18px}
+ .shop-portrait img{width:180px;height:210px}
+ .personal-duel .shop-welcome h3{font-size:23px}
+ .merchant-dialogue{font-size:12px;padding:10px 12px}
+}
+@media(max-width:520px){
+ .personal-duel[data-phase="shop"] .phase-panel{margin-top:0;padding-top:13px}
+ .shop-hero{grid-template-columns:112px minmax(0,1fr);gap:10px;min-height:165px;padding:0 10px 0 0;border-radius:7px}
+ .shop-portrait img{width:120px;height:160px;max-width:none}
+ .shop-welcome{padding:12px 0}
+ .shop-welcome .phase-eyebrow{font-size:7px;letter-spacing:1px}
+ .personal-duel .shop-welcome h3{font-size:17px;margin:5px 0 10px;line-height:1.4}
+ .merchant-identity{display:block}
+ .merchant-identity strong{display:block;font-size:12px}
+ .merchant-identity span{display:block;margin-top:3px;font-size:9px}
+ .merchant-dialogue{margin-top:7px;padding:7px 8px;font-size:11px;line-height:1.55}
+ .shop-promise{margin-top:7px;font-size:9px;line-height:1.55}
+ .personal-duel[data-phase="shop"] .shop-balance{margin-top:12px;padding:10px;gap:8px}
+ .personal-duel[data-phase="shop"] .shop-balance>span{font-size:9px}
 }

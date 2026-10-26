@@ -19,7 +19,7 @@ const lerp = (a, b, p) => a + (b - a) * p;
 const snap = n => Math.round(n / 2) * 2;
 
 const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, legends: null, eliteRelics: null, cardTechnique: null, cardAttack: null, cardControl: null };
-const atlasFrames = { coaches: [], equipment: [], legends: [], eliteRelics: [], cardTechnique: [], cardAttack: [], cardControl: [] };
+const atlasFrames = { striker: [], coaches: [], equipment: [], legends: [], eliteRelics: [], cardTechnique: [], cardAttack: [], cardControl: [] };
 const CARD_ART = Object.freeze({
   'through-pass': ['cardTechnique', 0], 'quick-pass': ['cardTechnique', 1], 'one-two': ['cardTechnique', 2],
   'wall-pass': ['cardTechnique', 3], 'long-pass': ['cardTechnique', 4], dribble: ['cardTechnique', 5],
@@ -106,12 +106,15 @@ function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = 
 export function initArt() {
   if (artLoading) return artLoading;
   if (typeof Image === 'undefined') return Promise.resolve(Object.fromEntries(Object.keys(rasterArt).map(key => [key, false])));
-  const sources = { striker: 'striker.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', legends: 'legends.png', eliteRelics: 'elite-relics.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png' };
+  const sources = { striker: 'striker-football.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', legends: 'legends.png', eliteRelics: 'elite-relics.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png' };
   artLoading = Promise.all(Object.entries(sources).map(([key, filename]) => new Promise(resolve => {
     const picture = new Image();
     picture.decoding = 'async';
     picture.onload = () => {
       rasterArt[key] = picture;
+      // Scan all visible pieces so the normal football remains in the crop
+      // even if a small transparent gap separates it from the player's boot.
+      if(key==='striker')atlasFrames.striker=readAtlasFrames(picture,1,1);
       if(key==='coaches')atlasFrames.coaches=readAtlasFrames(picture,4,2,true);
       if(key==='equipment')atlasFrames.equipment=readAtlasFrames(picture,4,3);
       // Use each atlas's empty gutters; connected bounds keep the wide Ronaldo
@@ -296,7 +299,7 @@ function drawDuelist(ctx, x, y, options = {}) {
     if(digits[row][col]==='1') r(-5+col,-33+row,1,1,trim);
     if(digits[row+6][col]==='1') r(-1+col,-33+row,1,1,trim);
   }
-  // Large profile: visible eye, brow, nose, cheek, mouth and headband.
+  // Large profile: visible eye, brow, nose, cheek and short natural hair.
   r(-10,-57,20,15,outline); r(-7,-55,16,13,skin);
   r(-10,-50,5,7,skinShade); r(-9,-49,3,4,skin);
   r(-6,-44,14,3,skinShade); r(-5,-43,10,2,skin);
@@ -308,8 +311,10 @@ function drawDuelist(ctx, x, y, options = {}) {
   r(-7,-60,8,3,home?'#372b29':'#3a332c'); r(1,-59,6,3,home?'#372b29':'#3a332c');
   r(-11,-56,5,7,home?'#372b29':'#3a332c');
   r(-8,-57,6,2,home?'#724333':'#6b5a3c'); r(-1,-56,6,1,home?'#9b503b':'#8d7950');
-  r(-10,-53,20,2,trim); r(-12,-53,3,3,'#cfc5a2');
-  r(-16,-53,5,2,trim); r(-16,-51,3,4,'#cfc5a2');
+  if(!home) {
+    r(-10,-53,20,2,trim); r(-12,-53,3,3,'#cfc5a2');
+    r(-16,-53,5,2,trim); r(-16,-51,3,4,'#cfc5a2');
+  }
   r(-10,-51,3,3,home?'#372b29':'#3a332c');
   // A warm side highlight keeps the profile clear against the dark stands.
   r(8,-52,1,2,'#ffd3a1'); r(8,-46,1,2,'#ffd3a1');
@@ -483,10 +488,11 @@ export function drawPitch(ctx, options = {}) {
   const scale=height/400,stageWidth=width/scale,mobile=width<=520;
   ctx.scale(scale,scale);
   const heroAnchor=stageWidth*(mobile?.23:.292),enemyAnchor=stageWidth*(mobile?.77:.708);
+  const heroCrop=atlasFrames.striker[0],heroHalfWidth=heroCrop?119*heroCrop[2]/heroCrop[3]+4:98;
   const legendIndex=LEGEND_FRAMES[options.opponentId],legendCrop=atlasFrames.legends[legendIndex];
   const enemyHalfWidth=legendCrop?118*legendCrop[2]/legendCrop[3]+4:98;
   // Only extremely narrow/tall layouts need an extra, continuous size reduction.
-  const fit=Math.min(1,Math.max(.2,(Math.min(heroAnchor,stageWidth-enemyAnchor)-12)/Math.max(98,enemyHalfWidth)));
+  const fit=Math.min(1,Math.max(.2,(Math.min(heroAnchor,stageWidth-enemyAnchor)-12)/Math.max(98,heroHalfWidth,enemyHalfWidth)));
   let heroX=heroAnchor,enemyX=enemyAnchor;
   const heroY=340,enemyY=340,pulse=Math.sin(p*Math.PI);
   const breathing=Math.sin((Number(options.time)||0)/720)*1.2*fit;
@@ -517,7 +523,7 @@ export function drawPitch(ctx, options = {}) {
     cross(ctx,enemyX-92*fit,enemyY-155*fit,4*fit,'#e9d194');
   }
   const lean=type==='concede'?-pulse*.04:type==='dribble'?pulse*.035:type==='shot'||type==='goal'?Math.sin(p*Math.PI*2)*-.045:type==='pass'?pulse*.02:0;
-  if(rasterArt.striker)drawRasterFighter(ctx,rasterArt.striker,heroX,heroY,{crop:[130,21,808,1386],height:238*fit+breathing,lean,hit:heroHit});
+  if(rasterArt.striker)drawRasterFighter(ctx,rasterArt.striker,heroX,heroY,{crop:heroCrop,height:238*fit+breathing,lean,hit:heroHit});
   else {ctx.save();ctx.translate(heroX,heroY);ctx.scale(fit*238/240,fit*238/240);drawDuelist(ctx,0,0,{home:true,hit:heroHit});ctx.restore();}
   const startX=heroX+52*fit,startY=heroY-9*fit,targetX=enemyX-34*fit,targetY=enemyY-94*fit;
   let bx=startX,by=startY;

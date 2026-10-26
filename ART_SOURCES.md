@@ -165,3 +165,53 @@ Avoid: background, gradient, floor rectangle, ambient glow, haze, contact shadow
 Final layout edit prompt:
 
 Edit this existing twelve-icon football relic atlas for precise production layout. Preserve EXACTLY all TWELVE object designs, their identity and order, shapes, colors, materials, the numeral 9 on its crest, and the detailed pixel-art style. Canvas MUST remain 1536 by 1024. Keep EXACTLY FOUR columns by THREE rows, one icon per cell in the SAME row-major order. Scale each complete icon down uniformly and recenter it at the exact center of its own equal grid cell, so the entire icon including ribbon, cords, flames and handle fits within a box at most 270 pixels wide and 240 pixels tall. Use substantial TRUE transparent margins between every icon. Explicit cell centers: x=192,576,960,1344; y=171,512,853. No parts may cross the invisible cell boundaries. Keep the objects solid opaque and make ALL pixels outside physical icons fully alpha-transparent (alpha 0). Remove ambient glows, colored haze, halos, floor shadows and all background. Do not redesign, replace, omit, duplicate or merge any object. No lines, grid, borders, labels, additional lettering or new decorations.
+
+
+# Football hero redesign · 2026-10-26
+
+- Mode: built-in `image_gen.imagegen`, transparent output.
+- Project asset: `dist/assets/striker-football.png` (1024 × 1536 RGBA; 1,615,401 bytes).
+- Generated source: `C:\Users\devco\.codex\generated_images\01a176f6-4d25-71d2-b2a1-851a8b887e69\exec-6b48a4e9-1e4b-45ef-8bf5-8a5ad6a9f449.png`.
+- SHA-256: `E9B69525A907DF71232B8D809F806C6A66592E45D6248C45E5DB002E71067887`.
+- References: old `dist/assets/striker.png` for team colors; `dist/assets/legends.png` for pixel finish only. Original hero remains unchanged as a reference asset.
+- Design: short natural hair, red/navy No. 9 kit, long white football socks, low-profile black cleats, open balancing hands, ordinary black-and-white football. Removed the headband, ribbons, gold boots and glowing ball.
+- Alpha verified without modifying the bitmap: 1,031,944 fully transparent pixels, all tested outer/corner pixels alpha 0. Visible alpha >64 bounds `(84,94)-(899,1455)`. The image viewer's apparent background glow is RGB under transparent alpha.
+- Integration: `initArt()` loads the new file and trims all opaque pieces once via `readAtlasFrames(picture,1,1)` so a separated football is retained. `drawPitch()` uses that crop and includes its width in the existing stage-fit calculation; unchanged 238-unit height and foot baseline, hit/lean/aura behavior preserved. The procedural home fallback no longer wears a headband.
+- Validation: JavaScript syntax checks and all 63 engine/tutorial tests pass. Integrated sprite, merchant, nickname placement and tappable stat dialogs were visually verified in desktop and mobile browser viewports.
+
+## Final prompt
+
+```text
+Use case: stylized-concept.
+Asset type: transparent full-body playable footballer sprite for RUNEKICK, a side-view pixel-art football deckbuilding game.
+Input images: Image 1 is the old playable hero and serves ONLY as the red/navy team-color reference, not the hairstyle, face proportions, accessories, pose, magical football or body shape. Image 2 is a supporting pixel-art finish/outline reference only.
+Primary request: redesign this default hero into a believable young association-football player, visibly ready to dribble a normal football to screen RIGHT. A lean young adult Korean male athlete, natural short black hair with a tidy side part, normal athletic footballer proportions and realistic-sized head. Red modern short-sleeve football jersey with simple white collar/cuff trim, dark navy lightweight football shorts with a small white number 9, white knee-high football socks with two narrow red stripes, low-profile black football boots with pale studs. No club or sponsor branding.
+Pose: full body, three-quarter side view looking RIGHT, a small forward lean from the hips, one knee softly bent in a relaxed first-touch receiving stance, one open hand low and slightly away from the torso for balance, the other relaxed low. Both hands below waist or near hips, never clenched. Ordinary black-and-white stitched football on the ground just ahead of the right-side boot, clearly a real sport ball. The ball and both boots share the same baseline. It is not a fighting stance.
+Style: polished 2D pixel-art game sprite, deliberate hard pixel clusters, clean dark contour and selective warm highlights, readable at 120–240 screen pixels high, same grounded illustrated pixel finish as reference 2. Athletic and approachable, not exaggerated anime or bodybuilding.
+Composition: portrait 2:3 image, one complete character only, isolated on real transparent alpha background. Center complete silhouette including ball; generous 6% clear margin on all sides. Preserve all hair, fingers, cleats and football with no cropping. No environmental shadow except a very small crisp contact shadow directly under boots/ball.
+Avoid: headband, ribbons, spiky anime hair, fists, martial arts gi, gloves, arm wraps, cape, oversized gold boots, fire, glowing or magical ball, aura, magic effects, motion trails, weapons, logos, words, UI, scenery, vignette, checkerboard backdrop.
+```
+
+
+## Football player and merchant redesign · 2026-10-26
+
+### merchant-levy.png
+
+- Built-in `image_gen.imagegen`, transparent output; no CLI fallback.
+- Project asset: `C:/Users/devco/Documents/fast-fix/runekick/dist/assets/merchant-levy.png`
+- Generated source: `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-bde176f6-bbea-42df-aefe-9c6e1dba17b4.png`
+- Image: 1254×1254 RGBA PNG, 1,093,078 bytes. Alpha range 0–255; 840,289 fully transparent pixels. No bitmap post-processing.
+- Reference: existing coaches atlas for pixel finish. Daniel Levy is a stylized fictional shopkeeper adaptation; the game dialogue is original writing.
+- Counter, football and folded jersey belong to the same transparent cutout, composited into the navy shop welcome panel.
+
+Final prompt:
+
+```text
+Use case: stylized-concept.
+Asset type: a single production transparent pixel-art merchant NPC cutout for RUNEKICK, a football deckbuilding game.
+Input image 1 is a STYLE REFERENCE ONLY. Match its crisp detailed 16-bit pixel illustration, small deliberate pixel clusters, dark navy outlines, warm natural skin shading and readable character expression. Do not copy any of the seven coaches or any background.
+Subject: Daniel Levy-inspired football businessman reimagined as a fictional sporting-goods shopkeeper. Recognizably bald clean-shaven older British man, pale warm complexion, compact facial features, thoughtful narrow eyes and a restrained knowing half-smile. Normal realistic adult proportions. Wearing a tailored dark navy blazer over a white open-collar shirt, charcoal trousers, no tie. He is welcoming a player to his shop, standing in relaxed three-quarter view facing slightly RIGHT and toward the viewer. One hand rests on a small wooden counter, the other holds a slim cream inventory ledger. No clenched fists, no battle pose.
+Composition: ONE character only, visible from head to hips behind a compact dark walnut counter. The complete cutout including counter fits in a centered roughly square silhouette with generous clean transparent margins on ALL sides. The man occupies the upper two-thirds, his face large and recognizable at 160px display size. On the counter are just a single tasteful black-and-white football and one folded ivory-and-navy football shirt, kept low enough not to hide his chest or face. Counter has clean solid edges, no writing or signs. Muted navy, walnut and warm cream palette harmonizes with a dark navy game interface.
+Style: polished football RPG pixel-art NPC, tangible cloth and wood texture rendered with crisp square clusters; calm commercial scene, naturally friendly but shrewd shopkeeper. No scene background. Solid opaque physical subject and props with fully transparent alpha everywhere else.
+Avoid: stadium, backdrop, colored haze, gradients outside silhouette, glow, halo, floating particles, ground plane, rectangular background, labels, letters, sponsor logos, actual club crests, watermarks, extra people, overlarge muscles, fighting-game costume, photorealism, soft painterly blur, 3D voxel blocks. Do not draw any text.
+```
