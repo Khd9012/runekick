@@ -1,4 +1,4 @@
-import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes } from './engine.js';
+import { CARDS, RELICS, STARTER_RELICS, OPPONENTS, createRun, act, forecast, cardText, validateSave, routeFor, availableNodes, getCardRemovalCost } from './engine.js';
 import { drawPitch, drawCardArt, drawItemArt, initArt } from './art.js';
 import { createTutorial } from './tutorial.js';
 
@@ -117,7 +117,7 @@ function dispatch(action) {
   save(); render();
   if (before.phase !== run.phase) {
     const destination = run.phase === 'map' ? $('phase-panel').querySelector('.map-point.available') : run.phase === 'match' ? document.querySelector('.topbar') : $('phase-panel');
-    destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'nearest', behavior:motion.matches ? 'auto' : 'smooth'});
+    destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'start', behavior:motion.matches ? 'auto' : 'smooth'});
   }
 }
 function costOf(card) { return card.upgraded ? CARDS[card.id].upgradedCost : CARDS[card.id].cost; }
@@ -139,8 +139,8 @@ function cardHTML(card, mode = 'view', index = 0, context = {}) {
   const isSelected = practice ? context.selectedUid === card.uid : mode === 'hand' ? selected === card.uid : mode === 'reward' && rewardSelection === card.id;
   const expected = practice && context.allowedCardId === card.id;
   const tag = mode === 'view' ? 'article' : 'button';
-  const data = practice ? `data-tutorial-hand="${esc(card.uid)}"` : mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : '';
-  return `<${tag} class="card ${def.type} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}${expected ? ' tutorial-card-target' : ''}" ${data} ${practice && !expected ? 'disabled' : ''} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${costOf(card)}, ${esc(cardText(card))}${unaffordable ? ' 에너지 부족.' : ''}" aria-pressed="${isSelected}"` : ''}>
+  const data = practice ? `data-tutorial-hand="${esc(card.uid)}"` : mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : mode === 'upgrade' ? `data-upgrade="${esc(card.uid)}"` : mode === 'remove' ? `data-preview-remove="${esc(card.uid)}"` : '';
+  return `<${tag} class="card ${def.type} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}${expected ? ' tutorial-card-target' : ''}" ${data} ${practice && !expected ? 'disabled' : ''} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${costOf(card)}, ${esc(cardText(card))}${unaffordable ? ' 에너지 부족.' : ''}${mode === 'upgrade' ? ' 강화 전후 비교' : mode === 'remove' ? ' 상점에서 제거' : ''}"${['hand','reward','tutorial'].includes(mode) ? ` aria-pressed="${isSelected}"` : ''}` : ''}>
     <span class="card-top"><span class="card-cost">${costOf(card)}</span><span class="card-title">${esc(def.name)}${card.upgraded ? '<span class="upmark"> +</span>' : ''}</span></span>
     <canvas class="card-art" data-art="${def.type}" data-card-id="${def.id}" data-upgraded="${!!card.upgraded}" width="384" height="240" aria-hidden="true"></canvas>
     <span class="card-type"><span><svg class="card-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${categoryInfo.icon}</svg>${categoryInfo.name}${CARD_SUBTYPES[def.type] ? `<small class="card-subtype">· ${CARD_SUBTYPES[def.type]}</small>` : ''}</span><span class="card-rarity">${RARITY_NAMES[def.rarity]}</span></span>
@@ -184,7 +184,7 @@ function routeMap(interactive = false) {
 function render() {
   pitchDirty = true;
   document.body.dataset.phase = run.phase;
-  const focusHand = document.activeElement?.dataset?.hand, focusReward = document.activeElement?.dataset?.reward;
+  const focusHand = document.activeElement?.dataset?.hand, focusHandTab = document.activeElement?.classList.contains('mobile-hand-tab'), focusReward = document.activeElement?.dataset?.reward;
   const match = run.match, active = run.phase === 'match', prediction = forecast(run), route = routeFor(run);
   const hand = $('hand'), roundKey = active ? `${run.initialSeed}:${run.routeIndex}:${match.turn}` : '';
   const handScrollLeft = hand.dataset.roundKey === roundKey ? hand.scrollLeft : 0;
@@ -214,7 +214,13 @@ function render() {
   $('away-score').textContent = match?.enemyHp ?? opponent.maxHp; $('enemy-max-hp').textContent = match?.enemyMaxHp || opponent.maxHp;
   $('enemy-hp-bar').style.width = `${100*(match?.enemyHp??opponent.maxHp)/(match?.enemyMaxHp||opponent.maxHp)}%`;
   $('enemy-block-value').textContent = match?.enemyBlock||0; $('guard-value').textContent = match?.defense||0;
-  $('momentum-badge').textContent = `ϟ 기세 ${match?.momentum||0}`;
+  $('combat-status').hidden = !active;
+  const momentum = match?.momentum || 0, defense = match?.defense || 0;
+  $('momentum-value').textContent = momentum;
+  $('momentum-detail').textContent = `슛 피해 +${momentum} · 발리는 +${momentum * 2} · 사용 시 소모`;
+  $('defense-detail').textContent = `피해 ${defense}까지 방어 · 다음 턴 초기화`;
+  $('momentum-badge').classList.toggle('charged', momentum > 0);
+  $('defense-status').classList.toggle('charged', defense > 0);
   $('incoming-value').textContent = active ? match.intent.attack : 0; $('intent-name').textContent = active ? match.intent.name : '대결 종료';
   $('intent-description').textContent = active ? `공격 ${match.intent.attack} − 내 방어 ${match.defense} = 체력 피해 ${prediction.incoming}` : '';
   $('danger-badge').textContent = active ? prediction.incoming ? `예상 피해 ${prediction.incoming}` : '모두 방어' : '대결 종료';
@@ -226,14 +232,27 @@ function render() {
     // Selecting a card must preserve its DOM node and the mobile scroll anchor.
     if (replaceHand) {
       hand.innerHTML = match.hand.length ? match.hand.map((card,i)=>cardHTML(card,'hand',i)).join('') : '<div class="hand-empty">손패를 모두 사용했어요.<br>턴을 종료하고 다음 기술을 준비하세요.</div>';
+      const rows = Math.max(1, Math.ceil(match.hand.length / 6));
+      hand.style.setProperty('--hand-rows', rows);
+      hand.querySelectorAll('[data-hand]').forEach((button, index) => {
+        const row = Math.floor(index / 6), count = Math.min(6, match.hand.length - row * 6), position = count > 1 ? (index % 6) / (count - 1) : .5;
+        button.style.setProperty('--hand-index', index);
+        button.style.setProperty('--hand-row', row);
+        button.style.setProperty('--hand-position', position);
+        button.style.setProperty('--hand-angle', `${(position - .5) * 12}deg`);
+      });
+      $('mobile-hand-tabs').style.setProperty('--hand-columns', Math.max(1, Math.min(6, match.hand.length)));
+      $('mobile-hand-tabs').dataset.count = match.hand.length;
+      $('mobile-hand-tabs').innerHTML = match.hand.map(card => `<button class="mobile-hand-tab ${CARDS[card.id].type}${costOf(card) > match.energy ? ' unaffordable' : ''}" data-hand="${esc(card.uid)}" aria-label="${esc(CARDS[card.id].name)}${card.upgraded ? ' 강화' : ''} 선택${costOf(card) > match.energy ? ', 에너지 부족' : ''}" aria-pressed="${selected === card.uid}"><span class="mobile-hand-cost">${costOf(card)}</span><span class="mobile-hand-name">${esc(CARDS[card.id].name)}${card.upgraded ? '+' : ''}</span></button>`).join('');
       hand.dataset.renderKey = handKey; hand.dataset.roundKey = roundKey;
     } else {
-      for (const button of hand.querySelectorAll('[data-hand]')) {
+      for (const button of $('hand-section').querySelectorAll('[data-hand]')) {
         const isSelected = button.dataset.hand === selected;
         button.classList.toggle('selected', isSelected);
         button.setAttribute('aria-pressed', String(isSelected));
       }
     }
+    hand.classList.toggle('has-selection', !!selected);
     $('draw-pile').innerHTML = `▤ <b>${match.draw.length}</b><small>뽑기</small>`;
     $('discard-pile').innerHTML = `▤ <b>${match.discard.length}</b><small>버림</small>`;
     $('energy-value').textContent = match.energy; $('energy-cap').textContent = `/ ${match.maxEnergy} 에너지`;
@@ -251,7 +270,7 @@ function render() {
   $('commentary').textContent=(run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.').replaceAll('헬스장','훈련장').replaceAll('휴식처','라커룸');
   $('sound-button').setAttribute('aria-pressed',String(sound)); $('sound-button').setAttribute('aria-label',sound?'소리 끄기':'소리 켜기'); $('sound-button').style.color=sound?'var(--mint)':'';
   paintCards();
-  if(focusHand) document.querySelector(`[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
+  if(focusHand) document.querySelector(`${focusHandTab ? '.mobile-hand-tab' : '#hand .card'}[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
   if(focusReward) document.querySelector(`[data-reward="${CSS.escape(focusReward)}"]`)?.focus({preventScroll:true});
   if (replaceHand) hand.scrollLeft = handScrollLeft;
 }
@@ -277,9 +296,13 @@ function renderPhase() {
     const earned = relic ? `<div class="relic-earned">${itemCanvas(relic)}<div><span>전용 유물 획득 · 효과 적용</span><strong>${esc(relic.name)}</strong><p>${esc(relic.description)}</p></div></div>` : '';
     panel.innerHTML = heading('TRIAL COMPLETE / NEW TECHNIQUE', rewardTitle, esc(run.message)) + earned + `<div class="reward-grid">${run.offers.map(id => cardHTML({ id, upgraded: false }, 'reward')).join('')}</div><div class="phase-actions"><button class="button" data-action="skip-reward">카드 없이 계속</button><button class="button primary" data-action="take-reward" ${rewardSelection ? '' : 'disabled'}>${run.activeNode?.type==='boss'?'카드를 받고 도전 마무리':'카드를 받고 지도로'} →</button></div>`;
   }
-  if (run.phase === 'training') panel.innerHTML = heading('TRAINING DAY', esc(name), '강화를 누르면 현재 카드와 강화 후 수치를 비교할 수 있어요. 한 장을 강화하거나 제거하며, 덱은 최소 8장을 유지합니다.') + `<div class="training-list">${run.deck.map(c => `<div class="training-row"><span>${esc(CARDS[c.id].name)}${c.upgraded ? ' +' : ''}</span><button data-upgrade="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} ${c.upgraded ? '강화 완료' : '강화 전후 비교'}" ${c.upgraded ? 'disabled' : ''}>${c.upgraded ? '강화 완료' : '강화'}</button><button data-remove="${esc(c.uid)}" ${run.deck.length <= 8 ? 'disabled' : ''}>제거</button><small class="training-description">${esc(cardText(c))}</small></div>`).join('')}</div><div class="phase-actions"><button class="button" data-action="leave">훈련 건너뛰기 →</button></div>`;
+  if (run.phase === 'training') panel.innerHTML = heading('TRAINING DAY', esc(name), '카드를 눌러 강화 전후를 비교하세요. 한 장을 강화하거나 무료로 제거하면 훈련을 마칩니다. 무료 제거는 덱이 9장 이상일 때 가능합니다.') + `<div class="deck-choice-grid">${run.deck.map(c => `<section class="deck-choice">${cardHTML(c, c.upgraded ? 'view' : 'upgrade')}<div class="deck-choice-actions"><button class="button" data-upgrade="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} ${c.upgraded ? '강화 완료' : '강화 전후 비교'}" ${c.upgraded ? 'disabled' : ''}>${c.upgraded ? '강화 완료' : '강화 비교'}</button><button class="button" data-remove="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} 무료 제거" ${run.deck.length <= 8 ? 'disabled' : ''}>무료 제거</button></div></section>`).join('')}</div><div class="phase-actions"><button class="button" data-action="leave">훈련 건너뛰기 →</button></div>`;
   if (run.phase === 'rest') panel.innerHTML = heading('TAKE A BREATH', esc(name), '잠시 멈추는 것도 앞으로 나아가는 방법입니다. 체력을 30 회복하고 다음 여정을 준비하세요.') + `<div class="stats-row"><span><b>${run.condition}</b>현재 체력</span><span><b>→</b></span><span><b>${Math.min(run.maxCondition, run.condition + 30)}</b>휴식 후 체력</span></div><div class="phase-actions"><button class="button primary" data-action="rest">충분히 쉬기 →</button></div>`;
   if (run.phase === 'shop') panel.innerHTML = heading('THE TRAVELLING MERCHANT', esc(name), '승리로 번 골드를 나만의 힘으로. 장착 부위 제한 없이 모든 아이템 효과가 누적됩니다.') + `<div class="shop-balance"><strong>보유 골드 ● ${run.gold}</strong><span>구입 즉시 적용 · 이번 도전 동안 유지</span></div><div class="shop-grid">${run.shopOffers.map(id=>{const r=RELICS[id]; return `<article class="shop-item"><span class="item-tag">${RARITY_NAMES[r.rarity]||'특별'} 아이템</span>${itemCanvas(r)}<h4>${esc(r.name)}</h4><p>${esc(r.description)}</p><button data-buy="${id}" ${run.gold<r.price?'disabled':''}>● ${r.price} · ${run.gold<r.price?'골드 부족':'구매'}</button></article>`;}).join('')||'<p class="dialog-copy">이 가게의 아이템을 모두 구입했어요.</p>'}</div><div class="phase-actions"><button class="button" data-action="equipment">내 아이템 확인</button><button class="button primary" data-action="leave">다음 여정으로 →</button></div>`;
+  if (run.phase === 'shop') {
+    const price = getCardRemovalCost(run), blocked = run.deck.length <= 1 || run.gold < price;
+    panel.querySelector('.shop-grid').insertAdjacentHTML('beforebegin', `<section class="shop-removal"><div><span class="phase-eyebrow">DECK SERVICE</span><h4>카드 제거 <strong>● ${price}</strong></h4><p>내 덱에서 한 장을 고릅니다. 제거할 때마다 25골드씩 오르며 다음 상점에도 이어집니다.</p></div><button class="button" data-action="shop-remove" ${blocked ? 'disabled' : ''}>${run.deck.length <= 1 ? '마지막 카드는 유지' : run.gold < price ? '골드 부족' : '제거할 카드 고르기'}</button></section>`);
+  }
   if (run.phase === 'event') panel.innerHTML = heading('A CHANCE ENCOUNTER', '관중석의 낯선 시선.', '“방금 그 움직임, 한 번 더 보여줄 수 있겠니?” 경기가 끝난 뒤 스카우트가 당신을 불러 세웠습니다.') + '<div class="choice-grid"><button class="choice-button" data-event="risk"><span class="choice-icon">✧</span><strong>추가 테스트에 도전한다</strong><small>체력 12 소모 · 자금 35와 희귀 카드 1장 획득.</small><em>오늘의 땀이 내일의 기회로</em></button><button class="choice-button" data-event="safe"><span class="choice-icon">☾</span><strong>다음 기회를 기약한다</strong><small>체력 5 회복 · 자금 15 획득.</small><em>내 페이스를 지키는 선택</em></button></div>';
   if (run.phase === 'victory' || run.phase === 'defeat') {
     const won = run.phase === 'victory';
@@ -289,6 +312,24 @@ function renderPhase() {
 function openDialog(title, content) { $('dialog-title').textContent = title; $('dialog-body').innerHTML = content; if (!$('dialog').open) $('dialog').showModal(); paintCards($('dialog')); }
 function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장`) {
   openDialog(title, cards.length ? `<div class="dialog-cards">${cards.map(c => cardHTML(c)).join('')}</div>` : '<p class="dialog-copy">아직 카드가 없어요.</p>');
+}
+function showShopRemoval() {
+  const price = getCardRemovalCost(run);
+  if (busy || run.phase !== 'shop' || run.deck.length <= 1 || run.gold < price) return;
+  openDialog(`카드 제거 · ${price}골드`, `<section class="removal-picker"><p class="dialog-copy">제거할 카드를 고르면 마지막으로 확인합니다. 보유 ${run.gold}골드 · 제거 후 ${run.gold - price}골드</p><div class="deck-choice-grid">${run.deck.map(c => cardHTML(c, 'remove')).join('')}</div></section>`);
+  $('dialog').scrollTop = 0;
+}
+function showRemovalPreview(uid) {
+  const card = run.deck.find(c => c.uid === uid), price = getCardRemovalCost(run);
+  if (busy || run.phase !== 'shop' || !card || run.deck.length <= 1 || run.gold < price) return;
+  openDialog('이 카드를 덱에서 제거할까요?', `<section class="removal-preview">${cardHTML(card)}<p>이번 도전의 덱에서 이 카드 <strong>1장</strong>을 제거합니다.</p><div class="removal-price"><strong>● ${price}골드</strong><span>보유 ${run.gold} → ${run.gold - price}골드</span><small>다음 제거 비용: ${price + 25}골드</small></div><div class="phase-actions"><button class="button" data-action="shop-remove">다시 고르기</button><button class="button primary" data-confirm-remove="${esc(uid)}">${price}골드로 제거</button></div></section>`);
+  $('dialog').scrollTop = 0;
+}
+function confirmShopRemoval(uid) {
+  if (changedElsewhere) return toast('다른 창의 진행을 먼저 새로고침해 주세요.');
+  if (busy || run.phase !== 'shop' || run.deck.length <= 1 || run.gold < getCardRemovalCost(run) || !run.deck.some(c => c.uid === uid)) return;
+  $('dialog').close();
+  dispatch({ type: 'remove-card', uid });
 }
 function upgradeComparisonRows(card) {
   const upgraded = { ...card, upgraded: true }, before = cardText(card), after = cardText(upgraded);
@@ -323,11 +364,11 @@ function confirmUpgrade(uid) {
   dispatch({ type: 'upgrade-card', uid });
 }
 function showHelp() {
-  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 카드 터치 → 카드 사용. 손패는 좌우로 넘겨보세요.<br>공격수 1명 · 기술 18종 · 아이템 21종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>');
+  openDialog('플레이북 · 나만의 선수로 싸우는 법', '<div class="dialog-copy"><strong>한 선수, 나만의 기술 덱.</strong><ol><li>상대 선수의 체력을 0으로 만들면 승리합니다. 내 체력은 다음 대결까지 이어지며, 0이 되면 도전이 끝납니다.</li><li>매 턴 카드 5장과 에너지 3을 받습니다. 카드 선택 후 <strong>카드 사용</strong>을 누르면 즉시 효과가 적용됩니다.</li><li><strong>드리블로 기세를 쌓고 슛으로 소비</strong>하세요. 기세는 턴이 지나도 유지되고, 슛 카드가 모인 기세를 추가 피해로 바꿉니다.</li><li>상대 머리 위의 공격 예고를 보고 방어를 준비하세요. 턴 종료 시 상대가 공격하고, 남은 방어는 다음 턴에 사라집니다.</li><li>승리 후 카드와 골드를 얻습니다. <strong>상점에서 산 아이템 효과는 부위 제한 없이 누적</strong>됩니다. 아이템은 이번 도전 동안 유지됩니다.</li><li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복을 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li></ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 겹친 손패 또는 아래 카드 이름 터치 → 카드 사용. 선택한 카드가 크게 표시됩니다.<br>공격수 1명 · 기술 18종 · 아이템 21종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 12지점 경로입니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>');
 }
 function showMenu() {
   const previous = previousJourney();
-  openDialog('라커룸', `<div class="dialog-copy"><strong>${esc(run.playerName||'루키')}의 이야기는 저장되어 있어요.</strong><p>언제든 돌아와 지금의 카드와 대결 상황으로 이어할 수 있습니다.</p><div class="choice-grid">${starterRewardPending() ? '<button class="choice-button" data-action="starter-reward"><strong>시작 장비 받기</strong><small>완료한 튜토리얼의 장비 1개 선택</small></button>' : ''}<button class="choice-button" data-action="rename"><strong>선수 이름 변경</strong><small>덱과 진행 상황은 그대로 유지</small></button><button class="choice-button" data-action="deck"><strong>나의 덱</strong><small>카드와 강화 상태 확인</small></button><button class="choice-button" data-action="tutorial"><strong>튜토리얼</strong><small>직접 연습하기 · 언제든 전체 건너뛰기</small></button><button class="choice-button" data-action="help"><strong>플레이 방법</strong><small>피해, 방어와 카드의 규칙</small></button><button class="choice-button" data-action="equipment"><strong>내 아이템</strong><small>보유한 아이템 효과 확인</small></button><button class="choice-button" data-action="sound"><strong>소리 ${sound ? '끄기' : '켜기'}</strong><small>경기 효과음 ${sound ? '켜짐' : '꺼짐'}</small></button><button class="choice-button" data-action="credits"><strong>아트 크레딧</strong><small>에셋 제작 및 출처</small></button>${previous ? `<button class="choice-button" data-action="restore-previous"><strong>이전 지도에서 하던 도전</strong><small>체력 ${previous.condition} · 골드 ${previous.gold} · 아이템 ${previous.relics.length}개를 되살려 이어하기</small></button>` : ''}<button class="choice-button" data-action="restart-confirm"><strong>새로운 도전</strong><small>현재 도전을 끝내고 다시 시작</small></button></div></div>`);
+  openDialog('라커룸', `<div class="dialog-copy"><strong>${esc(run.playerName||'루키')}의 이야기는 저장되어 있어요.</strong><p>언제든 돌아와 지금의 카드와 대결 상황으로 이어할 수 있습니다.</p><div class="choice-grid">${starterRewardPending() ? '<button class="choice-button" data-action="starter-reward"><strong>시작 장비 받기</strong><small>완료한 튜토리얼의 장비 1개 선택</small></button>' : ''}<button class="choice-button" data-action="rename"><strong>선수 이름 변경</strong><small>덱과 진행 상황은 그대로 유지</small></button><button class="choice-button" data-action="deck"><strong>나의 덱</strong><small>카드와 강화 상태 확인</small></button><button class="choice-button" data-action="tutorial"><strong>튜토리얼</strong><small>직접 연습하기 · 언제든 전체 건너뛰기</small></button><button class="choice-button" data-action="help"><strong>플레이 방법</strong><small>피해, 방어와 카드의 규칙</small></button><button class="choice-button" data-action="equipment"><strong>내 아이템</strong><small>보유한 아이템 효과 확인</small></button><button class="choice-button" data-action="log"><strong>대결 기록</strong><small>지난 턴의 피해와 카드 효과 확인</small></button><button class="choice-button" data-action="sound"><strong>소리 ${sound ? '끄기' : '켜기'}</strong><small>경기 효과음 ${sound ? '켜짐' : '꺼짐'}</small></button><button class="choice-button" data-action="credits"><strong>아트 크레딧</strong><small>에셋 제작 및 출처</small></button>${previous ? `<button class="choice-button" data-action="restore-previous"><strong>이전 지도에서 하던 도전</strong><small>체력 ${previous.condition} · 골드 ${previous.gold} · 아이템 ${previous.relics.length}개를 되살려 이어하기</small></button>` : ''}<button class="choice-button" data-action="restart-confirm"><strong>새로운 도전</strong><small>현재 도전을 끝내고 다시 시작</small></button></div></div>`);
 }
 function previousJourney() {
   try { const raw=JSON.parse(localStorage.getItem(`${SAVE_KEY}-previous-version`)); return raw && (['early-shop','final-shop'].includes(raw.activeNode?.id) || raw.history?.some(h=>['early-shop','final-shop'].includes(h.nodeId))) ? validateSave(raw) : null; } catch { return null; }
@@ -374,17 +415,28 @@ function selectEliteRelic(id) {
   }
   document.querySelector('[data-action="take-elite-relic"]').disabled = false;
 }
+function revealMobileCard() {
+  if (!matchMedia('(max-width:800px), (max-width:1100px) and (max-height:520px)').matches) return;
+  const card = $('hand').querySelector('.selected');
+  if (!card) return;
+  const bounds = card.getBoundingClientRect(), bottom = document.querySelector('.battle-controls').getBoundingClientRect().top - 8;
+  // Only correct vertical clipping; selecting a card never pans the hand sideways.
+  const delta = bounds.top < 8 ? bounds.top - 8 : bounds.bottom > bottom ? Math.min(bounds.bottom - bottom, bounds.top - 8) : 0;
+  if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+}
 
 document.addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button || button.disabled) return;
   const d = button.dataset;
   if (d.starterRelic) return takeStarterReward(d.starterRelic);
   if (d.eliteRelic) return selectEliteRelic(d.eliteRelic);
-  if (d.hand) { selected = d.hand; render(); return; }
+  if (d.hand) { selected = d.hand; render(); revealMobileCard(); return; }
   if (d.reward) { rewardSelection = d.reward; render(); return; }
   if (d.node) { $('route-dialog').close(); return dispatch({ type: 'choose-node', id: d.node }); }
   if (d.upgrade) return showUpgradePreview(d.upgrade);
   if (d.confirmUpgrade) return confirmUpgrade(d.confirmUpgrade);
+  if (d.previewRemove) return showRemovalPreview(d.previewRemove);
+  if (d.confirmRemove) return confirmShopRemoval(d.confirmRemove);
   if (d.remove) return dispatch({ type: 'remove-card', uid: d.remove });
   if (d.buy) return dispatch({ type: 'buy-relic', id: d.buy });
   if (d.event) return dispatch({ type: 'event-choice', id: d.event });
@@ -400,6 +452,8 @@ document.addEventListener('click', e => {
     case 'tutorial': return showTutorial();
     case 'starter-reward': return showStarterReward();
     case 'equipment': return showEquipment();
+    case 'shop-remove': return showShopRemoval();
+    case 'log': return showLog();
     case 'sound': toggleSound(); return showMenu();
     case 'credits': return openDialog('아트 크레딧', '<div class="dialog-copy"><p>선수·감독·장비·유소년 경기장: RUNEKICK을 위해 이미지 생성 도구로 제작한 전용 도트 스타일 아트.</p><p>전술 지도·카드 프레임·이펙트: 게임 코드로 제작. 감독의 대사와 전투 패턴은 게임을 위한 창작입니다.</p><p>Soccorpia 등 무료 축구 에셋을 검토했으며, 현재 큰 캐릭터 구도에 맞춰 전용 아트를 사용합니다.</p></div>');
     case 'restore-previous': {
@@ -443,7 +497,8 @@ $('dialog').addEventListener('close', () => {
 });
 $('dialog').addEventListener('click', e => { if (e.target === $('dialog')) { const r = $('dialog').getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) $('dialog').close(); } });
 $('sound-button').addEventListener('click', toggleSound);
-$('log-button').addEventListener('click', () => openDialog('대결 기록', run.match?.history.length ? run.match.history.map(out => `<div class="log-row"><strong>TURN ${out.turn}</strong><br>${esc(out.summary)}</div>`).join('') : '<p class="dialog-copy">첫 플레이가 기록될 차례입니다.</p>'));
+function showLog() { openDialog('대결 기록', run.match?.history.length ? run.match.history.map(out => `<div class="log-row"><strong>TURN ${out.turn}</strong><br>${esc(out.summary)}</div>`).join('') : '<p class="dialog-copy">첫 플레이가 기록될 차례입니다.</p>'); }
+$('log-button').addEventListener('click', showLog);
 document.addEventListener('keydown', e => {
   if (tutorial.active || $('dialog').open || $('route-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[1-9]$/.test(e.key)) { const card = run.match.hand[Number(e.key) - 1]; if (card) { selected = card.uid; render(); const button = $('hand').querySelector(`[data-hand="${CSS.escape(selected)}"]`); button?.focus({preventScroll:true}); button?.scrollIntoView({block:'nearest',inline:'nearest'}); } }
@@ -469,7 +524,7 @@ function frame(now) {
   lastFrame = now;
   let current = null;
   if (animation) { const progress = Math.min(1, (now - animation.started) / animation.duration); if (!motion.matches && progress < 1) current = { type: animation.type, progress }; if (progress === 1) animation = null; }
-  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, phase: run.phase, heroHp:run.condition,enemyHp:run.match?.enemyHp||0, animation: current });
+  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
   pitchDirty = false;
 }
 render(); save(); requestAnimationFrame(frame);

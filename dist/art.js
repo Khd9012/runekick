@@ -1,6 +1,6 @@
 /**
  * RuneKick's generated sprite atlases and procedural pixel effects.
- * drawPitch(ctx, { width, height, time, opponentColor, phase, animation })
+ * drawPitch(ctx, { width, height, time, opponentColor, phase, animation, heroMomentum })
  * drawCardArt(ctx, type, { width, height, upgraded, id })
  * drawPlayer(ctx, x, y, { scale, team, shirt, facing, pose, selected })
  * Player x/y is the centre of the player's feet. Time is in milliseconds.
@@ -407,6 +407,56 @@ function drawLegendRune(ctx, x, y, scale) {
   ctx.restore();
 }
 
+function drawMomentumAura(ctx, x, y, scale, momentum, time) {
+  if (!Number.isFinite(momentum) || momentum <= 0) return;
+  const strength = Math.sqrt(clamp(momentum, 0, 12) / 12);
+  const animated = Number.isFinite(time) && time > 0;
+  const clock = animated ? time : 0;
+  const shimmer = animated ? .93 + Math.sin(clock / 540) * .07 : .85;
+  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+  // A few stepped bands keep the glow pixel-shaped and cheap on mobile.
+  // Everything is behind the sprite, inside the character's own stage space.
+  ctx.globalAlpha = (.075 + strength * .1) * shimmer;
+  for (let row = 0; row < 11; row++) {
+    const breadth = 48 + Math.sin((row + .5) / 11 * Math.PI) * (25 + strength * 8);
+    rect(ctx, -breadth, -238 + row * 21, breadth * 2, 22, '#e7b956');
+  }
+  const flameOpacity = (.22 + strength * .25) * shimmer;
+  const wispWidths = [8, 12, 10, 8, 4, 2], wispBends = [0, -3, 2, 5, 1, 8];
+  for (const side of [-1, 1]) {
+    for (let flame = 0; flame < 3; flame++) {
+      const height = 76 + strength * (54 + flame * 24);
+      const lift = animated ? Math.sin(clock / 680 + flame * 2.1) * 5 : 0;
+      const edge = side * (62 + flame * 12);
+      // Broken, narrowing steps bend into a wisp instead of a solid pillar.
+      for (let step = 0; step < 6; step++) {
+        const breadth = wispWidths[step];
+        const bend = side * wispBends[step];
+        const rise = height / 6;
+        ctx.globalAlpha = flameOpacity * (.72 + step * .055);
+        rect(ctx, edge + bend - breadth / 2, -24 - (step + 1) * rise + lift,
+          breadth, Math.max(4, rise - 3), step > 3 ? '#ffe3a0' : '#e7b956');
+      }
+    }
+  }
+  ctx.globalAlpha = (.42 + strength * .34) * shimmer;
+  for (let segment = 0; segment < 16; segment++) {
+    const angle = segment * Math.PI / 8;
+    rect(ctx, Math.cos(angle) * (65 + strength * 9) - 4, Math.sin(angle) * 11 - 1, 8, 2, '#efc76d');
+  }
+  const count = 6 + Math.floor(strength * 8);
+  for (let i = 0; i < count; i++) {
+    const travel = (clock / (1900 + (i % 3) * 350) + i * .381966) % 1;
+    const side = i % 2 ? -1 : 1;
+    const px = side * (64 + (i * 7) % 22) + Math.sin(travel * Math.PI * 2 + i) * 4;
+    const py = -24 - travel * 220;
+    ctx.globalAlpha = (.36 + strength * .44) * (.55 + Math.sin(travel * Math.PI) * .45) * shimmer;
+    const size = i % 3 === 0 ? 6 : 4;
+    rect(ctx, px, py, size, size, i % 3 === 0 ? '#fff0bd' : '#efc76d');
+  }
+  ctx.restore();
+}
+
 /** Responsive stage: cover the background, keep people and effects uniformly scaled. */
 export function drawPitch(ctx, options = {}) {
   const width=options.width||ctx.canvas.width||960, height=options.height||ctx.canvas.height||400;
@@ -450,6 +500,7 @@ export function drawPitch(ctx, options = {}) {
   pixelEllipse(ctx,heroX,heroY+6,55*fit,7*fit,'#303d43');
   pixelEllipse(ctx,enemyX,enemyY+6,55*fit,7*fit,'#303d43');
   if(legendary) drawLegendRune(ctx,enemyX,enemyY,fit);
+  if(options.phase==='match') drawMomentumAura(ctx,heroX,heroY,fit,Number(options.heroMomentum),Number(options.time));
   ctx.save();ctx.translate(heroX,heroY);ctx.scale(fit,fit);ctx.globalAlpha=.7;
   frame(ctx,-38,4,78,10,'#81aa6a',2);
   rect(ctx,-12,16,24,2,'#aac077');rect(ctx,-6,19,12,2,'#aac077');ctx.restore();

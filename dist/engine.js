@@ -72,6 +72,8 @@ export const RELICS = Object.freeze({
   'tempo-charm': { id: 'tempo-charm', name: '템포의 부적', category: 'charm', rarity: 'legendary', shop: false, description: '한 턴에 드리블과 슈팅을 모두 쓰면 한 번만 에너지 +1. 최대 에너지까지 회복.', price: 0 },
 });
 export const STARTER_RELICS = Object.freeze(['power-cleats', 'swift-boots', 'training-kit']);
+export const CARD_REMOVAL_BASE_COST = 50;
+export function getCardRemovalCost(run) { return CARD_REMOVAL_BASE_COST + 25 * (run?.shopRemovalCount ?? 0); }
 export const ELITE_RELICS = Object.freeze({
   legend: Object.freeze(['libero-seal', 'catenaccio-band', 'clean-sheet-crest']),
   'legend-zidane': Object.freeze(['maestro-touch', 'roulette-rune', 'playmaker-lens']),
@@ -240,7 +242,7 @@ function normalizedName(value) {
 export function createRun(seed, playerName = '루키') {
   const initialSeed = seedNumber(seed), run = { schema: 3, routeVersion: 2, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
     playerName: normalizedName(playerName) ?? '루키', starterRewardUnlocked: false, starterRelic: null,
-    deck: [], relics: [], offers: [], relicOffers: [], shopOffers: [], seed: initialSeed, initialSeed, nextUid: 1,
+    deck: [], relics: [], offers: [], relicOffers: [], shopOffers: [], shopRemovalCount: 0, seed: initialSeed, initialSeed, nextUid: 1,
     stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
   ['through-pass', 'through-pass', 'quick-pass', 'dribble', 'dribble', 'feint', 'shot', 'shot', 'cover', 'cover', 'intercept', 'switch'].forEach(id => addCard(run, id));
   return run;
@@ -450,10 +452,15 @@ export function act(run, action) {
       card.upgraded = true; next.message = `${CARDS[card.id].name} 강화 완료. ${cardText(card)}`; finishNode(next, 'upgrade'); return next;
     }
     case 'remove-card': {
-      if (run.phase !== 'training' || run.deck.length <= 8) return run;
+      const shop = run.phase === 'shop', price = getCardRemovalCost(run);
+      if (shop ? run.deck.length <= 1 || run.gold < price : run.phase !== 'training' || run.deck.length <= 8) return run;
       const index = next.deck.findIndex(card => card.uid === action.uid);
       if (index < 0) return run;
-      next.message = `${CARDS[next.deck[index].id].name} 카드를 덱에서 제거했습니다.`; next.deck.splice(index, 1); finishNode(next, 'remove'); return next;
+      next.message = `${CARDS[next.deck[index].id].name} 카드를 덱에서 제거했습니다.${shop ? ` 골드 −${price}.` : ''}`;
+      next.deck.splice(index, 1);
+      if (shop) { next.gold -= price; next.shopRemovalCount = (run.shopRemovalCount ?? 0) + 1; }
+      else finishNode(next, 'remove');
+      return next;
     }
     case 'rest':
       if (run.phase !== 'rest') return run;
@@ -497,6 +504,8 @@ export function validateSave(value) {
     if (!Object.hasOwn(run, 'routeVersion')) run.routeVersion = 1;
     if (![1, 2].includes(run.routeVersion)) return null;
     if (!Object.hasOwn(run, 'relicOffers')) run.relicOffers = [];
+    if (!Object.hasOwn(run, 'shopRemovalCount')) run.shopRemovalCount = 0;
+    if (!integer(run.shopRemovalCount, 0, 100000)) return null;
     if (!Object.hasOwn(run, 'playerName')) run.playerName = '루키';
     else { const name = normalizedName(run.playerName); if (!name) return null; run.playerName = name; }
     if (!uniqueKnown(run.relics, RELICS, Object.keys(RELICS).length) || !uniqueKnown(run.offers, CARDS, 3) || !uniqueKnown(run.shopOffers, RELICS, 4) || run.shopOffers.some(id => run.relics.includes(id) || RELICS[id].shop === false)) return null;
@@ -517,7 +526,7 @@ export function validateSave(value) {
     if (run.rewardRelic !== null && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && elitePool.includes(run.rewardRelic) && has(run, run.rewardRelic) && !run.relicOffers.length)) return null;
     if (run.relicOffers.length && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && run.rewardRelic === null && JSON.stringify(run.relicOffers) === JSON.stringify(elitePool.filter(id => !has(run, id))))) return null;
     if (!shortText(run.message) || !record(run.stats) || !integer(run.stats.wins, 0, run.schema === 3 ? 6 : 4) || !integer(run.stats.damage, 0, 1000) || !integer(run.stats.blocks, 0, 100000) || run.stats.goals !== 0) return null;
-    if (!Array.isArray(run.deck) || !integer(run.deck.length, 8, 40)) return null;
+    if (!Array.isArray(run.deck) || !integer(run.deck.length, 1, 40)) return null;
     const cards = new Map();
     for (const card of run.deck) {
       if (!record(card) || typeof card.uid !== 'string' || !/^c[1-9]\d*$/.test(card.uid) || typeof card.id !== 'string' || !Object.hasOwn(CARDS, card.id) || typeof card.upgraded !== 'boolean') return null;

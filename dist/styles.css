@@ -207,6 +207,10 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
 .card.selected{outline:2px solid #ffe2a0;outline-offset:3px}
 .card:focus-visible{outline:3px solid #f9e4ae;outline-offset:4px}
 .hand-zone{display:grid;grid-template-columns:92px minmax(0,1fr) 124px;gap:14px;align-items:end}
+.battle-controls{display:contents}
+.hand-zone>.hand{grid-column:2;grid-row:1}
+.battle-controls>.energy{grid-column:1;grid-row:1}
+.battle-controls>.turn-actions{grid-column:3;grid-row:1}
 .hand,.personal-duel .hand{display:flex;justify-content:safe center;align-items:stretch;gap:14px;min-width:0;min-height:332px;margin:0;padding:25px 9px 17px;overflow-x:auto;overflow-y:hidden;scroll-padding-inline:12px;scrollbar-width:thin;scrollbar-color:#52677c transparent;overscroll-behavior-x:contain}
 .personal-duel .hand .card{transform-origin:center bottom}
 .personal-duel .hand .card:hover:not(:disabled),.personal-duel .hand .card.selected{transform:translateY(-13px);z-index:3}
@@ -226,12 +230,12 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .personal-duel .hand-heading{padding-inline:0}
  .hand-zone{grid-template-columns:180px minmax(0,1fr);gap:10px 16px;align-items:center}
  .personal-duel .hand{grid-column:1/-1;grid-row:1}
- .personal-duel .hand-zone>.energy{grid-column:1;grid-row:2;flex-direction:row;gap:12px;justify-content:flex-start;margin:0}
+ .personal-duel .battle-controls>.energy{grid-column:1;grid-row:2;flex-direction:row;gap:12px;justify-content:flex-start;margin:0}
  .personal-duel .hand-zone .energy-orb{width:44px;height:44px;border-width:2px;flex:none}
  .personal-duel .hand-zone .energy-orb strong{font-size:28px}
  .personal-duel .hand-zone #energy-cap{margin:0;font-size:9px;white-space:nowrap}
  .personal-duel .hand-zone .energy .pile-orb{margin:0;min-width:48px;min-height:50px}
- .personal-duel .hand-zone>.turn-actions{grid-column:2;grid-row:2;flex-direction:row;justify-content:flex-end;align-items:stretch;gap:12px;margin:0}
+ .personal-duel .battle-controls>.turn-actions{grid-column:2;grid-row:2;flex-direction:row;justify-content:flex-end;align-items:stretch;gap:12px;margin:0}
  .personal-duel .hand-zone .turn-actions .pile-orb{align-self:stretch;margin:0;min-width:56px;min-height:50px}
  .personal-duel .hand-zone .turn-actions .button{min-width:132px;min-height:50px;font-size:12px;padding:12px 18px}
  .personal-duel .match-foot{padding-inline:0}
@@ -251,12 +255,12 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .card-rules{font-size:11px;line-height:1.5}
  .card-type{font-size:10px;padding:5px 9px;min-height:24px}
  .card-key{display:none}
- .personal-duel .hand-zone>.energy{grid-row:2;grid-column:1;display:grid;grid-template-columns:43px 46px;grid-template-rows:43px 16px;gap:2px 9px;align-items:center;justify-items:center;margin:0;min-width:0}
+ .personal-duel .battle-controls>.energy{grid-row:2;grid-column:1;display:grid;grid-template-columns:43px 46px;grid-template-rows:43px 16px;gap:2px 9px;align-items:center;justify-items:center;margin:0;min-width:0}
  .personal-duel .hand-zone .energy-orb{grid-column:1;grid-row:1;width:40px;height:40px;border-width:2px;box-shadow:0 0 0 3px #1a283a}
  .personal-duel .hand-zone .energy-orb strong{font-size:26px}
  .personal-duel .hand-zone #energy-cap{grid-column:1;grid-row:2;font-size:8px;line-height:1;margin:0;white-space:nowrap}
  .personal-duel .hand-zone .energy .pile-orb{grid-column:2;grid-row:1/3;margin:0;align-self:stretch;width:46px}
- .personal-duel .hand-zone>.turn-actions{grid-column:2;grid-row:2;display:grid;grid-template-columns:46px minmax(0,1fr) minmax(0,1fr);gap:9px;align-items:stretch;margin:0;min-width:0}
+ .personal-duel .battle-controls>.turn-actions{grid-column:2;grid-row:2;display:grid;grid-template-columns:46px minmax(0,1fr) minmax(0,1fr);gap:9px;align-items:stretch;margin:0;min-width:0}
  .personal-duel .hand-zone .pile-orb{min-width:0;min-height:59px;padding:6px 3px;font-size:14px;border-radius:6px}
  .personal-duel .hand-zone .pile-orb b{font-size:13px;margin-left:2px}
  .personal-duel .hand-zone .pile-orb small{font-size:9px;margin-top:5px}
@@ -276,7 +280,7 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .personal-duel .damage-preview{font-size:9px;max-width:110px;line-height:1.5}
  .hand-zone{grid-template-columns:98px minmax(0,1fr);padding:0 12px calc(12px + env(safe-area-inset-bottom));column-gap:10px}
  .personal-duel .hand{margin-inline:-12px;padding-inline:15px;min-height:314px}
- .personal-duel .hand-zone>.turn-actions{gap:6px;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr)}
+ .personal-duel .battle-controls>.turn-actions{gap:6px;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr)}
  .personal-duel .hand-zone .turn-actions .button{font-size:11px;padding-inline:4px}
  .personal-duel .hand-zone .turn-actions .primary{font-size:11px}
  .personal-duel .match-foot{padding-inline:14px;margin-top:3px}
@@ -481,4 +485,138 @@ body[data-encounter="coach"] .enemy-health>i{background:#9b874f}
  .elite-relic-option>strong{grid-column:2;grid-row:2;font-size:14px;line-height:1.35}
  .elite-relic-option>p{grid-column:2;grid-row:3;font-size:11px;line-height:1.5}
  .elite-relic-select{grid-column:2;grid-row:4;justify-self:start;margin-top:4px;padding:4px 12px;font-size:10px}
+}
+
+/* Keep combat actions within thumb reach while the page and dialogs still scroll. */
+@media(max-width:800px), (max-width:1100px) and (max-height:520px){
+ .personal-duel[data-phase="match"]{--battle-dock-height:calc(82px + env(safe-area-inset-bottom));scroll-padding-bottom:calc(var(--battle-dock-height) + 12px)}
+ .personal-duel[data-phase="match"] .topbar{height:52px}
+ .personal-duel[data-phase="match"] .relic-strip,
+ .personal-duel[data-phase="match"] .match-heading h1,
+ .personal-duel[data-phase="match"] .match-heading p,
+ .personal-duel[data-phase="match"] .main-footer,
+ .personal-duel[data-phase="match"] .match-foot{display:none}
+ .personal-duel[data-phase="match"] .main-content{padding:6px 0 calc(var(--battle-dock-height) + 12px)}
+ .personal-duel[data-phase="match"] .match-heading{min-height:26px;margin:0 14px 4px;padding:0;align-items:center}
+ .personal-duel[data-phase="match"] .turn-counter{padding:3px 8px;gap:6px}
+ .personal-duel[data-phase="match"] .turn-counter strong{font-size:18px}
+ .personal-duel[data-phase="match"] .turn-counter small{font-size:7px}
+ .personal-duel[data-phase="match"] .duel-arena{height:clamp(200px,calc(100dvh - 620px - env(safe-area-inset-bottom)),280px);margin-top:4px}
+ .personal-duel[data-phase="match"] .enemy-intent{left:50%;top:4px;min-width:130px;max-width:46%;padding:4px 7px}
+ .personal-duel[data-phase="match"] .combat-rule{margin:5px 12px;padding:6px 10px;font-size:10px;line-height:1.45}
+ .personal-duel[data-phase="match"] .hand-section{margin-top:6px}
+ .personal-duel[data-phase="match"] .hand-heading{min-height:26px;margin:0;padding:0 15px;gap:10px}
+ .personal-duel[data-phase="match"] .selected-info>span{display:none}
+ .personal-duel[data-phase="match"] .selected-info>strong{font-size:12px;line-height:1.4}
+ .personal-duel[data-phase="match"] .damage-preview{max-width:48%;font-size:10px;line-height:1.4;white-space:normal}
+ .personal-duel[data-phase="match"] .battle-controls{position:fixed;inset-inline:0;bottom:0;z-index:8;display:grid;grid-template-columns:98px minmax(0,1fr);gap:10px;align-items:center;padding:10px max(12px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));border-top:1px solid #45566b;background:#121e2d;box-shadow:0 -6px 22px #050a124d}
+ .personal-duel[data-phase="match"] .battle-controls>.energy{grid-column:1;grid-row:1;display:grid;grid-template-columns:43px 46px;grid-template-rows:43px 16px;gap:2px 9px;align-items:center;justify-items:center;margin:0;min-width:0}
+ .personal-duel[data-phase="match"] .battle-controls .energy-orb{grid-column:1;grid-row:1;width:40px;height:40px;border-width:2px;box-shadow:0 0 0 3px #1a283a}
+ .personal-duel[data-phase="match"] .battle-controls .energy-orb strong{font-size:26px}
+ .personal-duel[data-phase="match"] .battle-controls #energy-cap{grid-column:1;grid-row:2;margin:0;font-size:8px;line-height:1;white-space:nowrap}
+ .personal-duel[data-phase="match"] .battle-controls .energy .pile-orb{grid-column:2;grid-row:1/3;align-self:stretch;width:46px;margin:0}
+ .personal-duel[data-phase="match"] .battle-controls>.turn-actions{grid-column:2;grid-row:1;display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:stretch;margin:0;min-width:0}
+ .personal-duel[data-phase="match"] .battle-controls .pile-orb{min-width:0;min-height:59px;padding:6px 3px;border-radius:6px;font-size:14px}
+ .personal-duel[data-phase="match"] .battle-controls .pile-orb b{font-size:13px;margin-left:2px}
+ .personal-duel[data-phase="match"] .battle-controls .pile-orb small{font-size:9px;margin-top:5px}
+ .personal-duel[data-phase="match"] .battle-controls .turn-actions .pile-orb{align-self:stretch;margin:0}
+ .personal-duel[data-phase="match"] .battle-controls .turn-actions .button{grid-area:auto;min-width:0;min-height:59px;padding:10px 4px;border-radius:6px;font-size:12px;line-height:1.4;white-space:normal}
+ .personal-duel[data-phase="match"] .toast{bottom:calc(var(--battle-dock-height) + 12px)}
+}
+@media(min-width:801px) and (max-width:1100px) and (max-height:520px){
+ .personal-duel[data-phase="match"] .battle-controls{grid-template-columns:98px minmax(0,420px);justify-content:space-between}
+ .personal-duel[data-phase="match"] .duel-arena{height:200px}
+}
+
+/* A full hand is visible at once; the chosen card rises to its readable size. */
+.mobile-hand-tabs{display:none}
+@media(max-width:800px), (max-width:1100px) and (max-height:520px){
+ .personal-duel[data-phase="match"] .hand-zone{row-gap:4px;padding-bottom:0}
+ .personal-duel[data-phase="match"] #hand{grid-column:1/-1;grid-row:1;position:relative;display:block;width:100%;height:calc(310px + (var(--hand-rows,1) - 1) * 190px);min-height:0;margin:0;padding:0;overflow:visible;scroll-snap-type:none;scroll-padding:0;scrollbar-width:none;overscroll-behavior:auto;isolation:isolate}
+ .personal-duel[data-phase="match"] #hand>.card{position:absolute;left:calc(70px + var(--hand-position,.5) * (100% - 140px));top:calc(15px + var(--hand-row,0) * 190px);z-index:calc(1 + var(--hand-index,0));width:170px;min-width:170px;min-height:266px;margin:0;transform:translateX(-50%) scale(.68) rotate(clamp(-6deg,var(--hand-angle,0deg),6deg));transform-origin:center bottom;scroll-snap-align:none;transition:transform .16s ease,left .16s ease,border-color .16s ease,box-shadow .16s ease}
+ .personal-duel[data-phase="match"] #hand>.card:hover:not(:disabled){transform:translateX(-50%) scale(.68) rotate(clamp(-6deg,var(--hand-angle,0deg),6deg))}
+ .personal-duel[data-phase="match"] #hand>.card.selected,
+ .personal-duel[data-phase="match"] #hand>.card.selected:hover:not(:disabled){left:clamp(95px,calc(70px + var(--hand-position,.5) * (100% - 140px)),calc(100% - 95px));z-index:30;transform:translateX(-50%) translateY(-8px) scale(1);box-shadow:0 6px 0 #060a11,0 15px 28px #0009}
+ .personal-duel[data-phase="match"] #hand .hand-empty{position:absolute;inset:78px 8px auto;width:auto;min-width:0}
+ .personal-duel[data-phase="match"] .mobile-hand-tabs{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(var(--hand-columns,5),minmax(0,1fr));gap:6px;width:100%;margin:0;padding:2px 0 6px}
+ .personal-duel[data-phase="match"] .mobile-hand-tabs[data-count="6"]{gap:4px}
+ .personal-duel[data-phase="match"] .mobile-hand-tabs[data-count="6"] .mobile-hand-tab{flex-direction:column;gap:2px}
+ .personal-duel[data-phase="match"] .mobile-hand-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:48px;margin:0;padding:6px 4px;border:1px solid #4d637a;border-radius:6px;background:#1d3044;color:#e0e8ef;text-align:center;box-shadow:0 2px 0 #070e17;font-size:10px;line-height:1.35}
+ .personal-duel[data-phase="match"] .mobile-hand-cost{display:grid;place-items:center;flex:none;width:18px;height:22px;border:1px solid #8497ab;border-radius:10px;background:#102336;color:#f0e7d2;font-weight:800;font-size:11px}
+ .personal-duel[data-phase="match"] .mobile-hand-name{min-width:0;overflow-wrap:anywhere;word-break:keep-all;font-weight:700;font-size:10px;line-height:1.35}
+ .personal-duel[data-phase="match"] .mobile-hand-tab.selected,
+ .personal-duel[data-phase="match"] .mobile-hand-tab[aria-pressed="true"]{border-color:#e9d5a2;background:#5c503a;color:#fff0cd;box-shadow:0 0 0 1px #e9d5a2,0 2px 0 #070e17}
+ .personal-duel[data-phase="match"] .mobile-hand-tab.unaffordable .mobile-hand-cost{border-color:#d48e7d;background:#382a33;color:#f4c6b8}
+}
+@media(prefers-reduced-motion:reduce){
+ .personal-duel[data-phase="match"] #hand>.card{transition:none}
+}
+
+/* Values, symbols and plain-language rules share one stable combat readout. */
+.combat-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:620px;margin:8px auto 0;padding:0 12px}
+.combat-stat{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:2px 10px;padding:9px 12px;border:1px solid #365169;border-radius:8px;background:#132536}
+.combat-stat>svg{width:34px;height:38px;grid-column:1;grid-row:1;fill:#69bff2;stroke:#bbebff;stroke-width:1.6;stroke-linejoin:round}
+.combat-stat .shield-detail{fill:none;stroke:#e2f5ff;stroke-width:2.2}
+.combat-stat>div{display:flex;align-items:center;gap:12px;grid-column:2;grid-row:1}
+.combat-stat-label{font-size:12px;font-weight:700;color:#b9dbef}
+.combat-stat strong{font-size:30px;line-height:1.1;font-weight:800;color:#b7e9ff;font-variant-numeric:tabular-nums}
+.combat-stat>small{grid-column:1/-1;font-size:10px;line-height:1.5;color:#b7ccdf;word-break:keep-all}
+.momentum-stat{border-color:#625535;background:#28271f}
+.momentum-stat>svg{fill:#f6ca4d;stroke:#ffeb9b}
+.momentum-stat .combat-stat-label,.momentum-stat strong{color:#ffda67}
+.momentum-stat>small{color:#d8cba5}
+.momentum-stat.charged{border-color:#b99b47;background:#302b1c;box-shadow:inset 0 0 16px #f6ca4d10}
+.defense-stat.charged{border-color:#69b6e2;background:#172f43}
+
+/* Keep the real card frame when choosing an upgrade or a card to remove. */
+.deck-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,196px));justify-content:center;gap:24px 20px;margin:24px 0 8px;padding:5px}
+.deck-choice{display:flex;flex-direction:column;gap:12px;min-width:0}
+.deck-choice-grid .card{width:100%;min-width:0;margin:0;flex:1 0 auto}
+.deck-choice-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.deck-choice-actions .button{min-width:0;min-height:44px;padding:8px 5px;font-size:11px}
+.shop-removal{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:16px 0;padding:18px;border:1px solid #5d5770;border-radius:8px;background:#202637;text-align:left}
+.shop-removal h4{font-size:17px;margin:8px 0;color:#e4e8ee}
+.shop-removal h4 strong{margin-left:12px;color:#e6c98d}
+.shop-removal p{font-size:12px;line-height:1.7;color:#aebfd3;max-width:540px}
+.shop-removal>.button{flex:none;min-height:46px}
+.removal-preview{display:flex;flex-direction:column;align-items:center;gap:18px;padding:10px 0;text-align:center}
+.removal-preview .card{flex:none;margin:0}
+.removal-preview>p{font-size:12px;line-height:1.7;color:#b8c8dc}
+.removal-price{display:flex;flex-direction:column;gap:7px;padding:14px 25px;border:1px solid #756443;border-radius:7px;background:#2b2b24;width:100%}
+.removal-price strong{font-size:20px;color:#e9ce94}
+.removal-price span{font-size:13px;color:#e4eaf0}
+.removal-price small{font-size:11px;color:#b7c0cb}
+.removal-preview .phase-actions{margin:0;width:100%;justify-content:center}
+@media(max-width:800px), (max-width:1100px) and (max-height:520px){
+ .combat-status{gap:8px;margin-top:4px;padding:0 12px}
+ .combat-stat{gap:1px 7px;grid-template-columns:30px minmax(0,1fr);padding:6px 8px}
+ .combat-stat>svg{width:28px;height:32px}
+ .combat-stat>div{gap:9px}
+ .combat-stat strong{font-size:27px}
+ .combat-stat-label{font-size:11px}
+ .combat-stat>small{font-size:10px;line-height:1.45}
+ .personal-duel[data-phase="match"] .duel-arena{height:clamp(200px,calc(100dvh - 660px - env(safe-area-inset-bottom)),280px)}
+ .personal-duel[data-phase="match"] #hand{height:calc(288px + (var(--hand-rows,1) - 1) * 190px)}
+ .personal-duel[data-phase="match"] #hand>.card{transition:border-color .15s,box-shadow .15s}
+ .personal-duel[data-phase="match"]{overflow-x:clip}
+}
+@media(min-width:601px) and (max-width:1100px) and (max-height:520px){
+ .personal-duel[data-phase="match"] #hand{height:calc(236px + (var(--hand-rows,1) - 1) * 170px)}
+ .personal-duel[data-phase="match"] #hand>.card{min-height:216px;top:calc(10px + var(--hand-row,0) * 170px)}
+ .personal-duel[data-phase="match"] #hand .card-top{min-height:37px;padding-block:6px}
+ .personal-duel[data-phase="match"] #hand .card-title{font-size:12px}
+ .personal-duel[data-phase="match"] #hand .card-art{height:60px;min-height:60px}
+ .personal-duel[data-phase="match"] #hand .card-type{min-height:24px;padding-block:4px;font-size:10px}
+ .personal-duel[data-phase="match"] #hand .card-description{min-height:78px;padding:7px 9px 11px}
+ .personal-duel[data-phase="match"] #hand .card-stat{font-size:14px}
+ .personal-duel[data-phase="match"] #hand .card-stat .card-effect-number{font-size:22px}
+ .personal-duel[data-phase="match"] #hand .card-rules{font-size:11px;line-height:1.45}
+}
+@media(max-width:520px){
+ .deck-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px;margin-top:20px;padding:4px}
+ .deck-choice-grid .card{min-height:266px}
+ .deck-choice-actions{grid-template-columns:1fr;gap:5px}
+ .shop-removal{align-items:stretch;flex-direction:column;gap:12px;padding:14px}
+ .shop-removal p{font-size:11px}
+ .shop-removal>.button{width:100%}
 }
