@@ -19,6 +19,7 @@ const RARITY_NAMES = {common:'기본', uncommon:'특별', rare:'희귀', legenda
 const NODE_HINTS = { match:'카드 · 골드', elite:'전용 유물 · 희귀 카드', boss:'최종 시험', training:'강화 / 덱 정리', rest:'체력 +30', shop:'골드로 아이템 구매', event:'선택형 이벤트' };
 let selected = null, rewardSelection = null, eliteRelicSelection = null, busy = false, animation = null, audio = null, sound = false, toastTimer, announcementTimer, saveError = false, pitchDirty = true;
 let changedElsewhere = false, previousSaveBackedUp = false;
+let rewardDialogSeen = null, rewardDialogTimer;
 let run = load();
 const firstVisit = !run;
 if (!run) run = startRun();
@@ -41,12 +42,13 @@ const tutorial = createTutorial({
       return showStarterReward();
     }
     toast(result === 'completed' ? '연습 완료! 이제 나만의 경기를 시작하세요.' : '튜토리얼을 건너뛰었어요. 메뉴에서 다시 볼 수 있어요.');
+    syncRewardDialog();
   },
 });
 function showTutorial() {
   if (busy || tutorial.active) return;
   tutorialWelcomePending = false;
-  $('dialog').close(); $('route-dialog').close();
+  $('dialog').close(); $('route-dialog').close(); $('reward-dialog').close();
   tutorialStatus = 'active';
   try { localStorage.setItem(TUTORIAL_KEY, tutorialStatus); } catch { /* Optional preference. */ }
   tutorial.open();
@@ -183,7 +185,7 @@ function dispatch(action) {
   save(); render();
   if (before.phase !== run.phase) {
     const destination = run.phase === 'map' ? $('phase-panel').querySelector('.map-point.available') : run.phase === 'match' ? document.querySelector('.topbar') : $('phase-panel');
-    const scroll = () => { if (run === next) destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'start', behavior:motion.matches ? 'auto' : 'smooth'}); };
+    const scroll = () => { if (run === next && !cardRewardKey()) destination?.scrollIntoView({block:run.phase === 'map' ? 'center' : 'start', behavior:motion.matches ? 'auto' : 'smooth'}); };
     if (card && ['reward', 'defeat'].includes(run.phase) && !motion.matches) setTimeout(scroll, 650);
     else scroll();
   }
@@ -363,6 +365,7 @@ function render() {
   if(focusHand) document.querySelector(`${focusHandTab ? '.mobile-hand-tab' : '#hand .card'}[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
   if(focusReward) document.querySelector(`[data-reward="${CSS.escape(focusReward)}"]`)?.focus({preventScroll:true});
   if (replaceHand) hand.scrollLeft = handScrollLeft;
+  syncRewardDialog();
 }
 function choiceButton(choice) {
   return `<button class="choice-button" data-node="${choice.id}"><span class="choice-icon">${NODE_ICONS[choice.type]}</span><strong>${esc(choice.name)}</strong><small>${esc(choice.description)}</small><em>선택하고 이동 →</em></button>`;
@@ -384,7 +387,7 @@ function renderPhase() {
     const relic = RELICS[run.rewardRelic];
     const rewardTitle = opponent?.legend ? '레전드를 넘었다. 새로운 기술을 골라라.' : '한계를 넘었다. 다음 기술을 골라라.';
     const earned = relic ? `<div class="relic-earned">${itemCanvas(relic)}<div><span>전용 유물 획득 · 효과 적용</span><strong>${esc(relic.name)}</strong><p>${esc(relic.description)}</p></div></div>` : '';
-    panel.innerHTML = heading('TRIAL COMPLETE / NEW TECHNIQUE', rewardTitle, esc(run.message)) + earned + `<div class="reward-grid">${run.offers.map(id => cardHTML({ id, upgraded: false }, 'reward')).join('')}</div><div class="phase-actions"><button class="button" data-action="skip-reward">카드 없이 계속</button><button class="button primary" data-action="take-reward" ${rewardSelection ? '' : 'disabled'}>${run.activeNode?.type==='boss'?'카드를 받고 도전 마무리':'카드를 받고 지도로'} →</button></div>`;
+    panel.innerHTML = heading('TRIAL COMPLETE / NEW TECHNIQUE', rewardTitle, esc(run.message)) + earned + '<div class="reward-pending"><p>카드 보상이 기다리고 있어요. 선택 창에서 세 장을 한눈에 비교하세요.</p><button class="button primary" data-action="open-reward">카드 보상 고르기 →</button></div>';
   }
   if (run.phase === 'training') panel.innerHTML = heading('TRAINING DAY', esc(name), '카드를 눌러 강화 전후를 비교하세요. 한 장을 강화하거나 무료로 제거하면 훈련을 마칩니다. 무료 제거는 덱이 9장 이상일 때 가능합니다.') + `<div class="deck-choice-grid">${run.deck.map(c => `<section class="deck-choice">${cardHTML(c, c.upgraded ? 'view' : 'upgrade')}<div class="deck-choice-actions"><button class="button" data-upgrade="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} ${c.upgraded ? '강화 완료' : '강화 전후 비교'}" ${c.upgraded ? 'disabled' : ''}>${c.upgraded ? '강화 완료' : '강화 비교'}</button><button class="button" data-remove="${esc(c.uid)}" aria-label="${esc(CARDS[c.id].name)} 무료 제거" ${run.deck.length <= 8 ? 'disabled' : ''}>무료 제거</button></div></section>`).join('')}</div><div class="phase-actions"><button class="button" data-action="leave">훈련 건너뛰기 →</button></div>`;
   if (run.phase === 'rest') panel.innerHTML = heading('TAKE A BREATH', esc(name), '잠시 멈추는 것도 앞으로 나아가는 방법입니다. 체력을 30 회복하고 다음 여정을 준비하세요.') + `<div class="stats-row"><span><b>${run.condition}</b>현재 체력</span><span><b>→</b></span><span><b>${Math.min(run.maxCondition, run.condition + 30)}</b>휴식 후 체력</span></div><div class="phase-actions"><button class="button primary" data-action="rest">충분히 쉬기 →</button></div>`;
@@ -399,6 +402,61 @@ function renderPhase() {
     const won = run.phase === 'victory';
     panel.innerHTML = heading(won ? 'THE NEXT ACE' : 'EVERY LEGEND STARTS AGAIN', won ? `${esc(run.playerName||'루키')}, 다음 에이스가 되다.` : '다음 휘슬을 기다리며.', won ? '마지막 시험을 넘어, 내 가능성을 증명했습니다. 프로 리그와 새로운 포지션의 이야기는 다음 버전에서 이어집니다.' : esc(run.message || '오늘의 경험이 다음 도전의 힘이 됩니다. 새로운 덱으로 다시 시작해 보세요.')) + `<div class="stats-row"><span><b>${run.stats.wins}</b>승리한 대결</span><span><b>${run.stats.damage}</b>누적 피해</span><span><b>${run.stats.blocks}</b>피해 방어</span></div><div class="phase-actions"><button class="button" data-action="deck">완성한 덱 보기</button><button class="button primary" data-action="restart-confirm">새로운 도전 →</button></div>`;
   }
+}
+function cardRewardKey() {
+  return run.phase === 'reward' && !run.relicOffers?.length && run.offers?.length
+    ? `${run.initialSeed}:${run.routeIndex}:${run.offers.join(',')}` : null;
+}
+function syncRewardDialog() {
+  clearTimeout(rewardDialogTimer);
+  const key = cardRewardKey();
+  if (!key) {
+    rewardDialogSeen = null;
+    $('reward-dialog').close();
+    return;
+  }
+  if ($('reward-dialog').open) return updateRewardSelection();
+  if (rewardDialogSeen === key) return;
+  // Let the final hit finish, then bring the choice to the player without scrolling.
+  rewardDialogTimer = setTimeout(() => {
+    if (cardRewardKey() === key && !$('dialog').open && !$('route-dialog').open && !tutorial.active) showRewardDialog();
+  }, animation?.type === 'goal' && !motion.matches ? 650 : 0);
+}
+function showRewardDialog() {
+  const key = cardRewardKey();
+  if (!key) return;
+  clearTimeout(rewardDialogTimer);
+  if (!run.offers.includes(rewardSelection)) rewardSelection = null;
+  $('reward-options').innerHTML = run.offers.map(id => cardHTML({ id, upgraded: false }, 'reward')).join('');
+  $('reward-subtitle').textContent = run.deck.length >= 40 ? '덱이 40장으로 가득 찼어요. 카드를 받지 않고 계속할 수 있어요.' : `카드 ${run.offers.length}장 중 하나를 골라 효과를 확인하세요.`;
+  rewardDialogSeen = key;
+  updateRewardSelection();
+  if (!$('reward-dialog').open) $('reward-dialog').showModal();
+  paintCards($('reward-dialog'));
+  $('reward-title').focus({ preventScroll: true });
+}
+function updateRewardSelection() {
+  const chosen = cardRewardKey() && run.offers.includes(rewardSelection), card = chosen ? { id: rewardSelection, upgraded: false } : null;
+  for (const button of $('reward-options').querySelectorAll('[data-reward]')) {
+    const active = chosen && button.dataset.reward === rewardSelection;
+    button.classList.toggle('selected', !!active);
+    button.setAttribute('aria-pressed', String(!!active));
+  }
+  const detail = $('reward-detail'), confirm = $('reward-confirm');
+  if (card) {
+    const def = CARDS[card.id], category = def.type === 'defense' ? 'defense' : ['shot', 'pass'].includes(def.type) ? 'attack' : 'skill';
+    detail.dataset.category = category;
+    detail.innerHTML = `<div class="reward-detail-meta"><span>${CARD_CATEGORIES[category].name}${CARD_SUBTYPES[def.type] ? ` · ${CARD_SUBTYPES[def.type]}` : ''}</span><span>에너지 ${costOf(card)} · ${RARITY_NAMES[def.rarity]}</span></div><h3>${esc(def.name)}</h3><p>${esc(cardText(card))}</p>`;
+  } else {
+    delete detail.dataset.category;
+    detail.innerHTML = '<h3>배우고 싶은 기술을 골라보세요.</h3><p>카드를 누르면 자세한 효과가 여기에 표시돼요. 받기 버튼으로 선택을 확정하세요.</p>';
+  }
+  confirm.disabled = !chosen || run.deck.length >= 40;
+  confirm.textContent = run.deck.length >= 40 ? '덱이 가득 찼어요' : chosen ? '이 카드 받기 →' : '카드를 선택하세요';
+}
+function takeCardReward(skip = false) {
+  if (!cardRewardKey() || (!skip && (!run.offers.includes(rewardSelection) || run.deck.length >= 40))) return;
+  dispatch({ type: 'take-reward', id: skip ? null : rewardSelection });
 }
 function openDialog(title, content) { $('dialog-title').textContent = title; $('dialog-body').innerHTML = content; if (!$('dialog').open) $('dialog').showModal(); paintCards($('dialog')); }
 function showDeck(cards = run.deck, title = `나의 덱 · ${run.deck.length}장`) {
@@ -560,7 +618,7 @@ document.addEventListener('click', e => {
   if (d.starterRelic) return takeStarterReward(d.starterRelic);
   if (d.eliteRelic) return selectEliteRelic(d.eliteRelic);
   if (d.hand) { selected = d.hand; render(); revealMobileCard(); return; }
-  if (d.reward) { rewardSelection = d.reward; render(); return; }
+  if (d.reward && cardRewardKey() && run.offers.includes(d.reward)) { rewardSelection = d.reward; updateRewardSelection(); return; }
   if (d.node) { $('route-dialog').close(); return dispatch({ type: 'choose-node', id: d.node }); }
   if (d.upgrade) return showUpgradePreview(d.upgrade);
   if (d.confirmUpgrade) return confirmUpgrade(d.confirmUpgrade);
@@ -571,8 +629,9 @@ document.addEventListener('click', e => {
   if (d.event) return dispatch({ type: 'event-choice', id: d.event });
   if (d.relic) return openDialog(RELICS[d.relic].name, `<div class="equipped-item">${itemCanvas(RELICS[d.relic])}<p class="dialog-copy">${esc(RELICS[d.relic].description)}</p></div>`);
   switch (d.action) {
-    case 'skip-reward': return dispatch({ type: 'take-reward', id: null });
-    case 'take-reward': return dispatch({ type: 'take-reward', id: rewardSelection });
+    case 'open-reward': return showRewardDialog();
+    case 'skip-reward': return takeCardReward(true);
+    case 'take-reward': return takeCardReward();
     case 'take-elite-relic': return dispatch({ type: 'take-elite-relic', id: eliteRelicSelection });
     case 'rest': return dispatch({ type: 'rest' });
     case 'leave': return dispatch({ type: 'leave-node' });
@@ -626,15 +685,21 @@ $('help-button').addEventListener('click', showHelp); $('menu-button').addEventL
 $('draw-pile').addEventListener('click', () => showDeck([...run.match.draw].sort((a, b) => a.id.localeCompare(b.id)), '뽑을 카드 · 순서는 비공개'));
 $('discard-pile').addEventListener('click', () => showDeck(run.match.discard, '버린 카드'));
 $('close-dialog').addEventListener('click', () => $('dialog').close());
+$('close-reward').addEventListener('click', () => $('reward-dialog').close());
+$('reward-dialog').addEventListener('close', () => {
+  if (cardRewardKey()) document.querySelector('[data-action="open-reward"]')?.focus({ preventScroll: true });
+});
 $('dialog').addEventListener('close', () => {
   if (tutorialWelcomePending) showTutorial();
+  else syncRewardDialog();
 });
+$('route-dialog').addEventListener('close', syncRewardDialog);
 $('dialog').addEventListener('click', e => { if (e.target === $('dialog')) { const r = $('dialog').getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) $('dialog').close(); } });
 $('sound-button').addEventListener('click', toggleSound);
 function showLog() { openDialog('대결 기록', run.match?.history.length ? run.match.history.map(out => `<div class="log-row"><strong>TURN ${out.turn}</strong><br>${esc(out.summary)}</div>`).join('') : '<p class="dialog-copy">첫 플레이가 기록될 차례입니다.</p>'); }
 $('log-button').addEventListener('click', showLog);
 document.addEventListener('keydown', e => {
-  if (tutorial.active || $('dialog').open || $('route-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (tutorial.active || $('dialog').open || $('route-dialog').open || $('reward-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[1-9]$/.test(e.key)) { const card = run.match.hand[Number(e.key) - 1]; if (card) { selected = card.uid; render(); const button = $('hand').querySelector(`[data-hand="${CSS.escape(selected)}"]`); button?.focus({preventScroll:true}); button?.scrollIntoView({block:'nearest',inline:'nearest'}); } }
   else if (e.code === 'Space' && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); dispatch({ type: 'end-turn' }); }
   else if (e.key === 'Enter' && selected && (document.activeElement.matches('[data-hand]') || !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))) { e.preventDefault(); dispatch({ type: 'play-card', uid: selected }); }
