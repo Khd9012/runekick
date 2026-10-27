@@ -903,3 +903,56 @@ body:has(#reward-dialog[open]){overflow:hidden;overscroll-behavior:none}
   .shop-card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .striker-effect { font-size:11px; padding:4px 6px; }
 }
+/* Visible combo readiness on overlapping cards and mobile selectors. */
+.personal-duel #hand .card.combo-ready:not(.unaffordable) { border-color:#63e4d2; outline:2px solid #63e4d2; outline-offset:2px; box-shadow:0 0 15px #30cbb84d; }
+.personal-duel #hand .card.combo-ready.selected { outline:3px solid #fff1b4; }
+.card.combo-ready.unaffordable { outline-color:#788391; }
+.combo-badge { position:absolute; z-index:2; top:49px; left:5px; padding:3px 6px; border-radius:3px; background:#103d39; border:1px solid #63e4d2; color:#b8fff2; font-size:11px; font-weight:800; line-height:1.3; pointer-events:none; }
+.unaffordable .combo-badge { background:#333943; border-color:#788391; color:#c4ccd5; }
+.personal-duel .mobile-hand-tab.combo-ready { border-color:#63e4d2; box-shadow:inset 0 3px #63e4d2,0 0 0 1px #63e4d2; }
+.personal-duel .mobile-hand-tab:has(.mobile-combo-badge) { padding-top:20px; }
+.mobile-combo-badge { position:absolute; top:3px; left:0; right:0; font-size:10px; font-weight:800; color:#a2ffe9; }
+.combo-pending .mobile-combo-badge { color:#aab3c0; }
+.combo-preview { margin:0 0 12px; padding:8px 12px; border-left:3px solid #63e4d2; background:#122e30; border-radius:4px; color:#d9fff6; font-size:12px; line-height:1.5; }
+.combo-preview[hidden] { display:none; }
+.combo-preview>strong { color:#84f4dc; }
+.combo-preview>small { display:block; color:#b0c9c6; margin:2px 0 4px; overflow-wrap:anywhere; }
+.combo-preview>span { display:flex; flex-wrap:wrap; gap:4px 12px; }
+.combo-preview b { font-weight:600; }
+.combo-preview.pending { border-color:#8d99ab; background:#232c38; }
+.combo-preview.pending>strong { color:#d7dce5; }
+@media(max-width:800px),(max-height:520px) { .combo-preview { font-size:11px; padding:7px 9px; margin:4px 12px 0; } }
+/* Shop cards keep their full effect text and a stable purchase row. */
+.shop-card-section h4 { margin:0 0 8px; font-size:16px; }
+.shop-card-help { margin:0 0 18px; color:#aab8c8; font-size:12px; line-height:1.6; }
+.shop-card-grid { align-items:stretch; gap:18px; }
+.shop-card-grid>.shop-card-offer { grid-template-rows:1fr auto; gap:12px; }
+.shop-card-grid .card { height:100%; cursor:default; }
+.shop-card-grid .card:hover:not(:disabled) { transform:none; border-color:var(--card-border); }
+.shop-card-grid .button { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:48px; padding:10px 12px; font-size:12px; }
+.shop-card-grid .button:disabled { opacity:.7; }
+@media(max-width:600px) {
+ .shop-card-grid { grid-template-columns:minmax(0,1fr); gap:18px; }
+ .shop-card-grid .card { display:grid; grid-template-columns:84px minmax(0,1fr); grid-template-rows:auto auto 1fr; min-height:150px; padding:0; }
+ .shop-card-grid .card-art { grid-column:1; grid-row:1/4; width:76px; height:100px; min-height:0; margin:10px 4px; align-self:center; object-fit:contain; background:#111e2b; border-radius:3px; }
+ .shop-card-grid .card-top { grid-column:2; grid-row:1; padding:9px 7px 6px 34px; min-height:42px; border-radius:0 6px 0 0; }
+ .shop-card-grid .card-cost { left:3px; top:8px; width:26px; height:26px; border-width:2px; font-size:18px; box-shadow:none; }
+ .shop-card-grid .card-title { font-size:13px; line-height:1.4; }
+ .shop-card-grid .card-type { grid-column:2; grid-row:2; margin:0; padding:5px 7px; flex-wrap:wrap; }
+ .shop-card-grid .card-description { grid-column:2; grid-row:3; min-height:0; padding:8px 7px 12px; }
+ .shop-card-grid .card-rules { font-size:12px; line-height:1.6; }
+ .shop-card-grid .card-stat { font-size:13px; }
+ .shop-card-grid .card-stat .card-effect-number { font-size:22px; }
+ .shop-card-grid>.shop-card-offer { gap:7px; }
+ .shop-card-grid .button { min-height:48px; font-size:13px; }
+}
+@media(max-width:360px) {
+ .personal-duel .topbar { padding-inline:8px; gap:6px; }
+ .personal-duel .top-resources { gap:6px; min-width:0; }
+ .personal-duel .header-actions { gap:4px; flex-shrink:0; }
+ .personal-duel .header-actions .icon-button { width:28px; min-width:28px; padding-inline:2px; }
+}
+@media(min-width:601px) {
+ .shop-card-grid { grid-template-columns:repeat(3,minmax(0,260px)); justify-content:center; }
+ .shop-card-grid .card-art { height:auto; min-height:0; aspect-ratio:8/5; object-fit:contain; }
+}

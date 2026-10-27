@@ -1,4 +1,5 @@
 import * as Current from './engine.js';
+import { comboFeedback } from './striker-cards.js';
 import * as Legacy from './legacy-engine.js';
 const rulesFor = state => state?.rulesVersion === 2 ? Current : Legacy;
 const { STARTER_RELICS, OPPONENTS, createRun, routeFor, availableNodes, getCardRemovalCost } = Current;
@@ -230,9 +231,10 @@ function cardHTML(card, mode = 'view', index = 0, context = {}) {
   const data = mode === 'choice' ? `data-combat-preview="${esc(card.uid)}"` : practice ? `data-tutorial-hand="${esc(card.uid)}"` : mode === 'hand' ? `data-hand="${esc(card.uid)}"` : mode === 'reward' ? `data-reward="${esc(card.id)}"` : mode === 'upgrade' ? `data-upgrade="${esc(card.uid)}"` : mode === 'remove' ? `data-preview-remove="${esc(card.uid)}"` : '';
   return `<${tag} class="card ${def.type}${combo ? ' combo-ready' : ''} category-${category} rarity-${def.rarity}${card.upgraded ? ' upgraded' : ''}${isSelected ? ' selected' : ''}${unaffordable ? ' unaffordable' : ''}${expected ? ' tutorial-card-target' : ''}" ${data} ${practice && !expected ? 'disabled' : ''} ${mode !== 'view' ? `aria-label="${esc(def.name)}${card.upgraded ? ' 강화' : ''}, ${categoryInfo.name}, 에너지 ${displayCost}, ${esc(cardText(card, practice))}${def.type === 'injury' ? ' 사용 불가.' : unaffordable ? ' 에너지 부족.' : ''}${mode === 'upgrade' ? ' 강화 전후 비교' : mode === 'remove' ? ' 상점에서 제거' : ''}"${['hand','reward','tutorial','choice'].includes(mode) ? ` aria-pressed="${isSelected}"` : ''}` : ''}>
     <span class="card-top"><span class="card-cost">${displayCost}</span><span class="card-title">${esc(def.name)}${card.upgraded ? '<span class="upmark"> +</span>' : ''}</span></span>
+    ${combo ? `<span class="combo-badge">${unaffordable ? '연계 · 에너지 부족' : '↗ 연계 가능'}</span>` : ''}
     <canvas class="card-art" data-art="${def.type}" data-card-id="${def.id}" data-upgraded="${!!card.upgraded}" width="384" height="240" aria-hidden="true"></canvas>
     <span class="card-type"><span><svg class="card-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${categoryInfo.icon}</svg>${def.type === 'training' ? '훈련' : def.type === 'injury' ? '부상' : categoryInfo.name}${CARD_SUBTYPES[def.type] && !['training','injury'].includes(def.type) ? `<small class="card-subtype">· ${CARD_SUBTYPES[def.type]}</small>` : ''}</span><span class="card-rarity">${RARITY_NAMES[def.rarity]}</span></span>
-    <span class="card-description">${cardEffectHTML(card, practice)}${combo ? '<b class="combo-label">연계 발동</b>' : ''}${def.type === 'injury' ? `<small class="injury-scope">${card.temporary ? '이번 전투 한정' : '덱 부상 · 라커룸에서 치료'}</small>` : ''}</span>${mode === 'hand' ? `<span class="card-key">${def.type === 'injury' ? '사용 불가' : unaffordable ? '에너지 부족' : index + 1}</span>` : ''}
+    <span class="card-description">${cardEffectHTML(card, practice)}${def.type === 'injury' ? `<small class="injury-scope">${card.temporary ? '이번 전투 한정' : '덱 부상 · 라커룸에서 치료'}</small>` : ''}</span>${mode === 'hand' ? `<span class="card-key">${def.type === 'injury' ? '사용 불가' : unaffordable ? '에너지 부족' : index + 1}</span>` : ''}
   </${tag}>`;
 }
 function paintCards(container = document) {
@@ -364,6 +366,26 @@ function render() {
     $('energy-value').textContent = match.energy; $('energy-cap').textContent = `/ ${match.maxEnergy} 에너지`;
     const chosen=match.hand.find(c=>c.uid===selected), affordable=chosen&&costOf(chosen)<=match.energy;
     $('selected-info').innerHTML = chosen ? `<strong>${esc(CARDS[chosen.id].name)}${chosen.upgraded?' +':''}</strong><span>${esc(cardText(chosen))}</span>` : '<strong>이번 턴의 플레이를 골라보세요.</strong><span>카드 선택 → 사용. 공격은 즉시, 상대 행동은 턴 종료 후.</span>';
+    const combo = comboFeedback(run, chosen);
+    let comboPanel = $('combo-preview');
+    if (!comboPanel) {
+      comboPanel = document.createElement('div'); comboPanel.id = 'combo-preview'; comboPanel.className = 'combo-preview';
+      comboPanel.setAttribute('role', 'status'); comboPanel.setAttribute('aria-live', 'polite');
+      document.querySelector('.hand-heading').after(comboPanel);
+    }
+    comboPanel.hidden = !combo;
+    comboPanel.classList.toggle('pending', !!combo && !combo.affordable);
+    comboPanel.innerHTML = combo ? `<strong>${combo.affordable ? '↗ 연계 발동 예정' : '연계 조건 충족 · 에너지 부족'}</strong><small>${esc(combo.previous)} → ${esc(CARDS[chosen.id].name)}</small><span>${combo.effects.length ? combo.effects.map(effect => `<b>${esc(effect)}</b>`).join('') : '<b>연계 연결 · 카드 자체 추가 효과 없음</b>'}</span>` : '';
+    for (const button of $('mobile-hand-tabs').querySelectorAll('[data-hand]')) {
+      const feedback = comboFeedback(run, match.hand.find(c => c.uid === button.dataset.hand));
+      button.classList.toggle('combo-ready', !!feedback && feedback.affordable);
+      button.classList.toggle('combo-pending', !!feedback && !feedback.affordable);
+      button.querySelector('.mobile-combo-badge')?.remove();
+      if (feedback) {
+        const badge = document.createElement('span'); badge.className = 'mobile-combo-badge'; badge.textContent = '↗ 연계'; button.prepend(badge);
+        button.setAttribute('aria-label', `${CARDS[match.hand.find(c => c.uid === button.dataset.hand).id].name}, 연계 조건 충족${feedback.affordable ? '' : ', 에너지 부족'}`);
+      }
+    }
     if (chosen&&affordable) {
       const preview=act(run,{type:'play-card',uid:chosen.uid});
       const damage=Math.max(0,match.enemyHp-(preview.match?.enemyHp??match.enemyHp)), block=Math.max(0,(preview.match?.defense||0)-match.defense);
@@ -372,7 +394,7 @@ function render() {
       const exposedGain=Math.max(0,(preview.match?.enemyExposed||0)-(match.enemyExposed||0)), weakenedGain=Math.max(0,(preview.match?.enemyWeakened||0)-(match.enemyWeakened||0));
       const remainingBlock = preview.match?.defense ?? match.defense;
       const previewEffects = [CARDS[chosen.id].type === 'header' && `사용 후 방어 ${remainingBlock}`, damage&&`피해 ${damage}`, block&&`방어 +${block}`, broken&&`상대 방어 −${broken}`, momentumGain&&`기세 +${momentumGain}`, exposedGain&&`약점 노출 +${exposedGain}턴`, weakenedGain&&`공격 약화 +${weakenedGain}턴`, weakenedGain&&getEnemyAttack(preview)!==enemyAttack&&`상대 공격 ${enemyAttack} → ${getEnemyAttack(preview)}`, healthCost&&`내 체력 −${healthCost}`].filter(Boolean);
-      $('damage-preview').textContent = previewEffects.join(' · ')||'카드 효과 적용';
+      $('damage-preview').textContent = (combo ? '연계 포함 · ' : '') + (previewEffects.join(' · ')||'카드 효과 적용');
     } else $('damage-preview').textContent=chosen ? CARDS[chosen.id].type === 'injury' ? '부상은 사용할 수 없어요 · 턴 종료 효과를 확인하세요' : '에너지가 부족해요' : run.rulesVersion === 2 ? '기세 · 연계 · 제공권' : '드리블 → 기세 → 강화된 슛';
     $('play-card-button').disabled=busy||!affordable||!!match.choice; $('play-card-button').textContent=chosen&&CARDS[chosen.id].type === 'injury'?'사용 불가':chosen&&!affordable?'에너지 부족':'카드 사용';
     $('end-turn').disabled=busy||!!match.choice; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
@@ -418,7 +440,10 @@ function renderPhase() {
   if (run.phase === 'shop') {
     const merchantLine = run.shopOffers.length ? '좋은 선수는 좋은 선택에 투자하지. 필요한 장비부터 골라봐.' : '오늘 준비한 장비는 전부 나갔군. 떠나기 전에 덱도 한 번 살펴보게.';
     panel.innerHTML = `<section class="shop-hero" aria-labelledby="shop-title"><div class="shop-portrait"><img src="./assets/merchant-levy.png" alt="다니엘 레비를 모티브로 한 도트 상인이 축구 장비 카운터에서 맞이합니다." width="512" height="512" decoding="async" draggable="false"></div><div class="shop-welcome"><span class="phase-eyebrow">SPORTS SHOP</span><h3 id="shop-title">${esc(name)}</h3><div class="merchant-identity"><strong>다니엘 레비</strong><span>스포츠 상점 주인</span></div><p class="merchant-dialogue">${merchantLine}</p><p class="shop-promise">장착 제한 없이 효과 누적 · 이번 도전 동안 유지</p></div></section><div class="shop-balance"><strong>보유 골드 ● ${run.gold}</strong><span>장비는 구입 즉시 적용</span></div><div class="shop-grid">${run.shopOffers.map(id=>{const r=RELICS[id]; return `<article class="shop-item"><span class="item-tag">${RARITY_NAMES[r.rarity]||'특별'} 아이템</span>${itemCanvas(r)}<h4>${esc(r.name)}</h4><p>${esc(r.description)}</p><button data-buy="${id}" ${run.gold<r.price?'disabled':''}>● ${r.price} · ${run.gold<r.price?'골드 부족':'구매'}</button></article>`;}).join('')||'<p class="dialog-copy shop-empty">진열된 장비를 모두 구입했어요. 카드 제거 서비스를 이용하거나 다음 여정으로 떠날 수 있습니다.</p>'}</div><div class="phase-actions"><button class="button" data-action="equipment">내 아이템 확인</button><button class="button primary" data-action="leave">다음 여정으로 →</button></div>`;
-    if (run.rulesVersion === 2) panel.querySelector('.phase-actions').insertAdjacentHTML('beforebegin', `<section class="shop-card-section"><h4>기술 카드 · 일반 70 / 특별 150 / 희귀 320골드</h4><div class="shop-card-grid">${run.shopCards.map(id => `<section>${cardHTML({id,upgraded:false})}<button class="button" data-buy-card="${id}" ${run.gold < Current.CARD_PRICES[CARDS[id].rarity] || playableDeckSize() >= 40 ? 'disabled' : ''}>${Current.CARD_PRICES[CARDS[id].rarity]}골드 · 구매</button></section>`).join('')}</div></section>`);
+    if (run.rulesVersion === 2) panel.querySelector('.phase-actions').insertAdjacentHTML('beforebegin', `<section class="shop-card-section"><h4>기술 카드</h4><p class="shop-card-help">일반 70 · 특별 150 · 희귀 320골드<br>구매한 카드는 내 덱에 추가됩니다.</p><div class="shop-card-grid">${run.shopCards.map(id => {
+      const price = Current.CARD_PRICES[CARDS[id].rarity], reason = playableDeckSize() >= 40 ? '덱 가득 참' : run.gold < price ? '골드 부족' : '구매';
+      return `<section class="shop-card-offer">${cardHTML({id,upgraded:false})}<button class="button" data-buy-card="${id}" aria-label="${esc(CARDS[id].name)} · ${price}골드 · ${reason}" ${reason !== '구매' ? 'disabled' : ''}><span>● ${price}골드</span><strong>${reason}</strong></button></section>`;
+    }).join('') || '<p class="shop-empty">진열된 기술 카드를 모두 구입했어요.</p>'}</div></section>`);
     const price = getCardRemovalCost(run), blocked = playableDeckSize() <= 1 || run.gold < price;
     panel.querySelector('.shop-grid').insertAdjacentHTML('beforebegin', `<section class="shop-removal"><div><span class="phase-eyebrow">DECK SERVICE</span><h4>카드 제거 <strong>● ${price}</strong></h4><p>내 덱에서 한 장을 고릅니다. 제거할 때마다 25골드씩 오르며 다음 상점에도 이어집니다.</p></div><button class="button" data-action="shop-remove" ${blocked ? 'disabled' : ''}>${playableDeckSize() <= 1 ? '마지막 카드는 유지' : run.gold < price ? '골드 부족' : '제거할 카드 고르기'}</button></section>`);
   }

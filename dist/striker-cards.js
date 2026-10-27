@@ -57,6 +57,25 @@ export function isCombo(match, card) {
   const previous = match.played.at(-1);
   return isTechnique(card) && isTechnique(previous) && previous.id !== card.id;
 }
+// UI uses the same card data and turn flags as combat resolution.
+export function comboFeedback(run, card) {
+  const m = run?.match;
+  if (run?.rulesVersion !== 2 || !m || !card || !isCombo(m, card)) return null;
+  const e = cardEffect(card), effects = [];
+  if (e.comboHits) effects.push(`추가 ${e.comboHits}회 타격 · ${e.hits || 1}회 → ${(e.hits || 1) + e.comboHits}회`);
+  if (e.comboBlock) effects.push(`방어 +${e.comboBlock}`);
+  if (e.comboDraw) effects.push(`카드 ${e.comboDraw}장 뽑기`);
+  if (e.comboWeakened) effects.push(`공격 약화 ${e.comboWeakened}턴 추가`);
+  const has = id => run.relics.includes(id);
+  if (!m.turnFlags.combo) {
+    if (has('swift-boots')) effects.push('바람의 축구화: 총 피해 +3');
+    if (has('grip-socks')) effects.push('그립 양말: 방어 +3');
+    if (has('roulette-rune')) effects.push('초경량 경기화: 에너지 +1 (최대치까지), 1장 뽑기');
+    if (has('street-rhythm')) effects.push('거리의 리듬: 이번 턴 다음 슈팅 +4');
+  }
+  if (m.training.control && !m.turnFlags.control) effects.push('볼 컨트롤 훈련: 1장 뽑기');
+  return {previous: CARDS[m.played.at(-1).id].name, effects, affordable: cardCost(card, m) <= m.energy};
+}
 export function cardText(card) {
   if (INJURIES[card?.id]) return INJURIES[card.id].text;
   const e = cardEffect(card), lines = [];
