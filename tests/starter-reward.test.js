@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, STARTER_RELICS, createRun, act, availableNodes, forecast, validateSave } from '../dist/engine.js';
+import { CARDS, STARTER_RELICS, createRun, act, availableNodes, forecast, validateSave } from '../dist/legacy-engine.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const unlock = run => act(run, { type: 'complete-tutorial' });

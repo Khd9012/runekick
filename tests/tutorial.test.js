@@ -21,10 +21,10 @@ test('practice has a deterministic three-card hand and preserves the complete le
   assert.deepEqual(practice, start());
   assert.deepEqual(practice.run.match.hand.map(card => card.id), ['dribble', 'shot', 'cover']);
   const zones = ['hand', 'draw', 'discard', 'exhaust', 'played'].flatMap(zone => practice.run.match[zone]);
-  assert.equal(zones.length, 12);
-  assert.equal(new Set(zones.map(card => card.uid)).size, 12);
+  assert.equal(zones.length, 10);
+  assert.equal(new Set(zones.map(card => card.uid)).size, 10);
   assert.deepEqual(zones.map(card => card.uid).sort(), practice.run.deck.map(card => card.uid).sort());
-  assert.equal(practice.run.match.draw.length, 9);
+  assert.equal(practice.run.match.draw.length, 7);
   assert.ok(validateSave(practice.run));
 });
 
@@ -47,7 +47,7 @@ test('practice uses actual engine damage, momentum, block and next-turn recovery
   let state = start();
   assert.deepEqual([state.run.match.enemyHp, state.run.match.enemyBlock, state.run.match.energy], [42, 2, 3]);
   state = selectAndPlay(state);
-  assert.deepEqual([state.stage, state.run.match.enemyHp, state.run.match.momentum, state.run.match.energy], ['shot', 40, 2, 2]);
+  assert.deepEqual([state.stage, state.run.match.enemyHp, state.run.match.momentum, state.run.match.energy], ['shot', 39, 1, 2]);
   state = selectAndPlay(state);
   assert.deepEqual([state.stage, state.run.match.enemyHp, state.run.match.momentum, state.run.match.energy], ['cover', 29, 0, 1]);
   state = selectAndPlay(state);

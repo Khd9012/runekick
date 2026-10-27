@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, RELICS, OPPONENTS, ROUTE, createRun as createNewRun, routeFor, availableNodes, act, forecast, cardText, validateSave } from '../dist/engine.js';
+import { CARDS, RELICS, OPPONENTS, ROUTE, createRun as createNewRun, routeFor, availableNodes, act, forecast, cardText, validateSave } from '../dist/legacy-engine.js';
 const copy = value => JSON.parse(JSON.stringify(value));
 // Preserve the original seven-stage fixtures to exercise schema2 compatibility.
 function createRun(seed) { const run = createNewRun(seed); run.schema = 2; delete run.route; return run; }

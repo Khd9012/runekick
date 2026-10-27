@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { CARDS, RELICS, ELITE_RELICS, OPPONENTS, createRun, act, availableNodes, routeFor, forecast, validateSave } from '../dist/engine.js';
+import { CARDS, RELICS, ELITE_RELICS, OPPONENTS, createRun, act, availableNodes, routeFor, forecast, validateSave } from '../dist/legacy-engine.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const legacy = JSON.parse(fs.readFileSync(new URL('./fixtures/pre-elite-choice-saves.json', import.meta.url), 'utf8'));

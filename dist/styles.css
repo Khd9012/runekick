@@ -862,3 +862,44 @@ body:has(#reward-dialog[open]){overflow:hidden;overscroll-behavior:none}
  .reward-dialog-actions .button{min-height:44px;padding:9px 12px;font-size:12px}
 }
 @media(prefers-reduced-motion:reduce){#reward-dialog .reward-options>.card{transition:none}}
+/* Striker rules v2: compact effects, explicit choices, and unplayable injuries. */
+.striker-status { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 8px; }
+.striker-status[hidden] { display:none; }
+.striker-effect { color:#d2ddbc; background:#172331; border:1px solid #425343; border-radius:6px; padding:5px 9px; font:inherit; font-size:12px; cursor:pointer; }
+.striker-effect.exposed { color:#ffa990; border-color:#825649; }
+.card.combo-ready { outline:2px solid #eed272; outline-offset:2px; }
+.card.dribble.category-attack { --card-color:#a4554e; --card-bg:#763b35; --card-head:#582825; --card-border:#ba8073; --card-rule:#f4dfd2; }
+.combo-label { display:block; color:#ffe39a; font-size:12px; margin-top:3px; }
+.card.injury { filter:saturate(.2); border-color:#7e858b; }
+.injury-scope { display:block; color:#eadcda; font-size:11px; margin-top:4px; }
+.combat-choice-grid,.shop-card-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:start; }
+.combat-choice-grid > section,.shop-card-grid > section { min-width:0; display:grid; gap:8px; }
+.combat-choice-grid .card,.shop-card-grid .card { width:100%; min-width:0; max-width:100%; margin:0; }
+.combat-choice-grid .button,.shop-card-grid .button { white-space:normal; min-height:44px; }
+.injury-treatment,.shop-card-section { margin-top:24px; padding-top:16px; border-top:1px solid #384351; }
+.injury-treatment p { color:#b5c1cd; }
+.combat-choice-detail { margin-top:14px; padding:12px; border:1px solid #425267; border-radius:6px; background:#172331; font-size:12px; line-height:1.6; }
+.combat-choice-detail p { margin:5px 0 0; color:#d1dbe6; }
+.combat-choice-dialog .phase-actions { margin-top:12px; }
+.combat-choice-dialog .phase-actions .button { min-height:44px; }
+@media(max-width:600px) {
+  dialog.combat-choice-dialog { width:calc(100% - 16px); max-width:calc(100% - 16px); }
+  .combat-choice-grid { gap:6px; }
+  .combat-choice-grid .card { min-height:0; padding:0; }
+  .combat-choice-grid .card-top { min-height:58px; padding:6px 3px 6px 28px; }
+  .combat-choice-grid .card-cost { width:29px; height:29px; font-size:19px; left:-3px; top:6px; }
+  .combat-choice-grid .card-title { font-size:11px; line-height:1.35; white-space:normal; overflow-wrap:anywhere; }
+  .combat-choice-grid .card-art { width:calc(100% - 10px); max-width:100%; margin:4px 5px; height:auto; min-height:0; aspect-ratio:1.6; }
+  .combat-choice-grid .card-description { font-size:11px; padding:7px 5px; }
+  .combat-choice-grid .card-rules { display:none; }
+  .combat-choice-grid .card-description:not(:has(.card-stat)) .card-rules { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:10px; }
+  .combat-choice-grid .card-description { min-height:42px; }
+  .combat-choice-grid .card-type { font-size:9px; padding:5px 3px; gap:2px; }
+  .combat-choice-grid .card-type svg { width:10px; }
+  .combat-choice-grid .card-stat { gap:3px; }
+  .combat-choice-grid .card-effect-number { font-size:24px; }
+  .combat-choice-grid .card-type small { display:none; }
+  .combat-choice-grid .button { font-size:11px; padding:7px 4px; }
+  .shop-card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .striker-effect { font-size:11px; padding:4px 6px; }
+}

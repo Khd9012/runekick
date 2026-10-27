@@ -57,9 +57,9 @@ export function tutorialAction(state, action) {
 
 function legendHTML() {
   return `<div class="tutorial-legend" aria-label="카드 세 종류">
-    <div class="category-attack"><strong>공격 · 빨강</strong><span>슛과 터치로 상대에게 피해를 줍니다.</span></div>
+    <div class="category-attack"><strong>공격 · 빨강</strong><span>슛·터치·드리블·헤더로 피해를 줍니다.</span></div>
     <div class="category-defense"><strong>수비 · 파랑</strong><span>상대의 다음 공격을 막을 방어를 쌓습니다.</span></div>
-    <div class="category-skill"><strong>기술 · 초록</strong><span>드리블로 기세를 모으거나 다양한 효과를 얻습니다.</span></div>
+    <div class="category-skill"><strong>기술 · 초록</strong><span>전술과 훈련으로 다양한 효과를 얻습니다.</span></div>
   </div>`;
 }
 
@@ -79,9 +79,9 @@ function scoreboardHTML(run) {
 function instructionFor(state) {
   const match = state.run.match;
   switch (state.stage) {
-    case 'dribble': return ['먼저 드리블로 기세를 쌓아요.', '전진 드리블 카드를 선택한 뒤 카드 사용을 눌러 보세요. 상대 방어 2를 뚫고 피해 2를 주면서 기세 2를 얻습니다.'];
-    case 'shot': return ['모은 기세를 슛에 실어 보세요.', `기세 ${match.momentum}가 쌓였어요. 정확한 슈팅을 선택하고 사용하면 기본 피해 9에 기세를 더해 피해 11을 줍니다. 슛을 쓰면 기세는 모두 소모됩니다.`];
-    case 'cover': return ['이제 상대의 공격을 준비해요.', '슛으로 피해 11을 주고 기세를 모두 썼어요. 안정된 자세 카드를 선택하고 사용해 이번 턴 방어 8을 얻으세요.'];
+    case 'dribble': return ['먼저 드리블로 기세를 쌓아요.', '전진 드리블 카드를 선택한 뒤 카드 사용을 눌러 보세요. 상대 방어 2를 뚫고 피해 3을 주면서 기세 1을 얻습니다.'];
+    case 'shot': return ['모은 기세를 슛에 실어 보세요.', `기세를 ${match.momentum} 모았어요. 정확한 슈팅을 선택하고 사용하면 기본 피해 9에 기세를 더해 피해 10을 줍니다. 슛을 쓰면 기세는 모두 소모됩니다.`];
+    case 'cover': return ['이제 상대의 공격을 준비해요.', '슛으로 피해 10을 주고 기세를 모두 썼어요. 안정된 자세 카드를 선택하고 사용해 이번 턴 방어 8을 얻으세요.'];
     default: return ['방어를 준비했으니 턴을 끝내요.', `상대는 턴 종료 후 공격 ${match.intent.attack}을 합니다. 내 방어 ${match.defense}로 모두 막을 수 있어요. 턴 종료를 눌러 결과를 확인하세요.`];
   }
 }
@@ -105,7 +105,7 @@ export function createTutorial({ renderCard, paintCards = () => {}, onClose = ()
       body.innerHTML = `<section class="tutorial-coach"><h3 id="tutorial-step-title" tabindex="-1">카드 세 장으로 첫 플레이를 배워요.</h3><p>별도의 연습 대결에서 카드를 직접 선택하고 사용합니다. 연습 경기의 체력·카드는 실제 도전에 영향을 주지 않습니다.</p></section>${legendHTML()}<p class="dialog-copy">드리블 → 슛 → 방어 → 턴 종료를 차례로 연습해요. 언제든 위의 버튼으로 튜토리얼 전체를 건너뛸 수 있습니다.</p>${rewardNotice}<div class="tutorial-actions"><span>준비되면 직접 해 보세요.</span><button type="button" class="button primary" data-tutorial-action="start">직접 연습 시작</button></div>`;
     } else if (state.stage === 'complete') {
       const match = state.run.match;
-      body.innerHTML = `${progressHTML(state.stage)}<section class="tutorial-coach"><h3 id="tutorial-step-title" tabindex="-1">좋아요. 첫 한 턴을 직접 해냈어요!</h3><p>내 체력을 지키며 상대 체력을 ${match.enemyHp}까지 줄였습니다. 이제 ${match.turn}턴, 에너지도 ${match.energy}으로 돌아왔어요.</p></section>${scoreboardHTML(state.run)}<div class="tutorial-summary"><ul><li><strong>드리블 → 기세 → 슛</strong><span>기세 2를 모아 슛에 추가 피해 2를 실었습니다. 남은 기세는 턴이 끝나도 유지돼요.</span></li><li><strong>예고를 보고 방어</strong><span>방어 8로 상대 공격 ${match.lastOutcome.blocked}을 막아 내 체력은 100 그대로입니다. 남은 방어는 다음 턴에 사라져요.</span></li><li><strong>새 턴, 새 선택</strong><span>매 턴 에너지가 최대치까지 회복되고 새 카드를 뽑습니다. 사용한 카드는 다시 섞여 돌아와요.</span></li></ul></div><section class="tutorial-route"><h3>실전에서는 이렇게 이어집니다.</h3><ol><li><strong>승리 후 카드 보상</strong><span>상대 체력을 0으로 만들면 골드를 얻고 카드 1장을 고르거나 건너뜁니다.</span></li><li><strong>연결된 지도로 이동</strong><span>보상 선택을 마치면 지도에서 다음 지점을 선택합니다.</span></li><li><strong>내 선수에게 필요한 준비</strong><span>훈련장에서는 카드 강화·정리, 라커룸에서는 체력 회복, 지정된 상점에서는 골드로 아이템을 구매합니다.</span></li></ol></section>${rewardNotice}<div class="tutorial-actions"><span>연습 경기의 체력·카드는 실제 도전에 영향을 주지 않습니다.</span><button type="button" class="button primary" data-tutorial-action="finish">${escapeHTML(completionLabel())}</button></div>`;
+      body.innerHTML = `${progressHTML(state.stage)}<section class="tutorial-coach"><h3 id="tutorial-step-title" tabindex="-1">좋아요. 첫 한 턴을 직접 해냈어요!</h3><p>내 체력을 지키며 상대 체력을 ${match.enemyHp}까지 줄였습니다. 이제 ${match.turn}턴, 에너지도 ${match.energy}으로 돌아왔어요.</p></section>${scoreboardHTML(state.run)}<div class="tutorial-summary"><ul><li><strong>드리블 → 기세 → 슛</strong><span>기세 1을 모아 슛에 추가 피해 1을 실었습니다. 남은 기세는 턴이 끝나도 유지돼요.</span></li><li><strong>예고를 보고 방어</strong><span>방어 8로 상대 공격 ${match.lastOutcome.blocked}을 막아 내 체력은 100 그대로입니다. 남은 방어는 다음 턴에 사라져요.</span></li><li><strong>새 턴, 새 선택</strong><span>매 턴 에너지가 최대치까지 회복되고 새 카드를 뽑습니다. 사용한 카드는 다시 섞여 돌아와요.</span></li></ul></div><section class="tutorial-route"><h3>실전에서는 이렇게 이어집니다.</h3><ol><li><strong>승리 후 카드 보상</strong><span>상대 체력을 0으로 만들면 골드를 얻고 카드 1장을 고르거나 건너뜁니다.</span></li><li><strong>연결된 지도로 이동</strong><span>보상 선택을 마치면 지도에서 다음 지점을 선택합니다.</span></li><li><strong>내 선수에게 필요한 준비</strong><span>훈련장에서는 카드 강화·정리, 라커룸에서는 체력 회복, 지정된 상점에서는 골드로 아이템을 구매합니다.</span></li></ol></section>${rewardNotice}<div class="tutorial-actions"><span>연습 경기의 체력·카드는 실제 도전에 영향을 주지 않습니다.</span><button type="button" class="button primary" data-tutorial-action="finish">${escapeHTML(completionLabel())}</button></div>`;
     } else {
       const [title, instruction] = instructionFor(state), match = state.run.match;
       const allowedCardId = CARD_ORDER.includes(state.stage) ? state.stage : null;

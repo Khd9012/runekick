@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 const assetFiles = fs.readdirSync(new URL('../dist/assets/', import.meta.url), { recursive: true }).filter(name => /\.(png|webp|svg|jpg)$/i.test(name)).sort().map(name => './assets/' + name.replaceAll('\\', '/'));
-const assets = ['./', './index.html', './styles.css', './app.js', './engine.js', './art.js', './tutorial.js', './icon.svg', './manifest.webmanifest', ...assetFiles];
+const assets = ['./', './index.html', './styles.css', './app.js', './engine.js', './legacy-engine.js', './striker-cards.js', './striker-equipment.js', './striker-combat.js', './art.js', './tutorial.js', './icon.svg', './manifest.webmanifest', ...assetFiles];
 const hash = createHash('sha256');
 for (const asset of assets.slice(1)) {
   const content = fs.readFileSync(new URL('../dist/' + asset.slice(2), import.meta.url));

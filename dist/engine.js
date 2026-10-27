@@ -1,88 +1,7 @@
-// Deterministic personal duels. Player HP persists through the journey.
-const definitions = [
-  ['through-pass', '빈틈 파고들기', 'pass', 1, 'common', [7, 10]],
-  ['quick-pass', '가벼운 터치', 'pass', 0, 'common', [2, 4]],
-  ['one-two', '리듬 체인지', 'pass', 1, 'uncommon', [5, 8]],
-  ['dribble', '전진 드리블', 'dribble', 1, 'common', [4, 6]],
-  ['feint', '바디 페인트', 'dribble', 1, 'common', [3, 5]],
-  ['sprint', '전력 질주', 'dribble', 0, 'uncommon', [3, 5]],
-  ['shot', '정확한 슈팅', 'shot', 1, 'common', [9, 13]],
-  ['power-shot', '파워 슈팅', 'shot', 2, 'uncommon', [16, 21]],
-  ['volley', '발리 슈팅', 'shot', 2, 'rare', [11, 15]],
-  ['cover', '안정된 자세', 'defense', 1, 'common', [8, 12]],
-  ['intercept', '흐름 끊기', 'defense', 1, 'common', [5, 8]],
-  ['tackle', '슬라이딩 태클', 'defense', 2, 'uncommon', [15, 20]],
-  ['focus', '집중의 순간', 'tactic', 0, 'uncommon', [1, 2]],
-  ['switch', '균형 잡기', 'tactic', 1, 'common', [5, 8]],
-  ['captain', '승부욕', 'tactic', 2, 'rare', [9, 13]],
-  ['clutch', '마지막 한 발', 'shot', 0, 'uncommon', [4, 7]],
-  ['wall-pass', '발끝 컨트롤', 'pass', 1, 'uncommon', [6, 8]],
-  ['long-pass', '폭발적인 돌파', 'pass', 2, 'rare', [13, 16]],
-  ['read-opening', '빈틈 포착', 'tactic', 1, 'common', [2, 3]],
-  ['lure-dribble', '유인 드리블', 'dribble', 1, 'uncommon', [3, 4]],
-  ['unsettling-shot', '흔드는 슈팅', 'shot', 1, 'common', [6, 9]],
-  ['high-press', '전방 압박', 'tactic', 1, 'common', [2, 3]],
-  ['checking-tackle', '견제 태클', 'defense', 1, 'uncommon', [5, 8]],
-  ['close-mark', '집요한 마크', 'pass', 1, 'uncommon', [5, 8]],
-];
-const numbers = Object.fromEntries(definitions.map(([id, , , , , values]) => [id, values]));
-const amount = card => numbers[card.id]?.[card.upgraded ? 1 : 0] ?? 0;
-const cost = card => card.id === 'power-shot' && card.upgraded ? 1 : CARDS[card.id]?.cost;
-const shotText = ' 기세를 모두 소모하여 그만큼 추가 피해.';
-export function cardText(card) {
-  if (!card || !numbers[card.id]) return '알 수 없는 카드';
-  const n = amount(card), up = !!card.upgraded;
-  switch (card.id) {
-    case 'through-pass': return `피해 ${n}.`;
-    case 'quick-pass': case 'one-two': case 'long-pass': return `피해 ${n}. 카드 1장 뽑기.`;
-    case 'dribble': return `피해 ${n}. 기세 +${up ? 3 : 2}. 기세는 턴이 끝나도 유지.`;
-    case 'feint': return `피해 ${n}. 기세 +${up ? 6 : 4}. 기세는 턴이 끝나도 유지.`;
-    case 'sprint': return `피해 ${n}. 기세 +2. 내 체력 ${up ? 1 : 3} 소모.`;
-    case 'shot': return `피해 ${n}.` + shotText;
-    case 'power-shot': return `피해 ${n}.` + shotText + (up ? ' 비용 1로 감소.' : '');
-    case 'volley': return `피해 ${n}. 기세를 모두 소모하여 기세의 2배만큼 추가 피해.`;
-    case 'cover': return `이번 턴 방어 +${n}.`;
-    case 'intercept': return `이번 턴 방어 +${n}. 피해 3.`;
-    case 'tackle': return `이번 턴 방어 +${n}. 카드 1장 뽑기.`;
-    case 'focus': return `에너지 +${n} (최대 에너지까지). 이번 대결에서 소진.`;
-    case 'switch': case 'captain': return `피해 ${n}. 이번 턴 방어 +${n}.`;
-    case 'clutch': return `피해 ${n}. 5턴부터 피해 +${up ? 9 : 6}.` + shotText;
-    case 'wall-pass': return `피해 ${n}. 기세 +${up ? 3 : 2}.`;
-    case 'read-opening': return `약점 노출 ${n}턴. 상대가 받는 카드 피해 +50%.`;
-    case 'lure-dribble': return `약점 노출 ${up ? 2 : 1}턴. 기세 +${n}. 기세는 턴이 끝나도 유지.`;
-    case 'unsettling-shot': return `피해 ${n}. 공격 후 약점 노출 ${up ? 2 : 1}턴.` + shotText;
-    case 'high-press': return `공격 약화 ${n}턴. 상대 공격 피해 −25%.`;
-    case 'checking-tackle': return `이번 턴 방어 +${n}. 공격 약화 ${up ? 2 : 1}턴.`;
-    case 'close-mark': return `피해 ${n}. 공격 후 공격 약화 ${up ? 2 : 1}턴.`;
-    default: return '';
-  }
-}
-export const CARDS = Object.freeze(Object.fromEntries(definitions.map(([id, name, type, energy, rarity]) =>
-  [id, Object.freeze({ id, name, type, cost: energy, rarity, description: cardText({ id }), upgradedCost: id === 'power-shot' ? 1 : energy, upgradedDescription: cardText({ id, upgraded: true }) })]
-)));
-export const RELICS = Object.freeze({
-  'swift-boots': { id: 'swift-boots', name: '바람의 축구화', category: 'boots', rarity: 'uncommon', description: '드리블 카드를 낼 때마다 기세 +1.', price: 45 },
-  'power-cleats': { id: 'power-cleats', name: '번개 스터드', category: 'boots', rarity: 'rare', description: '슈팅 카드의 피해 +3.', price: 60 },
-  'training-kit': { id: 'training-kit', name: '익숙한 훈련복', category: 'uniform', rarity: 'common', description: '매 턴 방어 3으로 시작.', price: 40 },
-  'captain-band': { id: 'captain-band', name: '불굴의 손목 밴드', category: 'band', rarity: 'rare', description: '최대 체력 +15. 구매 즉시 체력 15 회복.', price: 60 },
-  'grip-socks': { id: 'grip-socks', name: '단단한 그립 양말', category: 'socks', rarity: 'common', description: '매 턴 처음 사용하는 방어 카드의 방어 +2.', price: 35 },
-  'scouting-bag': { id: 'scouting-bag', name: '오래된 축구 가방', category: 'bag', rarity: 'uncommon', description: '매 턴 카드를 1장 더 뽑기.', price: 55 },
-  'energy-flask': { id: 'energy-flask', name: '회복 보틀', category: 'bottle', rarity: 'rare', description: '최대 에너지 +1. 매 턴 전부 회복.', price: 75 },
-  'lucky-coin': { id: 'lucky-coin', name: '행운의 첫 동전', category: 'charm', rarity: 'common', description: '대결 승리 보상 코인 +10.', price: 35 },
-  'golden-whistle': { id: 'golden-whistle', name: '스카우트의 호루라기', category: 'whistle', rarity: 'uncommon', description: '대결에서 승리할 때마다 내 체력 5 회복.', price: 45 },
-  'libero-seal': { id: 'libero-seal', name: '리베로의 증표', category: 'medal', rarity: 'legendary', shop: false, description: '매 턴 첫 드리블 카드 사용 시 방어 +4. 전설의 수비수를 꺾어 획득.', price: 0 },
-  'catenaccio-band': { id: 'catenaccio-band', name: '카테나치오 밴드', category: 'band', rarity: 'legendary', shop: false, description: '매 턴 첫 수비 카드의 방어 +3.', price: 0 },
-  'clean-sheet-crest': { id: 'clean-sheet-crest', name: '무실점의 문장', category: 'medal', rarity: 'legendary', shop: false, description: '턴 종료 시 상대에게 받은 피해가 0이면 내 체력 2 회복.', price: 0 },
-  'maestro-touch': { id: 'maestro-touch', name: '마에스트로의 터치', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 터치 카드 사용 시 기세 +2.', price: 0 },
-  'roulette-rune': { id: 'roulette-rune', name: '룰렛의 룬', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 전술 카드 사용 시 카드 1장 뽑기.', price: 0 },
-  'playmaker-lens': { id: 'playmaker-lens', name: '플레이메이커의 시선', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 슈팅을 쓸 때 기세가 3 이상이면 피해 +4.', price: 0 },
-  'fenom-cleats': { id: 'fenom-cleats', name: '페노메노의 스터드', category: 'boots', rarity: 'legendary', shop: false, description: '매 턴 첫 슈팅 카드의 피해 +5.', price: 0 },
-  'nine-crest': { id: 'nine-crest', name: '넘버 나인의 문장', category: 'medal', rarity: 'legendary', shop: false, description: '카드를 쓰기 전 상대 체력이 절반 이하라면 슈팅 피해 +3.', price: 0 },
-  'burst-laces': { id: 'burst-laces', name: '폭발적인 가속의 끈', category: 'socks', rarity: 'legendary', shop: false, description: '매 대결을 기세 3으로 시작합니다.', price: 0 },
-  'street-rhythm': { id: 'street-rhythm', name: '거리의 리듬', category: 'charm', rarity: 'legendary', shop: false, description: '매 턴 첫 드리블 카드 사용 시 기세 +2.', price: 0 },
-  'ankle-tape': { id: 'ankle-tape', name: '흔들리지 않는 발목', category: 'socks', rarity: 'legendary', shop: false, description: '매 턴 첫 터치 카드 사용 시 방어 +3.', price: 0 },
-  'tempo-charm': { id: 'tempo-charm', name: '템포의 부적', category: 'charm', rarity: 'legendary', shop: false, description: '한 턴에 드리블과 슈팅을 모두 쓰면 한 번만 에너지 +1. 최대 에너지까지 회복.', price: 0 },
-});
+import { resolveCard, resolveChoice } from './striker-combat.js';
+import { CARDS, INJURIES, STARTER_DECK, CARD_PRICES, cardEffect, cardCost, cardText, isTechnique, isCombo, rewardPool } from './striker-cards.js';
+import { RELICS } from './striker-equipment.js';
+export { CARDS, RELICS, cardText, cardCost, isCombo, CARD_PRICES };
 export const STARTER_RELICS = Object.freeze(['power-cleats', 'swift-boots', 'training-kit']);
 export const CARD_REMOVAL_BASE_COST = 50;
 export function getCardRemovalCost(run) { return CARD_REMOVAL_BASE_COST + 25 * (run?.shopRemovalCount ?? 0); }
@@ -182,6 +101,12 @@ function shuffle(run, values) {
   for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(random(run) * (i + 1)); [result[i], result[j]] = [result[j], result[i]]; }
   return result;
 }
+const playableCount = run => run.deck.filter(c => !INJURIES[c.id]).length;
+function acquireRelic(run, id) {
+  run.relics.push(id);
+  if (RELICS[id].injury) { addCard(run, RELICS[id].injury); if (run.phase === 'reward') run.rewardInjuryUid = run.deck.at(-1).uid; }
+  if (id === 'captain-band') { run.maxCondition += 15; run.condition += 15; }
+}
 function addCard(run, id) { run.deck.push({ uid: `c${run.nextUid++}`, id, upgraded: false }); }
 function generateRoute(initialSeed, version = 2) {
   // Map randomness never consumes the draw/reward RNG, so combat cannot change the map.
@@ -189,10 +114,10 @@ function generateRoute(initialSeed, version = 2) {
   const coachIds = Object.keys(OPPONENTS).filter(id => OPPONENTS[id].coach);
   const coachId = coachIds[Math.floor(random(rng) * coachIds.length)], coach = OPPONENTS[coachId];
   const regular = (opponentId, name) => ({ type: 'match', opponentId, name, description: `${OPPONENTS[opponentId].name}과 일대일로 실력을 겨룹니다. 승리하면 코인 ${OPPONENTS[opponentId].reward}과 카드 보상을 얻습니다.` });
-  const rest = name => ({ type: 'rest', name, description: '내 체력을 30 회복하고 다음 대결을 준비합니다.' });
+  const rest = name => ({ type: 'rest', name, description: '체력 30 회복 또는 ACT당 한 번 덱 부상 한 장 치료를 선택합니다.' });
   const training = name => ({ type: 'training', name, description: '개인 훈련으로 카드 1장을 강화하거나 덱에서 제거합니다.' });
-  const event = name => ({ type: 'event', name, description: '안전한 회복과 코인, 또는 체력을 쓰는 희귀 카드 테스트를 선택합니다.' });
-  const shop = name => ({ type: 'shop', name, description: '지정된 상점 포인트. 대결로 모은 코인으로 유물을 구매합니다.' });
+  const event = name => ({ type: 'event', name, description: '안전한 회복과 코인, 또는 체력을 쓰는 특별 카드 테스트를 선택합니다.' });
+  const shop = name => ({ type: 'shop', name, description: '지정된 상점 포인트. 모은 골드로 장비와 기술 카드를 구매합니다.' });
   const cityShop = ['시내 스포츠점', '시내 쇼핑센터', '백화점 스포츠관'][initialSeed % 3];
   const elite = id => ({ type: 'elite', opponentId: id, name: OPPONENTS[id].name, description: `${OPPONENTS[id].subtitle}. 승리 시 코인 ${OPPONENTS[id].reward}, 희귀 카드와 전용 유물 선택 보상을 얻습니다.` });
   // Version 1 must consume exactly the original map RNG sequence for existing saves.
@@ -252,11 +177,11 @@ function normalizedName(value) {
   return name && [...name].length <= 12 ? name : null;
 }
 export function createRun(seed, playerName = '루키') {
-  const initialSeed = seedNumber(seed), run = { schema: 3, routeVersion: 2, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
+  const initialSeed = seedNumber(seed), run = { rulesVersion: 2, actNumber: 1, treatedActs: [], shopCards: [], schema: 3, routeVersion: 2, route: generateRoute(initialSeed), phase: 'map', routeIndex: 0, history: [], condition: 100, maxCondition: 100, gold: 40,
     playerName: normalizedName(playerName) ?? '루키', starterRewardUnlocked: false, starterRelic: null,
     deck: [], relics: [], offers: [], relicOffers: [], shopOffers: [], shopRemovalCount: 0, seed: initialSeed, initialSeed, nextUid: 1,
-    stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
-  ['through-pass', 'through-pass', 'quick-pass', 'dribble', 'dribble', 'feint', 'shot', 'shot', 'cover', 'cover', 'intercept', 'switch'].forEach(id => addCard(run, id));
+    stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, rewardInjuryUid: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
+  STARTER_DECK.forEach(id => addCard(run, id));
   return run;
 }
 // Active pre-pattern saves keep their original intent text and numbers.
@@ -282,8 +207,8 @@ function intentFor(opponentId, turn, hp = OPPONENTS[opponentId].maxHp) {
     description: `턴 종료 시 피해 ${attack}. 이번 턴 상대 방어 ${defense}.${pressure ? ` 장기전으로 공격 +${pressure}.` : ''}${rule ? ` ${rule}` : ''}`,
     ...(rule ? { rule } : {}), ...(opponentId === 'legend' ? { counterDamage, dribbleBreak: 6 } : {}) };
 }
-const NON_DAMAGE_CARDS = new Set(['cover', 'tackle', 'focus', 'read-opening', 'lure-dribble', 'high-press', 'checking-tackle']);
-const cardCategory = card => CARDS[card.id].type === 'defense' ? 'defense' : ['shot', 'pass'].includes(CARDS[card.id].type) ? 'attack' : 'skill';
+const NON_DAMAGE_CARDS = new Set(Object.keys(CARDS).filter(id => !CARDS[id].effect.damage));
+const cardCategory = card => CARDS[card.id].type === 'defense' ? 'defense' : ['shot', 'pass', 'header', 'dribble'].includes(CARDS[card.id].type) ? 'attack' : 'skill';
 function coachCounts(m) {
   const counts = { attack: 0, defense: 0, skill: 0, hits: 0 };
   for (const card of m.played) { counts[cardCategory(card)]++; if (!NON_DAMAGE_CARDS.has(card.id)) counts.hits++; }
@@ -384,20 +309,24 @@ function drawCards(run, count) {
 }
 function nextRound(run) {
   const m = run.match;
+  const previousShot = m.turn > 1 ? m.shotCardPlayed : true;
   m.discard.push(...m.hand);
-  for (const card of m.played) (card.id === 'focus' ? m.exhaust : m.discard).push(card);
-  m.hand = []; m.played = []; m.energy = m.maxEnergy; m.chance = 0;
-  m.defense = has(run, 'training-kit') ? 3 : 0; m.defenseCardPlayed = false; m.dribbleCardPlayed = false;
+  m.hand = []; m.played = []; m.energy = Math.max(0, m.maxEnergy - (m.energyDebt || 0)); m.energyDebt = 0; m.chance = 0;
+  m.defense = Math.min(m.training.aerial || 0, m.defense);
+  m.defenseCardPlayed = false; m.dribbleCardPlayed = false;
   m.passCardPlayed = false; m.tacticCardPlayed = false; m.shotCardPlayed = false; m.tempoTriggered = false;
+  m.turnFlags = {}; m.previousShot = previousShot; m.nextShot = 0; m.nextHeader = 0;
+  m.discounts = {}; m.damageBonuses = {}; m.choice = null;
   m.intentHp = m.enemyHp; m.intent = bossIntent(m); m.enemyBlock = m.intent.defense;
   refreshBossIntent(m);
   m.counterReady = (m.intent.counterDamage ?? 0) > 0;
-  drawCards(run, has(run, 'scouting-bag') ? 6 : 5);
+  drawCards(run, 5);
 }
 function startMatch(run, opponentId) {
-  const maxEnergy = has(run, 'energy-flask') ? 4 : 3, enemyMaxHp = OPPONENTS[opponentId].maxHp;
+  const maxEnergy = 3, enemyMaxHp = OPPONENTS[opponentId].maxHp;
   run.phase = 'match'; run.relicOffers = [];
-  run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: has(run, 'burst-laces') ? 3 : 0,
+  run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: 0,
+    training: {}, turnFlags: {}, battleFlags: {}, playerExposed: 0, energyDebt: 0, choice: null, temporaryCards: [],
     enemyExposed: 0, enemyWeakened: 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
     hand: [], draw: shuffle(run, clone(run.deck)), discard: [], exhaust: [], played: [], intent: null,
@@ -408,13 +337,14 @@ function startMatch(run, opponentId) {
 export function getEnemyAttack(run) {
   const m = run?.match;
   if (!m) return 0;
-  return Math.floor(m.intent.attack * ((m.enemyWeakened ?? 0) > 0 ? .75 : 1));
+  return Math.floor(m.intent.attack * ((m.enemyWeakened ?? 0) > 0 ? .75 : 1) * ((m.playerExposed ?? 0) > 0 ? 1.5 : 1));
 }
 export function forecast(run) {
   const m = run?.match;
   if (!m) return { attack: 0, target: 0, incoming: 0, guard: 0, homeGoal: false, awayGoal: false, enemyAttack: 0, baseEnemyAttack: 0 };
-  const enemyAttack = getEnemyAttack(run), incoming = Math.max(0, enemyAttack - m.defense);
-  return { attack: m.chance, target: m.enemyHp, incoming, guard: m.defense, homeGoal: false, awayGoal: incoming > 0, enemyBlock: m.enemyBlock, momentum: m.momentum, enemyAttack, baseEnemyAttack: m.intent.attack };
+  const enemyAttack = getEnemyAttack(run), injuryDamage = m.hand.filter(c => c.id === 'abrasion').length, injuryBlockLoss = m.hand.filter(c => c.id === 'ankle-pain').length * 2;
+  const effectiveGuard = Math.max(0, m.defense - injuryBlockLoss), incoming = injuryDamage + Math.max(0, enemyAttack - effectiveGuard);
+  return { attack: m.chance, target: m.enemyHp, incoming, guard: effectiveGuard, injuryDamage, injuryBlockLoss, homeGoal: false, awayGoal: incoming > 0, enemyBlock: m.enemyBlock, momentum: m.momentum, enemyAttack, baseEnemyAttack: m.intent.attack };
 }
 function nodeRecord(run, result) {
   const node = run.activeNode;
@@ -423,7 +353,7 @@ function nodeRecord(run, result) {
 }
 function finishNode(run, result) {
   run.history.push(nodeRecord(run, result));
-  run.activeNode = null; run.match = null; run.offers = []; run.relicOffers = []; run.shopOffers = []; run.rewardRelic = null; run.routeIndex++;
+  run.activeNode = null; run.match = null; run.offers = []; run.relicOffers = []; run.shopOffers = []; run.shopCards = []; run.rewardRelic = null; run.rewardInjuryUid = null; run.routeIndex++;
   run.phase = run.routeIndex >= routeFor(run).length ? 'victory' : 'map';
 }
 function failRun(run, reason) {
@@ -439,14 +369,18 @@ function outcome(run, damageTaken, blocked, summary) {
 function winDuel(run) {
   const m = run.match, opponent = OPPONENTS[m.opponentId];
   m.status = 'won'; run.stats.wins++;
-  const reward = opponent.reward + (has(run, 'lucky-coin') ? 10 : 0);
+  const reward = opponent.reward + (has(run, 'lucky-coin') ? 8 : 0);
   run.gold += reward; run.phase = 'reward';
   run.rewardRelic = null;
   run.relicOffers = run.activeNode.type === 'elite' ? (opponent.eliteRelics ?? []).filter(id => !has(run, id)) : [];
-  if (has(run, 'golden-whistle')) run.condition = Math.min(run.maxCondition, run.condition + 5);
-  const pool = shuffle(run, Object.keys(CARDS)); run.offers = pool.slice(0, 3);
-  if (run.activeNode.type === 'elite' && !run.offers.some(id => CARDS[id].rarity === 'rare')) run.offers[0] = pool.find(id => CARDS[id].rarity === 'rare');
-  run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +5' : ''}. ${run.relicOffers.length ? '전용 유물 1개를 먼저 고른 뒤 ' : ''}카드 1장을 선택하거나 건너뛰세요.`;
+  if (has(run, 'golden-whistle')) run.condition = Math.min(run.maxCondition, run.condition + 4);
+  const uncommon = shuffle(run, rewardPool(run, 'uncommon'));
+  const rare = shuffle(run, rewardPool(run, 'rare'));
+  if (run.activeNode.type === 'elite') run.offers = [rare[0], ...uncommon.slice(0, 2)];
+  else if (run.activeNode.type === 'boss') run.offers = ['power','technique','aerial'].map(style => rare.find(id => CARDS[id].style === style));
+  else if (run.stats.wins === 1) run.offers = ['power-shot','double-touch','positioning'];
+  else run.offers = shuffle(run, [...rewardPool(run, 'common'), ...uncommon]).slice(0, 3);
+  run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +4' : ''}. ${run.relicOffers.length ? '전용 유물 1개를 먼저 고른 뒤 ' : ''}카드 1장을 선택하거나 건너뛰세요.`;
 }
 function dealDamage(run, power) {
   const m = run.match;
@@ -459,91 +393,42 @@ function dealDamage(run, power) {
 }
 function playCard(run, uid) {
   const m = run.match, index = m.hand.findIndex(card => card.uid === uid);
-  if (index < 0) return false;
+  if (index < 0 || m.choice) return false;
   const card = m.hand[index];
-  if (cost(card) > m.energy) return false;
-  m.energy -= cost(card); m.hand.splice(index, 1); m.played.push(card);
-  const n = amount(card), up = card.upgraded;
-  let damage = 0, reflectedDamage = 0, exposed = 0, weakened = 0;
+  if (cardCost(card, m) > m.energy) return false;
+  m.energy -= cardCost(card, m); m.hand.splice(index, 1); m.played.push(card);
+  let reflectedDamage = 0;
   const pressingCost = m.boss && m.opponentId === 'coach-klopp' && (m.turn - 1) % 3 !== 2 && cardCategory(card) === 'skill' && coachCounts(m).skill === 1 ? Math.min(3, run.condition) : 0;
   run.condition -= pressingCost;
-  switch (card.id) {
-    case 'through-pass': case 'shot': case 'power-shot': case 'volley': damage = n; break;
-    case 'quick-pass': case 'one-two': case 'long-pass': damage = n; drawCards(run, 1); break;
-    case 'dribble': damage = n; m.momentum += up ? 3 : 2; break;
-    case 'feint': damage = n; m.momentum += up ? 6 : 4; break;
-    case 'sprint': damage = n; m.momentum += 2; run.condition = Math.max(0, run.condition - (up ? 1 : 3)); break;
-    case 'cover': m.defense += n; break;
-    case 'intercept': m.defense += n; damage = 3; break;
-    case 'tackle': m.defense += n; drawCards(run, 1); break;
-    case 'focus': m.energy = Math.min(m.maxEnergy, m.energy + n); break;
-    case 'switch': case 'captain': damage = n; m.defense += n; break;
-    case 'clutch': damage = n + (m.turn >= 5 ? (up ? 9 : 6) : 0); break;
-    case 'wall-pass': damage = n; m.momentum += up ? 3 : 2; break;
-    case 'read-opening': exposed = n; break;
-    case 'lure-dribble': exposed = up ? 2 : 1; m.momentum += n; break;
-    case 'unsettling-shot': damage = n; exposed = up ? 2 : 1; break;
-    case 'high-press': weakened = n; break;
-    case 'checking-tackle': m.defense += n; weakened = up ? 2 : 1; break;
-    case 'close-mark': damage = n; weakened = up ? 2 : 1; break;
-  }
-  if (CARDS[card.id].type === 'dribble') {
-    if (has(run, 'swift-boots')) m.momentum++;
-    if (!m.dribbleCardPlayed && has(run, 'libero-seal')) m.defense += 4;
-    if (!m.dribbleCardPlayed && has(run, 'street-rhythm')) m.momentum += 2;
-    m.dribbleCardPlayed = true;
-    m.enemyBlock = Math.max(0, m.enemyBlock - (m.intent.dribbleBreak ?? 0));
-  }
-  if (CARDS[card.id].type === 'pass') {
-    if (!m.passCardPlayed && has(run, 'maestro-touch')) m.momentum += 2;
-    if (!m.passCardPlayed && has(run, 'ankle-tape')) m.defense += 3;
-    m.passCardPlayed = true;
-  }
-  if (CARDS[card.id].type === 'tactic') {
-    if (!m.tacticCardPlayed && has(run, 'roulette-rune')) drawCards(run, 1);
-    m.tacticCardPlayed = true;
-  }
-  if (CARDS[card.id].type === 'shot') {
-    if (!m.shotCardPlayed && has(run, 'fenom-cleats')) damage += 5;
-    if (!m.shotCardPlayed && has(run, 'playmaker-lens') && m.momentum >= 3) damage += 4;
-    if (has(run, 'nine-crest') && m.enemyHp <= m.enemyMaxHp / 2) damage += 3;
-    damage += m.momentum * (card.id === 'volley' ? 2 : 1) + (has(run, 'power-cleats') ? 3 : 0);
-    m.momentum = 0; m.shotCardPlayed = true;
-  }
-  if (CARDS[card.id].type === 'defense') {
-    if (!m.defenseCardPlayed && has(run, 'grip-socks')) m.defense += 2;
-    if (!m.defenseCardPlayed && has(run, 'catenaccio-band')) m.defense += 3;
-    m.defenseCardPlayed = true;
-  }
-  if (has(run, 'tempo-charm') && m.dribbleCardPlayed && m.shotCardPlayed && !m.tempoTriggered) {
-    m.energy = Math.min(m.maxEnergy, m.energy + 1); m.tempoTriggered = true;
-  }
-  if (damage > 0) {
-    if (m.counterReady) { reflectedDamage = Math.min(run.condition, m.intent.counterDamage); run.condition -= reflectedDamage; m.counterReady = false; }
-    dealDamage(run, damage);
-  }
-  // A hit benefits from the status already present, then applies its own debuff.
-  m.enemyExposed = Math.min(99, (m.enemyExposed ?? 0) + exposed);
-  m.enemyWeakened = Math.min(99, (m.enemyWeakened ?? 0) + weakened);
+  if (cardEffect(card).damage && m.counterReady) { reflectedDamage = Math.min(run.condition, m.intent.counterDamage); run.condition -= reflectedDamage; m.counterReady = false; }
+  resolveCard(run, card, {draw: count => drawCards(run, count), shuffle: cards => shuffle(run, cards), damage: power => dealDamage(run, power)});
+  (cardEffect(card).volatile ? m.exhaust : m.discard).push(card);
   coachAfterCard(m);
   if (run.condition <= 0) {
-    const reason = pressingCost > 0 ? '클롭의 압박으로 첫 기술을 사용하며 체력을 모두 소모했습니다.' : reflectedDamage > 0 ? '레전드의 예고된 반격으로 체력을 모두 소모했습니다.' : '무리한 기술로 내 체력을 모두 소모했습니다. 다음 도전에서는 휴식도 챙겨 주세요.';
-    outcome(run, 0, 0, reason); failRun(run, reason);
+    const reason = pressingCost ? '감독의 압박으로 체력을 모두 소모했습니다.' : '예고된 반격으로 체력을 모두 소모했습니다.';
+    m.choice = null; outcome(run, 0, 0, reason); failRun(run, reason);
   } else if (m.enemyHp <= 0) {
-    outcome(run, 0, 0, `${OPPONENTS[m.opponentId].name}의 체력을 모두 깎았습니다. 반격 전에 승리!`); winDuel(run);
+    m.choice = null; outcome(run, 0, 0, `${OPPONENTS[m.opponentId].name}에게 승리!`); winDuel(run);
   }
   return true;
 }
 function endTurn(run) {
-  const m = run.match, incoming = forecast(run).incoming, blocked = Math.min(getEnemyAttack(run), m.defense), damageTaken = Math.min(run.condition, incoming);
+  const m = run.match;
+  for (const card of m.hand) {
+    if (card.id === 'abrasion') run.condition = Math.max(0, run.condition - 1);
+    if (card.id === 'ankle-pain') m.defense = Math.max(0, m.defense - 2);
+  }
+  if (run.condition === 0) { outcome(run, 0, 0, '찰과상으로 체력을 모두 소모했습니다.'); return failRun(run, '부상을 치료하고 다음 도전을 준비하세요.'); }
+  const incoming = Math.max(0, getEnemyAttack(run) - m.defense), blocked = Math.min(getEnemyAttack(run), m.defense), damageTaken = Math.min(run.condition, incoming);
+  m.defense = Math.max(0, m.defense - blocked);
   run.condition -= damageTaken; run.stats.blocks += blocked; m.blocks += blocked;
-  if (run.condition > 0 && damageTaken === 0 && has(run, 'clean-sheet-crest')) run.condition = Math.min(run.maxCondition, run.condition + 2);
-  outcome(run, damageTaken, blocked, `내가 준 피해 ${m.chance}. ${OPPONENTS[m.opponentId].name}의 반격 ${damageTaken}${blocked ? ` · 방어 ${blocked}` : ''}.`);
-  m.enemyExposed = Math.max(0, (m.enemyExposed ?? 0) - 1);
-  m.enemyWeakened = Math.max(0, (m.enemyWeakened ?? 0) - 1);
-  if (run.condition <= 0) return failRun(run, '체력이 모두 소진되었습니다. 나만의 덱을 다시 다듬고 도전해 보세요.');
-  coachAfterTurn(m);
-  m.turn++; nextRound(run);
+  if (run.condition > 0 && getEnemyAttack(run) > 0 && damageTaken === 0 && has(run, 'clean-sheet-crest') && (m.battleFlags.cleanSheet || 0) < 3) {
+    run.condition = Math.min(run.maxCondition, run.condition + 2); m.battleFlags.cleanSheet = (m.battleFlags.cleanSheet || 0) + 1;
+  }
+  outcome(run, damageTaken, blocked, `내가 준 피해 ${m.chance}. 상대의 반격 ${damageTaken} · 방어 ${blocked}.`);
+  m.enemyExposed = Math.max(0, m.enemyExposed - 1); m.enemyWeakened = Math.max(0, m.enemyWeakened - 1); m.playerExposed = Math.max(0, m.playerExposed - 1);
+  if (run.condition <= 0) return failRun(run, '체력이 모두 소진되었습니다. 나만의 덱을 다듬고 다시 도전하세요.');
+  coachAfterTurn(m); m.turn++; nextRound(run);
 }
 export function act(run, action) {
   if (!run || !action || typeof action.type !== 'string' || (['victory', 'defeat'].includes(run.phase) && action.type !== 'rename-player')) return run;
@@ -554,9 +439,8 @@ export function act(run, action) {
       next.starterRewardUnlocked = true; return next;
     case 'take-starter-relic': {
       if (!run.starterRewardUnlocked || run.starterRelic !== null || !STARTER_RELICS.includes(action.id) || has(run, action.id)) return run;
-      next.relics.push(action.id); next.starterRelic = action.id;
+      acquireRelic(next, action.id); next.starterRelic = action.id;
       next.shopOffers = next.shopOffers.filter(id => id !== action.id);
-      if (action.id === 'training-kit' && next.phase === 'match' && next.match.turn === 1 && !next.match.played.length) next.match.defense += 3;
       return next;
     }
     case 'rename-player': {
@@ -570,37 +454,52 @@ export function act(run, action) {
       if (!node) return run;
       next.activeNode = clone(node); next.message = node.description;
       if (combat(node.type)) startMatch(next, node.opponentId);
-      else { next.phase = node.type; if (node.type === 'shop') next.shopOffers = shuffle(next, Object.keys(RELICS).filter(id => RELICS[id].shop !== false && !has(next, id))).slice(0, 4); }
+      else { next.phase = node.type; if (node.type === 'shop') { next.shopOffers = shuffle(next, Object.keys(RELICS).filter(id => RELICS[id].shop !== false && !has(next, id))).slice(0, 4); next.shopCards = ['common','uncommon','rare'].map(rarity => shuffle(next, rewardPool(next, rarity))[0]).filter(Boolean); } }
       return next;
     }
     case 'play-card': if (run.phase !== 'match' || !playCard(next, action.uid)) return run; return next;
-    case 'end-turn': if (run.phase !== 'match') return run; endTurn(next); return next;
+    case 'choose-card': if (run.phase !== 'match' || !resolveChoice(next, action.uid, count => drawCards(next, count))) return run; return next;
+    case 'end-turn': if (run.phase !== 'match' || run.match.choice) return run; endTurn(next); return next;
     case 'take-elite-relic':
       if (run.phase !== 'reward' || run.activeNode?.type !== 'elite' || !run.relicOffers.includes(action.id) || !OPPONENTS[run.match.opponentId].eliteRelics?.includes(action.id) || has(run, action.id)) return run;
-      next.relics.push(action.id); next.rewardRelic = action.id; next.relicOffers = [];
+      acquireRelic(next, action.id); next.rewardRelic = action.id; next.relicOffers = [];
       next.message = `${RELICS[action.id].name} 획득! 카드 1장을 선택하거나 건너뛰세요.`;
       return next;
     case 'take-reward':
-      if (run.phase !== 'reward' || run.relicOffers.length || (action.id !== null && (!run.offers.includes(action.id) || run.deck.length >= 40))) return run;
+      if (run.phase !== 'reward' || run.relicOffers.length || (action.id !== null && (!run.offers.includes(action.id) || playableCount(run) >= 40))) return run;
       if (action.id !== null) addCard(next, action.id);
       next.message = action.id === null ? '보상을 건너뛰고 다음 길로 향합니다.' : `${CARDS[action.id].name} 카드를 덱에 추가했습니다.`;
       finishNode(next, 'win'); return next;
     case 'upgrade-card': {
       if (run.phase !== 'training') return run;
       const card = next.deck.find(item => item.uid === action.uid);
-      if (!card || card.upgraded) return run;
+      if (!card || card.upgraded || INJURIES[card.id]) return run;
       card.upgraded = true; next.message = `${CARDS[card.id].name} 강화 완료. ${cardText(card)}`; finishNode(next, 'upgrade'); return next;
     }
     case 'remove-card': {
       const shop = run.phase === 'shop', price = getCardRemovalCost(run);
-      if (shop ? run.deck.length <= 1 || run.gold < price : run.phase !== 'training' || run.deck.length <= 8) return run;
+      if (shop ? playableCount(run) <= 1 || run.gold < price : run.phase !== 'training' || playableCount(run) <= 8) return run;
       const index = next.deck.findIndex(card => card.uid === action.uid);
-      if (index < 0) return run;
+      if (index < 0 || INJURIES[next.deck[index].id]) return run;
       next.message = `${CARDS[next.deck[index].id].name} 카드를 덱에서 제거했습니다.${shop ? ` 골드 −${price}.` : ''}`;
       next.deck.splice(index, 1);
       if (shop) { next.gold -= price; next.shopRemovalCount = (run.shopRemovalCount ?? 0) + 1; }
       else finishNode(next, 'remove');
       return next;
+    }
+    case 'treat-injury': {
+      if (run.phase !== 'rest' || run.treatedActs.includes(run.actNumber)) return run;
+      const index = next.deck.findIndex(card => card.uid === action.uid && INJURIES[card.id]);
+      if (index < 0) return run;
+      next.deck.splice(index, 1); next.treatedActs.push(run.actNumber);
+      next.message = '부상 1장 치료 완료. 장비는 유지됩니다. 이번 ACT의 치료를 사용했습니다.';
+      finishNode(next, 'treat'); return next;
+    }
+    case 'buy-card': {
+      const def = CARDS[action.id], price = CARD_PRICES[def?.rarity];
+      if (run.phase !== 'shop' || !run.shopCards.includes(action.id) || !price || run.gold < price || playableCount(run) >= 40 || !rewardPool(run).includes(action.id)) return run;
+      next.gold -= price; addCard(next, action.id); next.shopCards = next.shopCards.filter(id => id !== action.id);
+      next.message = `${def.name} 구입 완료.`; return next;
     }
     case 'rest':
       if (run.phase !== 'rest') return run;
@@ -608,8 +507,7 @@ export function act(run, action) {
     case 'buy-relic': {
       const relic = RELICS[action.id];
       if (run.phase !== 'shop' || !relic || relic.shop === false || !run.shopOffers.includes(action.id) || has(run, action.id) || run.gold < relic.price) return run;
-      next.gold -= relic.price; next.relics.push(action.id); next.shopOffers = next.shopOffers.filter(id => id !== action.id);
-      if (action.id === 'captain-band') { next.maxCondition += 15; next.condition += 15; }
+      next.gold -= relic.price; acquireRelic(next, action.id); next.shopOffers = next.shopOffers.filter(id => id !== action.id);
       next.message = `${relic.name} 구입 완료.`; return next;
     }
     case 'event-choice':
@@ -618,7 +516,7 @@ export function act(run, action) {
         next.condition = Math.max(0, next.condition - 12);
         if (next.condition <= 0) { failRun(next, '추가 테스트에서 내 체력을 모두 소모했습니다.'); return next; }
         next.gold += 35;
-        const rare = shuffle(next, Object.keys(CARDS).filter(id => CARDS[id].rarity === 'rare'))[0], room = next.deck.length < 40;
+        const rare = shuffle(next, rewardPool(next, 'uncommon'))[0], room = playableCount(next) < 40;
         if (room) addCard(next, rare);
         next.message = `추가 테스트 성공. 내 체력 −12, 코인 +35${room ? `, ${CARDS[rare].name} 획득` : ''}.`;
       } else { next.gold += 15; next.condition = Math.min(next.maxCondition, next.condition + 5); next.message = '스카우트와 이야기를 나눴습니다. 코인 +15, 내 체력 +5.'; }
@@ -636,13 +534,14 @@ const uniqueKnown = (value, known, max) => Array.isArray(value) && value.length 
 const routeShape = route => route.map(stage => ({ id: stage.id, choices: stage.choices.map(node => ({ id: node.id, type: node.type, opponentId: node.opponentId ?? null, lane: node.lane, next: node.next })) }));
 export function validateSave(value) {
   try {
-    if (!record(value)) return null;
+    if (!record(value) || value.rulesVersion !== 2) return null;
     const encoded = JSON.stringify(value);
     if (encoded.length > 500000) return null;
     const run = JSON.parse(encoded);
-    if (![2, 3].includes(run.schema) || !phases.includes(run.phase) || !integer(run.routeIndex, 0, run.schema === 3 ? 12 : ROUTE.length)) return null;
+    if (run.schema !== 3 || !phases.includes(run.phase) || !integer(run.routeIndex, 0, run.schema === 3 ? 12 : ROUTE.length)) return null;
     if (!Object.hasOwn(run, 'routeVersion')) run.routeVersion = 1;
-    if (![1, 2].includes(run.routeVersion)) return null;
+    if (run.routeVersion !== 2 || !integer(run.actNumber, 1, 3) || !Array.isArray(run.treatedActs) || new Set(run.treatedActs).size !== run.treatedActs.length || run.treatedActs.some(act => !integer(act, 1, run.actNumber))) return null;
+    if (!uniqueKnown(run.shopCards, CARDS, 3) || run.shopCards.some(id => !rewardPool(run).includes(id)) || run.phase !== 'shop' && run.shopCards.length) return null;
     if (!Object.hasOwn(run, 'relicOffers')) run.relicOffers = [];
     if (!Object.hasOwn(run, 'shopRemovalCount')) run.shopRemovalCount = 0;
     if (!integer(run.shopRemovalCount, 0, 100000)) return null;
@@ -666,13 +565,15 @@ export function validateSave(value) {
     if (run.rewardRelic !== null && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && elitePool.includes(run.rewardRelic) && has(run, run.rewardRelic) && !run.relicOffers.length)) return null;
     if (run.relicOffers.length && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && run.rewardRelic === null && JSON.stringify(run.relicOffers) === JSON.stringify(elitePool.filter(id => !has(run, id))))) return null;
     if (!shortText(run.message) || !record(run.stats) || !integer(run.stats.wins, 0, run.schema === 3 ? 6 : 4) || !integer(run.stats.damage, 0, 1000) || !integer(run.stats.blocks, 0, 100000) || run.stats.goals !== 0) return null;
-    if (!Array.isArray(run.deck) || !integer(run.deck.length, 1, 40)) return null;
+    if (!Array.isArray(run.deck) || !integer(run.deck.length, 1, 43) || playableCount(run) > 40) return null;
     const cards = new Map();
     for (const card of run.deck) {
       if (!record(card) || typeof card.uid !== 'string' || !/^c[1-9]\d*$/.test(card.uid) || typeof card.id !== 'string' || !Object.hasOwn(CARDS, card.id) || typeof card.upgraded !== 'boolean') return null;
+      if (INJURIES[card.id] && card.upgraded) return null;
       if (cards.has(card.uid) || Number(card.uid.slice(1)) >= run.nextUid) return null;
       cards.set(card.uid, card);
     }
+    if (run.rewardInjuryUid !== null && !(run.phase === 'reward' && RELICS[run.rewardRelic]?.injury && cards.get(run.rewardInjuryUid)?.id === RELICS[run.rewardRelic].injury)) return null;
     if (!Array.isArray(run.history) || run.history.length > route.length) return null;
     const retiredVisit = run.schema === 2 ? legacyShop(run.routeIndex, run.activeNode?.id) : null;
     if (retiredVisit) {
@@ -697,7 +598,7 @@ export function validateSave(value) {
         if (item.result === 'win' && (item.damageDealt !== opponent.maxHp || item.remainingHp <= 0)) return null;
         if (item.result === 'defeat' && item.remainingHp !== 0) return null;
       } else {
-        const allowed = { training: ['upgrade', 'remove', 'skip'], rest: ['rest', 'skip'], shop: ['skip'], event: ['risk', 'safe', 'skip', 'defeat'] };
+        const allowed = { training: ['upgrade', 'remove', 'skip'], rest: ['rest', 'treat', 'skip'], shop: ['skip'], event: ['risk', 'safe', 'skip', 'defeat'] };
         if (!allowed[node.type].includes(item.result)) return null;
       }
     }
@@ -739,7 +640,7 @@ export function validateSave(value) {
     }
     const sourceNode = run.activeNode ?? route[run.routeIndex]?.choices.find(choice => choice.id === run.history.at(-1)?.nodeId);
     if (sourceNode?.opponentId !== m.opponentId) return null;
-    if (m.maxEnergy !== (has(run, 'energy-flask') ? 4 : 3) || !integer(m.energy, 0, m.maxEnergy)) return null;
+    if (m.maxEnergy !== 3 || !integer(m.energy, 0, m.maxEnergy)) return null;
     if (run.schema === 2) {
       if (!Object.hasOwn(m, 'dribbleCardPlayed')) m.dribbleCardPlayed = Array.isArray(m.played) && m.played.some(card => CARDS[card.id]?.type === 'dribble');
       if (!Object.hasOwn(m, 'counterReady')) m.counterReady = false;
@@ -760,21 +661,39 @@ export function validateSave(value) {
     if (!record(m.intent) || Object.keys(intent).some(key => m.intent[key] !== intent[key])) return null;
     const expectedStatus = run.phase === 'match' ? 'playing' : run.phase === 'reward' ? 'won' : 'lost';
     if (m.status !== expectedStatus || (m.status === 'won' && m.enemyHp !== 0) || (m.status === 'playing' && m.enemyHp <= 0)) return null;
+    if (!record(m.training) || Object.keys(m.training).some(key => !['acceleration','control','aerial'].includes(key))) return null;
+    for (const [key, n] of Object.entries(m.training)) if (!(key === 'aerial' ? [4,6].includes(n) : n === 1)) return null;
+    if (!record(m.turnFlags) || Object.values(m.turnFlags).some(v => v !== true) || !record(m.battleFlags)) return null;
+    if (Object.keys(m.battleFlags).some(key => !['burst','cleanSheet'].includes(key)) || m.battleFlags.burst !== undefined && m.battleFlags.burst !== true || m.battleFlags.cleanSheet !== undefined && !integer(m.battleFlags.cleanSheet, 1, 3)) return null;
+    if (![m.energyDebt,m.playerExposed,m.nextShot,m.nextHeader].every(n => integer(n, 0, 10000)) || typeof m.previousShot !== 'boolean') return null;
+    if (!record(m.discounts) || !record(m.damageBonuses) || Object.entries(m.discounts).some(([uid,v]) => !cards.has(uid) || v !== true) || Object.entries(m.damageBonuses).some(([uid,v]) => !cards.has(uid) || ![0,3].includes(v))) return null;
+    if (!Array.isArray(m.temporaryCards) || m.temporaryCards.length > 1000) return null;
+    for (const card of m.temporaryCards) {
+      if (!record(card) || !INJURIES[card.id] || card.temporary !== true || card.upgraded !== false || !/^c[1-9]\d*$/.test(card.uid) || Number(card.uid.slice(1)) >= run.nextUid || cards.has(card.uid)) return null;
+      cards.set(card.uid, card);
+    }
+    if (m.choice !== null) {
+      const c = m.choice;
+      if (run.phase !== 'match' || !record(c) || !['discard','peek','retrieve'].includes(c.kind) || !Array.isArray(c.candidates) || !c.candidates.length || new Set(c.candidates).size !== c.candidates.length || !integer(c.remaining, 1, c.kind === 'peek' ? 2 : 1) || c.remaining > c.candidates.length || !integer(c.draw, 0, 3) || ![0,3].includes(c.bonus)) return null;
+      const zone = c.kind === 'discard' ? m.hand : c.kind === 'peek' ? m.draw.slice(-3) : m.discard.filter(isTechnique);
+      if (c.candidates.some(uid => !zone.some(card => card.uid === uid))) return null;
+    }
     const used = new Set();
-    for (const zone of ['hand', 'draw', 'discard', 'exhaust', 'played']) {
-      if (!Array.isArray(m[zone]) || m[zone].length > run.deck.length) return null;
+    for (const zone of ['hand', 'draw', 'discard', 'exhaust']) {
+      if (!Array.isArray(m[zone]) || m[zone].length > cards.size) return null;
       for (const card of m[zone]) {
         const original = cards.get(card?.uid);
-        if (!original || card.id !== original.id || card.upgraded !== original.upgraded || used.has(card.uid) || (zone === 'exhaust' && card.id !== 'focus')) return null;
+        if (card.uid === run.rewardInjuryUid || !original || card.id !== original.id || card.upgraded !== original.upgraded || used.has(card.uid) || (zone === 'exhaust' && !cardEffect(card).volatile)) return null;
         used.add(card.uid);
       }
     }
+    if (!Array.isArray(m.played) || m.played.length > 1000 || m.played.some(card => !cards.has(card?.uid) || INJURIES[card.id] || card.id !== cards.get(card.uid).id || card.upgraded !== cards.get(card.uid).upgraded)) return null;
     for (const [flag, type] of [['dribbleCardPlayed', 'dribble'], ['defenseCardPlayed', 'defense'], ['passCardPlayed', 'pass'], ['tacticCardPlayed', 'tactic'], ['shotCardPlayed', 'shot']]) {
-      if (m[flag] !== m.played.some(card => CARDS[card.id].type === type)) return null;
+      if (m[flag] !== m.played.some(card => CARDS[card.id].type === type || type === 'tactic' && CARDS[card.id].type === 'training')) return null;
     }
     if (m.tempoTriggered !== (tempoOwnedDuringDuel && m.dribbleCardPlayed && m.shotCardPlayed)) return null;
     if (m.counterReady !== ((intent.counterDamage ?? 0) > 0 && !m.played.some(card => !NON_DAMAGE_CARDS.has(card.id)))) return null;
-    if (used.size !== cards.size || !Array.isArray(m.history) || m.history.length !== m.turn - Number(m.status === 'playing')) return null;
+    if (used.size !== cards.size - Number(run.rewardInjuryUid !== null) || !Array.isArray(m.history) || m.history.length !== m.turn - Number(m.status === 'playing')) return null;
     let dealt = 0, blocked = 0;
     for (let i = 0; i < m.history.length; i++) {
       const result = m.history[i];

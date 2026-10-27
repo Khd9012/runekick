@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, RELICS, CARD_REMOVAL_BASE_COST, getCardRemovalCost, createRun, act, availableNodes, forecast, validateSave } from '../dist/engine.js';
+import { CARDS, RELICS, CARD_REMOVAL_BASE_COST, getCardRemovalCost, createRun, act, availableNodes, forecast, validateSave } from '../dist/legacy-engine.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const remove = (run, uid) => act(run, { type: 'remove-card', uid });

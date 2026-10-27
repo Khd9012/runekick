@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, createRun, availableNodes, act, forecast, getEnemyAttack, cardText, validateSave } from '../dist/engine.js';
+import { CARDS, createRun, availableNodes, act, forecast, getEnemyAttack, cardText, validateSave } from '../dist/legacy-engine.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const newIds = ['read-opening', 'lure-dribble', 'unsettling-shot', 'high-press', 'checking-tackle', 'close-mark'];

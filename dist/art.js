@@ -720,6 +720,7 @@ export function drawPitch(ctx, options = {}) {
 
 
 const DEBUFF_CARD_POSES = Object.freeze({
+  header: { head:[7,-45], shoulder:[0,-34], hip:[-3,-23], arms:[[-6,-32,-16,-35,-22,-29],[5,-33,15,-36,22,-31]], legs:[[-7,-23,-15,-15,-20,-12],[1,-23,12,-18,9,-8]] },
   scan: { head:[1,-40], shoulder:[0,-31], hip:[-1,-20], arms:[[-6,-29,-9,-37,-2,-39],[5,-29,15,-30,24,-34]], legs:[[-4,-20,-9,-9,-12,0],[3,-20,9,-10,11,0]] },
   feint: { head:[1,-40], shoulder:[1,-30], hip:[-1,-20], arms:[[-5,-29,-15,-25,-22,-29],[6,-29,15,-23,23,-25]], legs:[[-4,-20,-13,-10,-18,0],[3,-20,12,-11,5,-2]] },
   kick: { head:[2,-40], shoulder:[0,-30], hip:[3,-20], arms:[[-6,-29,-15,-32,-22,-27],[5,-29,14,-25,22,-28]], legs:[[-1,-20,-4,-9,-7,0],[7,-20,20,-18,30,-25]] },
@@ -806,6 +807,7 @@ function drawDebuffCardAction(ctx, type, options, width, height) {
 }
 
 function drawCardAction(ctx, type, options, width, height) {
+  if (drawStrikerAction(ctx, type, options, width, height)) return true;
   if(drawDebuffCardAction(ctx,type,options,width,height))return true;
   const [key, index] = CARD_ART[options.id] || CARD_ART[CARD_TYPE_DEFAULTS[type] || 'focus'];
   const picture = rasterArt[key], crop = atlasFrames[key][index];
@@ -827,6 +829,43 @@ function drawCardAction(ctx, type, options, width, height) {
   if (options.upgraded) cross(ctx, width - height * .065, height * .065, Math.max(2, height * .018), '#a5792d');
   ctx.restore();
   return true;
+}
+
+function drawStrikerAction(ctx, type, options, width, height) {
+  if (!['header','training','injury'].includes(type) && (CARD_ART[options.id] || DEBUFF_CARD_IDS.has(options.id))) return false;
+  const id = options.id || '', seed = [...id].reduce((n,c) => n + c.charCodeAt(0),0);
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.scale(width/128,height/80);
+  const attack = ['shot','pass','dribble','header'].includes(type);
+  ctx.fillStyle = type === 'injury' ? '#c8cbce' : type === 'defense' ? '#d4e1e7' : attack ? '#ead9cd' : '#dce3d2'; ctx.fillRect(0,0,128,80);
+  ctx.fillStyle = '#a8b3a0'; ctx.fillRect(0,67,128,1);
+  if (type === 'injury') {
+    ctx.translate(64,38); ctx.rotate(id === 'stiff-muscle' ? -.5 : .5);
+    ctx.fillStyle='#72777d';ctx.fillRect(-34,-11,68,22);ctx.fillStyle='#eee5d3';ctx.fillRect(-30,-8,60,16);
+    ctx.fillStyle='#bda78b';ctx.fillRect(-10,-8,20,16);
+    ctx.fillStyle='#8c7a69';for(let x=-26;x<30;x+=8){ctx.fillRect(x,-4,2,2);ctx.fillRect(x,3,2,2);}
+  } else if (type === 'header') {
+    const diving = id === 'diving-header';
+    if (diving) {ctx.save();ctx.translate(58,45);ctx.rotate(.75);drawCardSilhouette(ctx,0,20,'header');ctx.restore();}
+    else drawCardSilhouette(ctx,49,61,'header',1,1);
+    ball(ctx,70,diving ? 32 : 13,1);
+    dashedPath(ctx,78,diving ? 32 : 13,112,id === 'power-header' ? 58 : 26,'#9b6144',0,5);
+    ctx.strokeStyle='#987557';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(110,22);ctx.lineTo(120,22);ctx.lineTo(120,62);ctx.stroke();
+  } else if (type === 'training') {
+    const poses = ['press','scan','header','feint'];
+    drawCardSilhouette(ctx,55,63,poses[seed%4]);
+    for(let x=18;x<118;x+=27){ctx.fillStyle='#a57236';ctx.fillRect(x,63,10,4);ctx.fillRect(x+3,56,4,7);}
+    if (id === 'judgment-training' || id === 'control-training') {ball(ctx,81,59,.8);dashedPath(ctx,81,56,100,38,'#5c7b51',0,5);}
+    else {ctx.fillStyle='#779365';ctx.fillRect(95,20,5,18);ctx.fillRect(88,27,19,5);}
+  } else {
+    const pose = type === 'shot' ? 'kick' : type === 'defense' ? 'mark' : type === 'dribble' ? 'feint' : type === 'pass' ? 'press' : 'scan';
+    if (type === 'pass' || type === 'dribble') drawCardSilhouette(ctx,26,65,pose,.8,1,'#a6afa2');
+    drawCardSilhouette(ctx,54,64,pose);
+    ball(ctx,88, type === 'shot' ? 39 : 61,.85);
+    dashedPath(ctx,94,type === 'shot' ? 39 : 61,117,28+(seed%4)*8,attack?'#a2684e':'#6f8462',0,5);
+    if (id === 'deceptive-move') { ctx.strokeStyle='#9d704f';ctx.strokeRect(95,12,12,12); }
+  }
+  if (options.upgraded) cross(ctx,119,7,2,'#a5792d');
+  ctx.restore();return true;
 }
 
 /** Draw an opaque, text-free action illustration selected by its card ID. */
@@ -901,8 +940,9 @@ export function drawCardArt(ctx, type = 'tactic', options = {}) {
 export function drawItemArt(ctx, category = 'rune', options = {}) {
   const width = options.width || ctx.canvas.width || 64;
   const height = options.height || ctx.canvas.height || 48;
-  const index = EQUIPMENT_FRAMES[options.id] ?? EQUIPMENT_CATEGORIES[category];
-  const eliteCrop = atlasFrames.eliteRelics[ELITE_RELIC_FRAMES[options.id]];
+  const redesigned = options.modern && ['scouting-bag','energy-flask','catenaccio-band','roulette-rune','fenom-cleats'].includes(options.id);
+  const index = redesigned ? EQUIPMENT_CATEGORIES[category] : EQUIPMENT_FRAMES[options.id] ?? EQUIPMENT_CATEGORIES[category];
+  const eliteCrop = !redesigned && atlasFrames.eliteRelics[ELITE_RELIC_FRAMES[options.id]];
   const useElite = rasterArt.eliteRelics && eliteCrop;
   const picture = useElite ? rasterArt.eliteRelics : rasterArt.equipment;
   const crop = useElite ? eliteCrop : atlasFrames.equipment[index];

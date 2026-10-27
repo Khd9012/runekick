@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, OPPONENTS, createRun, availableNodes, act, validateSave, forecast, getEnemyAttack, getBossView } from '../dist/engine.js';
+import { CARDS, OPPONENTS, createRun, availableNodes, act, validateSave, forecast, getEnemyAttack, getBossView } from '../dist/legacy-engine.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const maps = new Map();
