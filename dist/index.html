@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0c1018">
-  <meta name="description" content="선수 한 명, 나만의 기술 덱. 도트 축구 카드 로그라이크 RUNEKICK.">
+  <meta name="description" content="선수 한 명, 나만의 기술 덱. 유소년에서 프로리그, 유럽대항전까지 이어지는 도트 축구 카드 로그라이크 RUNEKICK.">
   <title>RUNEKICK — 한 선수의 전설</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -13,13 +13,13 @@
 <body class="personal-duel">
   <header class="topbar">
     <a class="brand" href="./" aria-label="룬킥 홈"><img src="./icon.svg" alt="" width="32" height="32"><span>RUNE<span class="brand-accent">KICK</span></span></a>
-    <div class="career-label"><span class="eyebrow">ACT I</span><strong>유소년의 꿈</strong></div>
+    <div class="career-label"><span id="career-act" class="eyebrow">ACT I / III</span><strong id="career-name">유소년</strong></div>
     <div class="top-resources"><div class="hp-resource"><span class="heart-symbol">♥</span><strong id="condition-value">100 <small>/ 100</small></strong><div class="condition-track"><i id="condition-bar"></i></div></div><div class="coin-resource"><span>●</span><strong id="gold-value">40</strong><small>GOLD</small></div></div>
     <div class="header-actions"><button id="map-button" class="top-link" aria-label="경로 지도 열기">◇ <span>지도</span></button><button id="deck-button" class="top-link" aria-label="내 덱 열기">▤ <strong id="deck-count">12</strong></button><button id="help-button" class="icon-button" aria-label="플레이 방법">?</button><button id="sound-button" class="icon-button" aria-label="소리 켜기" aria-pressed="false">♪</button><button id="menu-button" class="icon-button" aria-label="게임 메뉴">☰</button></div>
   </header>
   <div class="relic-strip"><span class="eyebrow">MY RELICS <b id="relic-count">0</b></span><div id="relic-list" class="relic-list"></div><span class="relic-rule">아이템 효과는 이번 도전 동안 누적됩니다</span></div>
   <main class="main-content duel-main">
-    <section class="match-heading"><div><div class="eyebrow">YOUTH TRIALS <span class="slash">/</span> <span id="round-label">첫 번째 대결</span></div><h1 id="match-title">너의 플레이를 증명해.</h1><p id="match-subtitle">이 구장에서, 전설이 시작된다.</p></div><div id="turn-counter" class="turn-counter"><small>YOUR TURN</small><strong id="turn-number">01</strong></div></section>
+    <section class="match-heading"><div><div class="eyebrow"><span id="act-location">ACT I · 유소년</span><span class="slash">/</span><span id="round-label">첫 번째 대결</span></div><h1 id="match-title">너의 플레이를 증명해.</h1><p id="match-subtitle">이 구장에서, 전설이 시작된다.</p></div><div id="turn-counter" class="turn-counter"><small>YOUR TURN</small><strong id="turn-number">01</strong></div></section>
     <div id="combat-rule" class="combat-rule" role="note" hidden></div>
     <section class="arena duel-arena" aria-label="개인 대결">
       <canvas id="pitch" width="960" height="400" aria-label="왼쪽의 붉은 스트라이커와 오른쪽의 라이벌 선수"></canvas>
@@ -57,9 +57,9 @@
       <div class="hand-zone"><div id="hand" class="hand" aria-label="사용할 카드를 선택하세요"></div><div id="mobile-hand-tabs" class="mobile-hand-tabs" role="group" aria-label="손패 바로 선택"></div><div class="battle-controls" role="group" aria-label="전투 조작"><div id="mobile-targets" class="mobile-targets" role="group" aria-label="공격 대상 바로 선택" hidden></div><div class="energy"><span class="energy-orb"><strong id="energy-value">3</strong></span><span id="energy-cap">/ 3 에너지</span><button id="draw-pile" class="pile-orb" aria-label="뽑을 카드 확인">▤ <b>0</b><small>뽑기</small></button></div><div class="turn-actions"><button id="discard-pile" class="pile-orb" aria-label="버린 카드 확인">▤ <b>0</b><small>버림</small></button><button id="play-card-button" class="button card-use" disabled>카드 사용</button><button id="end-turn" class="button primary">턴 종료 →</button></div></div></div>
     </section>
     <div class="match-foot"><p id="commentary" role="status">내 기술, 내 장비, 나만의 플레이.</p><button id="log-button">대결 기록 ↗</button></div>
-    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 1.2.0</span></footer>
+    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 1.3.0</span></footer>
   </main>
-  <dialog id="route-dialog" aria-labelledby="route-title"><div class="dialog-top"><span id="route-title">전설로 향하는 길 <small id="route-progress">1 / 12</small></span><button id="close-route" class="icon-button" aria-label="지도 닫기">×</button></div><div class="route-dialog-body"><div class="map-chapters"><span class="current">Ⅰ 유소년</span><span>Ⅱ 프로 리그 · 준비 중</span><span>Ⅲ 유럽대항전 · 준비 중</span></div><div id="route-list" class="route-list" aria-label="이번 도전 경로"></div><p class="map-note">카드 보상을 고른 뒤 밝은 지점으로 이동하세요. 훈련장·라커룸·상점은 해당 지점에서만 이용할 수 있어요.</p></div></dialog>
+  <dialog id="route-dialog" aria-labelledby="route-title"><div class="dialog-top"><span id="route-title">전설로 향하는 길 <small id="route-progress">ACT I · 1 / 12</small></span><button id="close-route" class="icon-button" aria-label="지도 닫기">×</button></div><div class="route-dialog-body"><div id="route-list" class="route-list" aria-label="이번 ACT 경로"></div><p id="map-note" class="map-note">현재 ACT의 12개 지점입니다. 카드 보상을 고른 뒤 밝은 지점으로 이동하세요. 훈련장·라커룸·상점은 해당 지점에서만 이용할 수 있어요.</p></div></dialog>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span id="dialog-title">나의 덱</span><button id="close-dialog" class="icon-button" aria-label="창 닫기">×</button></div><div id="dialog-body"></div></dialog>
   <dialog id="reward-dialog" class="reward-dialog" aria-labelledby="reward-title" aria-describedby="reward-subtitle">
     <header class="reward-dialog-header"><span class="phase-eyebrow">NEW TECHNIQUE</span><h2 id="reward-title" tabindex="-1">다음 플레이를 고르세요.</h2><p id="reward-subtitle">카드 3장 중 하나를 골라 효과를 확인하세요.</p><button id="close-reward" class="icon-button" aria-label="카드 보상 나중에 고르기">×</button></header>

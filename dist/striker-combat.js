@@ -8,7 +8,7 @@ export function resolveCard(run, card, hooks) {
   const selectedEnemy = m.enemies?.find(enemy => enemy.id === m.targetId);
   const breakBlock = amount => hooks.breakBlock ? hooks.breakBlock(amount) : (m.enemyBlock = Math.max(0, m.enemyBlock - amount));
   const once = key => { if (m.turnFlags[key]) return false; m.turnFlags[key] = true; return true; };
-  const energy = () => { m.energy = Math.min(m.maxEnergy, m.energy + 1); };
+  const energy = (amount=1) => { m.energy = Math.min(m.maxEnergy, m.energy + amount); };
   const names = new Set(prior.filter(isTechnique).map(c => c.id));
   const spentBlock = Math.min(m.defense, e.spendBlock || 0);
   const spentMomentum = e.momentum === 'all' ? m.momentum : Math.min(m.momentum, e.momentum || 0);
@@ -31,9 +31,15 @@ export function resolveCard(run, card, hooks) {
     if (has('grip-socks')) block += 3;
     if (has('roulette-rune')) { energy(); hooks.draw(1); }
     if (has('street-rhythm')) m.nextShot += 4;
+    if (has('pivot-socks')) breakBlock(3);
+    if (has('carbon-insole')) {
+      const next = m.hand.find(isTechnique);
+      if (next) m.discounts[next.uid] = true;
+    }
   }
   if (combo && m.training.control && once('control')) hooks.draw(1);
   if (combo && e.comboDraw) hooks.draw(e.comboDraw);
+  if (combo && e.comboEnergy) energy(e.comboEnergy);
   if (type === 'shot') {
     bonus += m.nextShot; m.nextShot = 0;
     if (has('scouting-bag') && !m.previousShot && !m.shotCardPlayed) bonus += 5;
@@ -42,6 +48,7 @@ export function resolveCard(run, card, hooks) {
     if (has('nine-crest') && (selectedEnemy?.hp ?? m.enemyHp) <= (selectedEnemy?.maxHp ?? m.enemyMaxHp) / 2 && once('nine-crest')) bonus += 5;
     if (spentMomentum >= 3 && has('burst-laces') && !m.battleFlags.burst) { m.battleFlags.burst = true; energy(); }
     if (spentMomentum >= 3 && e.breakBlock) breakBlock(e.breakBlock);
+    if (spentMomentum >= 3 && e.momentumDraw) hooks.draw(e.momentumDraw);
     m.shotCardPlayed = true;
   }
   if (type === 'header') {
@@ -49,6 +56,9 @@ export function resolveCard(run, card, hooks) {
     if (spentBlock >= 4 && has('energy-flask') && once('energy-flask')) bonus += 4;
     if (spentBlock && has('catenaccio-band')) bonus += Math.min(6, spentBlock);
     if (spentBlock && has('libero-seal') && once('libero-seal')) block += 3;
+    if (spentBlock >= 4 && has('aerial-grip') && once('aerial-grip')) hooks.draw(1);
+    if (spentBlock && has('rebound-vest') && once('rebound-vest')) block += Math.min(5,Math.ceil(spentBlock/2));
+    if (!e.spendBlock && m.defense >= 8 && has('aerial-notebook') && once('aerial-notebook')) bonus += 5;
   }
   if (damage && m.enemyExposed && has('playmaker-lens') && once('playmaker-lens')) bonus += 4;
   if (type === 'dribble') {
@@ -63,8 +73,10 @@ export function resolveCard(run, card, hooks) {
     names.add(card.id);
     if (names.size >= 3 && once('maestro-touch')) hooks.draw(1);
   }
+  if (isTechnique(card) && has('sequence-band') && new Set([...names,card.id]).size>=3 && once('sequence-band')) bonus += 5;
   if (['tactic','training'].includes(type)) m.tacticCardPlayed = true;
   if (type === 'defense') {
+    if (!m.defenseCardPlayed && m.momentum >= 3 && has('pressure-shirt')) block += 4;
     if (!m.defenseCardPlayed && has('training-kit') && m.hand.some(c => CARDS[c.id].type === 'header')) block += 3;
     m.defenseCardPlayed = true;
   }
@@ -80,11 +92,22 @@ export function resolveCard(run, card, hooks) {
     if (combo && e.comboSplash) hooks.damage(e.comboSplash, 'other');
   }
   m.defense += block;
+  if (e.afterNextHeader) m.nextHeader += e.afterNextHeader;
+  if (type==='shot' && spentMomentum>=3 && has('recoil-studs') && once('recoil-studs')) m.momentum += 1;
   const status = {exposed:e.exposed || 0, weakened:(e.weakened || 0) + (combo ? e.comboWeakened || 0 : 0)};
   if (hooks.status) hooks.status(status);
   else {
     m.enemyExposed = Math.min(99, m.enemyExposed + status.exposed);
     m.enemyWeakened = Math.min(99, m.enemyWeakened + status.weakened);
+  }
+  if (combo && e.comboAllWeakened) {
+    if (hooks.status) hooks.status({weakened:e.comboAllWeakened},'all');
+    else m.enemyWeakened = Math.min(99,m.enemyWeakened+e.comboAllWeakened);
+  }
+  if (type==='shot' && spentMomentum>=3 && has('precision-laces') && once('precision-laces')) {
+    if (hooks.status) hooks.status({exposed:2});
+    else m.enemyExposed = Math.min(99,m.enemyExposed+2);
+    m.playerExposed = Math.min(99,m.playerExposed+1);
   }
   if (e.injury) {
     const injury = {uid:`c${run.nextUid++}`, id:e.injury, upgraded:false, temporary:true};

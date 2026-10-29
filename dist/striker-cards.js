@@ -39,6 +39,12 @@ const rows = [
   ['sweeping-shot','감아차는 슈팅','shot',2,'common','power',{damage:7,target:'all',momentum:2,ratio:1},{damage:10}],
   ['split-touch','교차 터치','pass',1,'common','technique',{damage:4,comboSplash:4},{damage:6,comboSplash:6}],
   ['clearing-header','걷어내는 헤더','header',1,'uncommon','aerial',{damage:4,target:'all',spendBlock:4,blockRatio:1},{damage:6}],
+  ['follow-through','후속 슈팅','shot',1,'uncommon','power',{damage:7,momentum:3,ratio:1,momentumDraw:1},{damage:10}],
+  ['tempo-switch','템포 전환','dribble',1,'uncommon','technique',{damage:5,comboEnergy:1,volatile:true},{damage:8}],
+  ['cushion-header','떨궈주는 헤더','header',1,'uncommon','aerial',{damage:6,spendBlock:4,blockRatio:1,afterNextHeader:6},{damage:9,afterNextHeader:8}],
+  ['decisive-volley','결승 발리','shot',3,'rare','power',{damage:18,target:'all',momentum:'all',ratio:2,injury:'abrasion',volatile:true},{damage:23}],
+  ['one-touch-break','원터치 돌파','pass',2,'rare','technique',{damage:8,comboSplash:8,comboAllWeakened:1,draw:1,volatile:true},{damage:11,comboSplash:11}],
+  ['tower-header','타워 헤더','header',2,'rare','aerial',{damage:7,target:'all',spendBlock:8,blockRatio:2,selfExposed:1,volatile:true},{damage:10}],
 ];
 export const INJURIES = Object.freeze({
   'stiff-muscle': {name:'근육 뭉침',text:'사용 불가. 손패 한 자리를 차지합니다.'},
@@ -69,6 +75,8 @@ export function comboFeedback(run, card) {
   if (e.comboBlock) effects.push(`방어 +${e.comboBlock}`);
   if (e.comboDraw) effects.push(`카드 ${e.comboDraw}장 뽑기`);
   if (e.comboWeakened) effects.push(`공격 약화 ${e.comboWeakened}턴 추가`);
+  if (e.comboEnergy) effects.push(`에너지 +${e.comboEnergy} (최대치까지)`);
+  if (e.comboAllWeakened) effects.push(`모든 상대 공격 약화 ${e.comboAllWeakened}턴`);
   if (e.comboSplash) effects.push(m.enemies?.some(enemy => enemy.id !== m.targetId && enemy.hp > 0) ? `다른 상대에게 피해 ${e.comboSplash}` : '다른 상대 없음 · 추가 타격 없음');
   const has = id => run.relics.includes(id);
   if (!m.turnFlags.combo) {
@@ -76,6 +84,8 @@ export function comboFeedback(run, card) {
     if (has('grip-socks')) effects.push('그립 양말: 방어 +3');
     if (has('roulette-rune')) effects.push('초경량 경기화: 에너지 +1 (최대치까지), 1장 뽑기');
     if (has('street-rhythm')) effects.push('거리의 리듬: 이번 턴 다음 슈팅 +4');
+    if (has('pivot-socks')) effects.push('피벗 양말: 공격 전 선택 상대 방어 −3');
+    if (has('carbon-insole') && m.hand.some(c=>c.uid!==card.uid&&isTechnique(c))) effects.push('카본 인솔: 손패의 가장 왼쪽 다른 터치·드리블 비용 −1');
   }
   if (m.training.control && !m.turnFlags.control) effects.push('볼 컨트롤 훈련: 1장 뽑기');
   return {previous: CARDS[m.played.at(-1).id].name, effects, affordable: cardCost(card, m) <= m.energy};
@@ -87,6 +97,7 @@ export function cardText(card) {
   if (e.damage) lines.push(`피해 ${e.damage}${e.hits ? ` × ${e.hits}회` : ''}.`);
   if (e.target === 'all') lines.push('모든 상대를 공격. 장비·다음 공격 보너스는 선택 대상만.');
   if (e.momentum) lines.push(`기세 ${e.momentum === 'all' ? '모두' : `최대 ${e.momentum}`} 소모, 1당 피해 +${e.ratio}.`);
+  if (e.momentumDraw) lines.push(`기세 3 이상 소모 시 카드 ${e.momentumDraw}장 뽑기.`);
   if (e.spendBlock) lines.push(`공격 전에 방어 최대 ${e.spendBlock} 소모, 1당 피해 +${e.blockRatio}.`);
   if (e.block) lines.push(`${CARDS[card.id].type === 'header' ? '공격 후 ' : ''}이번 턴 방어 +${e.block}.`);
   if (e.gainMomentum) lines.push(`기세 +${e.gainMomentum}. 턴이 끝나도 유지.`);
@@ -102,10 +113,13 @@ export function cardText(card) {
   if (e.persistent === 'aerial') lines.push(`이번 전투 동안 상대 행동 후 남은 방어를 최대 ${e.carry}까지 다음 턴으로 유지. 중첩 불가.`);
   if (e.nextShot) lines.push(`이번 턴 다음 슈팅 피해 +${e.nextShot}.`);
   if (e.nextHeader) lines.push(`이번 턴 다음 헤더 피해 +${e.nextHeader}.`);
+  if (e.afterNextHeader) lines.push(`공격 후 이번 턴 다음 헤더 피해 +${e.afterNextHeader}.`);
   if (e.breakBlock) lines.push(`기세 3 이상 소모 시 공격 전에 상대 방어 ${e.breakBlock} 제거.`);
   if (e.comboBlock) lines.push(`연계: 방어 +${e.comboBlock}.`);
   if (e.comboHits) lines.push(`연계: ${e.comboHits}회 추가 타격.`);
   if (e.comboDraw) lines.push(`연계: 카드 ${e.comboDraw}장 뽑기.`);
+  if (e.comboEnergy) lines.push(`연계: 에너지 +${e.comboEnergy} (최대치까지).`);
+  if (e.comboAllWeakened) lines.push(`연계: 공격 후 모든 상대에게 공격 약화 ${e.comboAllWeakened}턴.`);
   if (e.comboWeakened) lines.push(`연계: 공격 약화 ${e.comboWeakened}턴 추가.`);
   if (e.comboSplash) lines.push(`연계: 다른 상대에게 피해 ${e.comboSplash}. 다른 상대가 없으면 추가 타격 없음.`);
   if (e.selfExposed) lines.push('내 약점 노출 1턴. 다음 상대 공격 피해 +50%.');
@@ -116,7 +130,8 @@ export function cardText(card) {
   if (e.volatile) lines.push('휘발성: 사용 후 이번 전투에서 소멸.');
   return lines.join(' ');
 }
-const catalog = Object.fromEntries(rows.map(([id,name,type,cost,rarity,style,effect,upgrade]) => [id,{id,name,type,cost,rarity,style,effect:Object.freeze(effect),upgrade:Object.freeze(upgrade),upgradedCost:upgrade.cost ?? cost}]));
+export const CAMPAIGN_CARD_ACTS = Object.freeze({'follow-through':2,'tempo-switch':2,'cushion-header':2,'decisive-volley':3,'one-touch-break':3,'tower-header':3});
+const catalog = Object.fromEntries(rows.map(([id,name,type,cost,rarity,style,effect,upgrade]) => [id,{id,name,type,cost,rarity,style,effect:Object.freeze(effect),upgrade:Object.freeze(upgrade),upgradedCost:upgrade.cost ?? cost,...(CAMPAIGN_CARD_ACTS[id]?{minAct:CAMPAIGN_CARD_ACTS[id]}:{})}]));
 for (const [id, injury] of Object.entries(INJURIES)) catalog[id] = {id,name:injury.name,type:'injury',cost:null,upgradedCost:null,rarity:'injury',style:'injury',effect:{},upgrade:{}};
 export const CARDS = Object.freeze(catalog);
 for (const def of Object.values(catalog)) { def.description = cardText({id:def.id}); def.upgradedDescription = cardText({id:def.id,upgraded:true}); Object.freeze(def); }
@@ -126,5 +141,5 @@ export const STARTER_DECK = Object.freeze(['shot','shot','shot','cover','cover',
 export const CARD_PRICES = Object.freeze({common:70,uncommon:150,rare:320});
 export const MULTI_ENEMY_CARD_IDS = Object.freeze(['sweeping-shot','split-touch','clearing-header']);
 export function rewardPool(run, rarity) {
-  return REWARD_IDS.filter(id => (!MULTI_ENEMY_CARD_IDS.includes(id) || run.encounterVersion === 1) && (!rarity || CARDS[id].rarity === rarity) && !(CARDS[id].effect.persistent && run.deck.some(card => card.id === id)));
+  return REWARD_IDS.filter(id => (!CARDS[id].minAct || run.campaignVersion===1 && (run.actNumber||1)>=CARDS[id].minAct) && (!MULTI_ENEMY_CARD_IDS.includes(id) || run.encounterVersion === 1) && (!rarity || CARDS[id].rarity === rarity) && !(CARDS[id].effect.persistent && run.deck.some(card => card.id === id)));
 }

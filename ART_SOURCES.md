@@ -1,5 +1,27 @@
 # RUNEKICK art sources
 
+## v1.3 three-ACT stadiums, rivals and equipment · 2026-10-29
+
+Six new PNGs were generated with the built-in OpenAI `image_gen` tool for this project. The bundled files are identical copies of the generated originals, with no bitmap post-processing. Backgrounds are opaque; rival and equipment atlases use transparent backgrounds. The ten new rivals are original fictional football players and staff, with no real club crests, sponsor logos or branded kits.
+
+- [Full rival and equipment prompts, source files and atlas layout](docs/act-rival-art-prompts.md)
+- [Full ACT stadium prompts and source files](docs/act-stadium-art-prompts.md)
+
+| Bundled file | Dimensions | Use | Generated original |
+| --- | --- | --- | --- |
+| `dist/assets/academy-pitch.png` | 1536×1024 | ACT I daytime academy training ground | `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-c47ab5b2-14f8-43fa-a1c3-64aba28d1fa1.png` |
+| `dist/assets/pro-stadium.png` | 1536×1024 | ACT II afternoon professional league stadium | `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-01126b3b-c0d6-479d-805d-251215698165.png` |
+| `dist/assets/europe-stadium.png` | 1536×1024 | ACT III night-time European arena | `C:/Users/devco/.codex/generated_images/01a16751-3adc-7df2-b565-8bdf7a5a1cea/exec-b9e91e54-0c7a-4361-8f82-4afbfc01a6ca.png` |
+| `dist/assets/rivals-pro.png` | 1536×1024 | Five ACT II rivals in a 3×2 atlas, final cell empty | `C:/Users/devco/.codex/generated_images/01a18522-f497-7b61-97aa-1ec65e38b1d3/exec-c1681b22-af74-432d-86ac-3c2391c4b024.png` |
+| `dist/assets/rivals-europe.png` | 1536×1024 | Five ACT III rivals in a 3×2 atlas, final cell empty | `C:/Users/devco/.codex/generated_images/01a18522-f497-7b61-97aa-1ec65e38b1d3/exec-e5248b44-c097-4cdf-a422-ffcc0fedda21.png` |
+| `dist/assets/act-equipment.png` | 1024×1536 | Six equipment illustrations in a 2×3 atlas | `C:/Users/devco/.codex/generated_images/01a18522-f497-7b61-97aa-1ec65e38b1d3/exec-4e99c35e-46a6-4494-afd5-fae85e07a25f.png` |
+
+Rival cell order is attacker, technique, defender, buffer, charger, empty. Runtime connected-alpha cropping preserves the full silhouettes and a shared foot baseline. ACT I retains its individual role sprites. Stadium selection follows `actNumber`, with renderer-only color grading and restrained navy overlays; the ACT-clear screen previews the next stadium without an opponent.
+
+Equipment atlas order is `recoil-studs`, `sequence-band`, `aerial-grip`, `precision-laces`, `carbon-insole`, `rebound-vest`. The other three new equipment items, `pressure-shirt`, `pivot-socks` and `aerial-notebook`, are original code-native Canvas pixel illustrations in `dist/art.js`. The six new card actions likewise use code-native football silhouettes. No extra downloaded bitmap, external font, runtime CDN or paid asset pack is needed for these additions. Local assets are picked up by the offline precache during the build.
+
+The historical entries below describe their respective release dates. Current v1.3 verification is recorded in [the campaign implementation document](docs/three-act-campaign-implementation.md); public deployment is not yet complete at the time of this entry.
+
 ## v0.9 debuff cards · 2026-10-26
 
 Six additional card illustrations are native Canvas pixel silhouettes in `dist/art.js`, using the existing card background and football action style. They require no downloaded image, new font, or external service at runtime.

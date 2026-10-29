@@ -1,8 +1,9 @@
-import { REGULAR_ENEMIES, ENEMY_ROLES, regularComposition, encounterMaxHp, makeEnemies, selectedEnemy, regularIntent, regularAttack, syncEnemies, startEnemyRound, finishEnemyRound, damageEnemy, enemyViews, validEnemyState } from './encounters.js';
+import { REGULAR_ENEMIES, ENEMY_ROLES, regularComposition, campaignComposition, encounterMaxHp, makeEnemies, selectedEnemy, regularIntent, regularAttack, syncEnemies, startEnemyRound, finishEnemyRound, damageEnemy, enemyViews, validEnemyState } from './encounters.js';
+import { ACTS, CAMPAIGN_BOSSES, campaignActAt, getActView, campaignSeed, scaledOpponentHp, campaignReward } from './campaign.js';
 import { resolveCard, resolveChoice } from './striker-combat.js';
 import { CARDS, INJURIES, STARTER_DECK, CARD_PRICES, cardEffect, cardCost, cardText, isTechnique, isCombo, rewardPool } from './striker-cards.js';
 import { RELICS } from './striker-equipment.js';
-export { CARDS, RELICS, cardText, cardCost, isCombo, CARD_PRICES };
+export { CARDS, RELICS, cardText, cardCost, isCombo, CARD_PRICES, ACTS, getActView };
 export const STARTER_RELICS = Object.freeze(['power-cleats', 'swift-boots', 'training-kit']);
 export const CARD_REMOVAL_BASE_COST = 50;
 export function getCardRemovalCost(run) { return CARD_REMOVAL_BASE_COST + 25 * (run?.shopRemovalCount ?? 0); }
@@ -13,7 +14,7 @@ export const ELITE_RELICS = Object.freeze({
   elite: Object.freeze(['street-rhythm', 'ankle-tape', 'tempo-charm']),
 });
 export const OPPONENTS = Object.freeze({
-  ...Object.fromEntries(['support-coach','late-finisher'].map(id => [id, {...REGULAR_ENEMIES[id], subtitle: ENEMY_ROLES[REGULAR_ENEMIES[id].role], reward:35, patterns:[['기본 견제',5,2]]}])),
+  ...Object.fromEntries(Object.keys(REGULAR_ENEMIES).filter(id=>!['school','rookie','press'].includes(id)).map(id => [id, {...REGULAR_ENEMIES[id], subtitle: ENEMY_ROLES[REGULAR_ENEMIES[id].role], reward:35, patterns:[['기본 견제',5,2]]}])),
   school: { id: 'school', name: '민준', subtitle: '재빠른 윙어 · 첫 번째 라이벌', color: '#70c9e8', maxHp: 42, reward: 25,
     patterns: [['가벼운 견제', 7, 2], ['빠른 발놀림', 9, 0], ['거리 재기', 6, 4], ['전력 돌파', 11, 0]] },
   rookie: { id: 'rookie', name: '하준', subtitle: '성실한 유소년 · 두 번째 도전자', color: '#a6c786', maxHp: 46, reward: 30,
@@ -75,7 +76,7 @@ export const ROUTE = Object.freeze([
 const clone = value => JSON.parse(JSON.stringify(value));
 const has = (run, id) => run.relics.includes(id);
 const combat = type => ['match', 'elite', 'boss'].includes(type);
-const phases = ['map', 'match', 'reward', 'training', 'rest', 'shop', 'event', 'victory', 'defeat'];
+const phases = ['map', 'match', 'reward', 'training', 'rest', 'shop', 'event', 'act-clear', 'victory', 'defeat'];
 // Retired nodes are accepted only while recovering their original schema2 saves.
 // They never enter ROUTE, so new runs cannot select or revisit them.
 const LEGACY_SHOPS = Object.freeze({
@@ -104,6 +105,17 @@ function shuffle(run, values) {
   return result;
 }
 const playableCount = run => run.deck.filter(c => !INJURIES[c.id]).length;
+const relicAvailable = (run,id) => !RELICS[id].minAct || run.campaignVersion===1&&run.actNumber>=RELICS[id].minAct;
+function preferActCards(run,ids) {
+  return run.campaignVersion===1&&run.actNumber>1?[...ids.filter(id=>CARDS[id].minAct===run.actNumber),...ids.filter(id=>CARDS[id].minAct!==run.actNumber)]:ids;
+}
+function stockShop(run) {
+  const pool=shuffle(run,Object.keys(RELICS).filter(id=>RELICS[id].shop!==false&&!has(run,id)&&relicAvailable(run,id)&&!(run.campaignVersion===1&&run.seenShopRelics.includes(id))));
+  const current=run.campaignVersion===1?pool.find(id=>RELICS[id].minAct===run.actNumber):null;
+  run.shopOffers=(current?[current,...pool.filter(id=>id!==current)]:pool).slice(0,run.campaignVersion===1?3:4);
+  if(run.campaignVersion===1)run.seenShopRelics.push(...run.shopOffers);
+  run.shopCards=['common','uncommon','rare'].map(rarity=>preferActCards(run,shuffle(run,rewardPool(run,rarity)))[0]).filter(Boolean);
+}
 function acquireRelic(run, id) {
   run.relics.push(id);
   if (RELICS[id].injury) { addCard(run, RELICS[id].injury); if (run.phase === 'reward') run.rewardInjuryUid = run.deck.at(-1).uid; }
@@ -111,10 +123,10 @@ function acquireRelic(run, id) {
 }
 function addCard(run, id) { run.deck.push({ uid: `c${run.nextUid++}`, id, upgraded: false }); }
 const regularEncounterReward = stage => stage === 7 ? 35 : 30;
-function generateRoute(initialSeed, version = 2, encounterVersion) {
+function generateRoute(initialSeed, version = 2, encounterVersion, campaignAct) {
   // Map randomness never consumes the draw/reward RNG, so combat cannot change the map.
   const rng = { seed: (initialSeed ^ 0x9e3779b9) >>> 0 };
-  const coachIds = Object.keys(OPPONENTS).filter(id => OPPONENTS[id].coach);
+  const coachIds = campaignAct ? CAMPAIGN_BOSSES[campaignAct-1] : Object.keys(OPPONENTS).filter(id => OPPONENTS[id].coach);
   const coachId = coachIds[Math.floor(random(rng) * coachIds.length)], coach = OPPONENTS[coachId];
   const regular = (opponentId, name) => ({ type: 'match', opponentId, name, description: `${OPPONENTS[opponentId].name}과 일대일로 실력을 겨룹니다. 승리하면 코인 ${OPPONENTS[opponentId].reward}과 카드 보상을 얻습니다.` });
   const rest = name => ({ type: 'rest', name, description: '체력 30 회복 또는 ACT당 한 번 덱 부상 한 장 치료를 선택합니다.' });
@@ -145,6 +157,27 @@ function generateRoute(initialSeed, version = 2, encounterVersion) {
     layout[stage] = [stage === 2 ? '서로 다른 플레이' : '합동 평가전', [{type:'match', opponentId:ids[0], encounter:ids,
       name:names.join(' · '), description:`${names.join(' + ')} · ${roles.join(' + ')}. ${ids.length>1?'두 상대는 단독 상대보다 체력과 공격이 낮습니다. 모두 쓰러뜨리면':'승리하면'} 코인 ${regularEncounterReward(stage)}과 카드 보상 한 번을 받습니다.`}]];
   }
+  if (campaignAct>1) {
+    const pro=campaignAct===2;
+    const regularAt=stage=>{
+      const ids=campaignComposition(initialSeed,campaignAct,stage),names=ids.map(id=>REGULAR_ENEMIES[id].name),reward=campaignReward((campaignAct-1)*12+stage,'match',0);
+      return {type:'match',opponentId:ids[0],encounter:ids,name:names.join(' · '),description:`${ids.map(id=>ENEMY_ROLES[REGULAR_ENEMIES[id].role]).join(' + ')}. ${ids.length>1?'둘을 모두 쓰러뜨리면':'승리하면'} 코인 ${reward}과 카드 보상 한 번을 받습니다.`};
+    };
+    layout[0]=[pro?'프로 무대 데뷔':'유럽 원정의 시작',[regularAt(0)]];
+    layout[1]=[pro?'리그 적응 훈련':'원정 적응',[rest(pro?'구단 라커룸':'원정 라커룸'),training(pro?'구단 훈련장':'유럽 원정 훈련장')]];
+    layout[2]=[pro?'조직적인 압박':'강호들의 협력',[regularAt(2)]];
+    layout[3]=[pro?'구단 보급 일정':'원정 보급 일정',[shop(pro?'구단 스포츠숍':'유럽 스포츠 아울렛'),event(pro?'에이전트의 제안':'해외 스카우트의 제안')]];
+    layout[4]=[pro?'리그 중간 점검':'조별리그 재정비',[rest(pro?'홈 라커룸':'원정 회복실'),training(pro?'전술 훈련장':'현지 전술 훈련장')]];
+    layout[5][0]=pro?'리그의 레전드':'유럽의 전설';
+    layout[5][1].find(n=>n.type==='event').name=pro?'체력 안배 일정':'원정 회복 일정';
+    layout[6]=[pro?'후반기 보급':'토너먼트 보급',[shop(pro?'리그 공식 스토어':'챔피언스 스포츠관'),event(pro?'주전 테스트 제의':'국제 무대 테스트 제의')]];
+    layout[7]=[pro?'상위권 맞대결':'토너먼트의 벽',[regularAt(7)]];
+    layout[8]=[pro?'후반기 재정비':'결전 준비',[rest(pro?'구단 회복실':'대회 라커룸'),training(pro?'피지컬 훈련장':'대회 훈련장')]];
+    layout[9][0]=pro?'우승 경쟁의 갈림길':'결승으로 가는 갈림길';
+    layout[10]=[pro?'리그 최종전 전날':'유럽 결승 전날',[rest(pro?'홈팀 라커룸':'결승 라커룸'),training(pro?'결전 훈련장':'결승 훈련장')]];
+    layout[11]=[pro?'프로리그 최종 시험':'유럽대항전 결승',[{type:'boss',opponentId:coachId,name:`${coach.name}의 ${pro?'리그':'유럽'} 전술`,description:coach.mechanic}]];
+    for(let i=0;i<layout.length;i++)for(const node of layout[i][1])if(node.type==='elite')node.description=`${OPPONENTS[node.opponentId].subtitle}. 승리 시 코인 ${campaignReward((campaignAct-1)*12+i,'elite',OPPONENTS[node.opponentId].reward)}, 희귀 카드와 전용 유물 선택 보상을 얻습니다.`;
+  }
   const route = layout.map(([name, choices], i) => {
     const lanes = choices.length === 1 ? [1] : shuffle(rng, [0, 1, 2]).slice(0, choices.length);
     return { id: `stage-${i}`, name, choices: choices.map((node, j) => ({ ...node, id: `path-${i}-${node.opponentId ?? node.type}`, lane: lanes[j], next: [] })) };
@@ -172,6 +205,16 @@ function generateRoute(initialSeed, version = 2, encounterVersion) {
   }
   return route;
 }
+function generateCampaignRoute(seed) {
+  const route=[];
+  for(let number=1;number<=3;number++) {
+    const chapter=generateRoute(campaignSeed(seed,number),2,1,number),prefix=number===1?'':`act${number}-`;
+    for(const row of chapter){row.id=prefix+row.id;for(const node of row.choices){node.id=prefix+node.id;node.next=node.next.map(id=>prefix+id);}}
+    if(route.length)for(const node of route.at(-1).choices)node.next=chapter[0].choices.map(n=>n.id);
+    route.push(...chapter);
+  }
+  return route;
+}
 export function routeFor(run) { return run?.schema === 3 ? run.route : LEGACY_ROUTE_LINKED; }
 export function availableNodes(run) {
   if (!run || run.phase !== 'map') return [];
@@ -192,6 +235,10 @@ export function createRun(seed, playerName = '루키') {
     stats: { wins: 0, damage: 0, blocks: 0, goals: 0 }, match: null, activeNode: null, rewardRelic: null, rewardInjuryUid: null, message: '나만의 플레이로 유소년 에이스에 도전하세요.' };
   STARTER_DECK.forEach(id => addCard(run, id));
   return run;
+}
+export function createCampaignRun(seed,playerName='루키') {
+  const run=createRun(seed,playerName);run.campaignVersion=1;run.seenShopRelics=[];run.route=generateCampaignRoute(run.initialSeed);
+  run.message='유소년에서 프로리그, 유럽대항전까지 나만의 커리어를 시작하세요.';return run;
 }
 // Active pre-pattern saves keep their original intent text and numbers.
 const LEGACY_COACH_RULES = Object.freeze({
@@ -276,7 +323,9 @@ function coachSpec(m) {
     }
     default: return null;
   }
-  spec.attack += Math.max(0, m.turn - 12) * 2;
+  const baseAttack=spec.attack,pressure=Math.max(0,m.turn-12)*2,actPressure=Math.max(0,(m.campaignAct??1)-1)*2;
+  spec.attack+=pressure+actPressure;
+  if(m.campaignAct&&(actPressure||pressure))spec.detail=`기본 패턴: ${spec.detail} 이번 턴 공격: 기본 ${baseAttack}${actPressure?` + ACT ${ACTS[m.campaignAct-1].roman} 압박 ${actPressure}`:''}${pressure?` + 장기전 압박 ${pressure}`:''} = ${spec.attack}.`;
   return spec;
 }
 export function getBossView(run) {
@@ -287,7 +336,10 @@ export function getBossView(run) {
 }
 function bossIntent(m) {
   const spec = coachSpec(m);
-  return spec ? { name: spec.title, attack: spec.attack, defense: spec.defense, rule: spec.detail, description: `턴 종료 시 피해 ${spec.attack}. 이번 턴 상대 방어 ${spec.defense}. ${spec.detail}` } : intentFor(m.opponentId, m.turn, m.intentHp);
+  if(spec)return {name:spec.title,attack:spec.attack,defense:spec.defense,rule:spec.detail,description:`턴 종료 시 피해 ${spec.attack}. 이번 턴 상대 방어 ${spec.defense}. ${spec.detail}`};
+  const intent=intentFor(m.opponentId,m.turn,m.intentHp);
+  if(m.campaignAct>1){intent.attack+=(m.campaignAct-1)*2;intent.defense+=m.campaignAct-1;intent.description=`턴 종료 시 피해 ${intent.attack}. 이번 턴 상대 방어 ${intent.defense}.${intent.rule?` ${intent.rule}`:''}`;}
+  return intent;
 }
 function refreshBossIntent(m) { if (m.boss) m.intent = bossIntent(m); }
 function coachAfterCard(m) {
@@ -333,9 +385,10 @@ function nextRound(run) {
   drawCards(run, 5);
 }
 function startMatch(run, opponentId) {
-  const maxEnergy = 3, enemyMaxHp = OPPONENTS[opponentId].maxHp;
+  const maxEnergy = 3, enemyMaxHp = scaledOpponentHp(OPPONENTS[opponentId].maxHp,run.campaignVersion===1?run.actNumber:1);
   run.phase = 'match'; run.relicOffers = [];
   run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: 0,
+    ...(run.campaignVersion===1?{campaignAct:run.actNumber}:{}),
     training: {}, turnFlags: {}, battleFlags: {}, playerExposed: 0, energyDebt: 0, choice: null, temporaryCards: [],
     enemyExposed: 0, enemyWeakened: 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
@@ -356,9 +409,9 @@ export function getEnemyAttack(run) {
 export function getEnemyViews(run) {
   const m = run?.match;
   if (!m) return [];
-  if (m.enemies) return enemyViews(m);
+  if (m.enemies) return enemyViews(m).map(e=>({...e,actNumber:run.campaignVersion===1?run.actNumber:1}));
   const opponent = OPPONENTS[m.opponentId], role = REGULAR_ENEMIES[m.opponentId]?.role ?? (opponent.coach ? 'coach' : 'elite');
-  return [{id:'solo',opponentId:m.opponentId,name:opponent.name,role,roleLabel:ENEMY_ROLES[role] ?? (role==='coach'?'감독':'엘리트'),hp:m.enemyHp,maxHp:m.enemyMaxHp,block:m.enemyBlock,exposed:m.enemyExposed||0,weakened:m.enemyWeakened||0,attack:getEnemyAttack(run),intent:m.intent,selected:true,charge:0,attackBuff:0,mechanic:m.intent.rule||opponent.mechanic||''}];
+  return [{id:'solo',actNumber:run.campaignVersion===1?run.actNumber:1,opponentId:m.opponentId,name:opponent.name,role,roleLabel:ENEMY_ROLES[role] ?? (role==='coach'?'감독':'엘리트'),hp:m.enemyHp,maxHp:m.enemyMaxHp,block:m.enemyBlock,exposed:m.enemyExposed||0,weakened:m.enemyWeakened||0,attack:getEnemyAttack(run),intent:m.intent,selected:true,charge:0,attackBuff:0,mechanic:m.intent.rule||opponent.mechanic||''}];
 }
 export function forecast(run) {
   const m = run?.match;
@@ -376,6 +429,7 @@ function finishNode(run, result) {
   run.history.push(nodeRecord(run, result));
   run.activeNode = null; run.match = null; run.offers = []; run.relicOffers = []; run.shopOffers = []; run.shopCards = []; run.rewardRelic = null; run.rewardInjuryUid = null; run.routeIndex++;
   run.phase = run.routeIndex >= routeFor(run).length ? 'victory' : 'map';
+  if(run.campaignVersion===1){run.actNumber=campaignActAt(run.routeIndex);if(run.phase!=='victory'&&run.routeIndex%12===0){run.phase='act-clear';run.message=`${ACTS[run.actNumber-2].name} 돌파! 다음 무대에서 체력 30을 회복합니다.`;}}
 }
 function failRun(run, reason) {
   run.phase = 'defeat'; run.message = reason; run.relicOffers = [];
@@ -390,17 +444,22 @@ function outcome(run, damageTaken, blocked, summary) {
 function winDuel(run) {
   const m = run.match, opponent = OPPONENTS[m.opponentId];
   m.status = 'won'; run.stats.wins++;
-  const baseReward = run.encounterVersion === 1 && run.activeNode?.encounter ? regularEncounterReward(run.routeIndex) : opponent.reward;
+  const baseReward = run.campaignVersion===1?campaignReward(run.routeIndex,run.activeNode.type,opponent.reward):run.encounterVersion === 1 && run.activeNode?.encounter ? regularEncounterReward(run.routeIndex) : opponent.reward;
   const reward = baseReward + (has(run, 'lucky-coin') ? 8 : 0);
   run.gold += reward; run.phase = 'reward';
   run.rewardRelic = null;
   run.relicOffers = run.activeNode.type === 'elite' ? (opponent.eliteRelics ?? []).filter(id => !has(run, id)) : [];
   if (has(run, 'golden-whistle')) run.condition = Math.min(run.maxCondition, run.condition + 4);
-  const uncommon = shuffle(run, rewardPool(run, 'uncommon'));
-  const rare = shuffle(run, rewardPool(run, 'rare'));
+  const uncommon = preferActCards(run,shuffle(run, rewardPool(run, 'uncommon')));
+  const rare = preferActCards(run,shuffle(run, rewardPool(run, 'rare')));
   if (run.activeNode.type === 'elite') run.offers = [rare[0], ...uncommon.slice(0, 2)];
   else if (run.activeNode.type === 'boss') run.offers = ['power','technique','aerial'].map(style => rare.find(id => CARDS[id].style === style));
   else if (run.stats.wins === 1) run.offers = ['power-shot','double-touch','positioning'];
+  else if(run.campaignVersion===1&&run.actNumber>1){
+    const ordinary=shuffle(run,[...rewardPool(run,'common'),...uncommon]);
+    const promoted=run.actNumber===3?[rare[0]]:[uncommon[0],...(run.routeIndex%12===7?[rare[0]]:[])];
+    run.offers=[...promoted,...ordinary.filter(id=>!promoted.includes(id))].slice(0,3);
+  }
   else run.offers = shuffle(run, [...rewardPool(run, 'common'), ...uncommon]).slice(0, 3);
   run.message = `${opponent.name}에게 승리했습니다! 코인 +${reward}${has(run, 'golden-whistle') ? ', 체력 +4' : ''}. ${run.relicOffers.length ? '전용 유물 1개를 먼저 고른 뒤 ' : ''}카드 1장을 선택하거나 건너뛰세요.`;
 }
@@ -470,6 +529,9 @@ export function act(run, action) {
   if (!run || !action || typeof action.type !== 'string' || (['victory', 'defeat'].includes(run.phase) && action.type !== 'rename-player')) return run;
   const next = clone(run);
   switch (action.type) {
+    case 'continue-act':
+      if(run.campaignVersion!==1||run.phase!=='act-clear'||![12,24].includes(run.routeIndex))return run;
+      next.condition=Math.min(next.maxCondition,next.condition+30);next.phase='map';next.message=`${ACTS[next.actNumber-1].name}에 도착했습니다. 체력 30 회복.`;return next;
     case 'complete-tutorial':
       if (run.starterRewardUnlocked) return run;
       next.starterRewardUnlocked = true; return next;
@@ -490,7 +552,7 @@ export function act(run, action) {
       if (!node) return run;
       next.activeNode = clone(node); next.message = node.description;
       if (combat(node.type)) startMatch(next, node.opponentId);
-      else { next.phase = node.type; if (node.type === 'shop') { next.shopOffers = shuffle(next, Object.keys(RELICS).filter(id => RELICS[id].shop !== false && !has(next, id))).slice(0, 4); next.shopCards = ['common','uncommon','rare'].map(rarity => shuffle(next, rewardPool(next, rarity))[0]).filter(Boolean); } }
+      else { next.phase = node.type; if (node.type === 'shop') stockShop(next); }
       return next;
     }
     case 'select-target': {
@@ -553,7 +615,7 @@ export function act(run, action) {
       next.condition = Math.min(next.maxCondition, next.condition + 30); next.message = `휴식 완료. 내 체력 ${next.condition}/${next.maxCondition}.`; finishNode(next, 'rest'); return next;
     case 'buy-relic': {
       const relic = RELICS[action.id];
-      if (run.phase !== 'shop' || !relic || relic.shop === false || !run.shopOffers.includes(action.id) || has(run, action.id) || run.gold < relic.price) return run;
+      if (run.phase !== 'shop' || !relic || relic.shop === false || !relicAvailable(run,action.id) || !run.shopOffers.includes(action.id) || has(run, action.id) || run.gold < relic.price) return run;
       next.gold -= relic.price; acquireRelic(next, action.id); next.shopOffers = next.shopOffers.filter(id => id !== action.id);
       next.message = `${relic.name} 구입 완료.`; return next;
     }
@@ -563,7 +625,7 @@ export function act(run, action) {
         next.condition = Math.max(0, next.condition - 12);
         if (next.condition <= 0) { failRun(next, '추가 테스트에서 내 체력을 모두 소모했습니다.'); return next; }
         next.gold += 35;
-        const rare = shuffle(next, rewardPool(next, 'uncommon'))[0], room = playableCount(next) < 40;
+        const rare = shuffle(next, rewardPool(next, next.campaignVersion===1&&next.actNumber===3?'rare':'uncommon'))[0], room = playableCount(next) < 40;
         if (room) addCard(next, rare);
         next.message = `추가 테스트 성공. 내 체력 −12, 코인 +35${room ? `, ${CARDS[rare].name} 획득` : ''}.`;
       } else { next.gold += 15; next.condition = Math.min(next.maxCondition, next.condition + 5); next.message = '스카우트와 이야기를 나눴습니다. 코인 +15, 내 체력 +5.'; }
@@ -581,11 +643,14 @@ const uniqueKnown = (value, known, max) => Array.isArray(value) && value.length 
 const routeShape = route => route.map(stage => ({ id: stage.id, choices: stage.choices.map(node => ({ id: node.id, type: node.type, opponentId: node.opponentId ?? null, encounter: node.encounter ?? null, lane: node.lane, next: node.next })) }));
 export function validateSave(value) {
   try {
-    if (!record(value) || value.rulesVersion !== 2 || (value.encounterVersion !== undefined && value.encounterVersion !== 1)) return null;
+    if (!record(value) || value.rulesVersion !== 2 || (value.encounterVersion !== undefined && value.encounterVersion !== 1) || (value.campaignVersion!==undefined&&value.campaignVersion!==1)) return null;
     const encoded = JSON.stringify(value);
     if (encoded.length > 500000) return null;
     const run = JSON.parse(encoded);
-    if (run.schema !== 3 || !phases.includes(run.phase) || !integer(run.routeIndex, 0, run.schema === 3 ? 12 : ROUTE.length)) return null;
+    const campaign=run.campaignVersion===1;
+    if (run.schema !== 3 || !phases.includes(run.phase) || !integer(run.routeIndex, 0, campaign?36:12)) return null;
+    if(campaign ? run.encounterVersion!==1||run.actNumber!==campaignActAt(run.routeIndex) : run.phase==='act-clear')return null;
+    if(run.phase==='act-clear'&&![12,24].includes(run.routeIndex))return null;
     if (!Object.hasOwn(run, 'routeVersion')) run.routeVersion = 1;
     if (run.routeVersion !== 2 || !integer(run.actNumber, 1, 3) || !Array.isArray(run.treatedActs) || new Set(run.treatedActs).size !== run.treatedActs.length || run.treatedActs.some(act => !integer(act, 1, run.actNumber))) return null;
     if (!uniqueKnown(run.shopCards, CARDS, 3) || run.shopCards.some(id => !rewardPool(run).includes(id)) || run.phase !== 'shop' && run.shopCards.length) return null;
@@ -594,7 +659,8 @@ export function validateSave(value) {
     if (!integer(run.shopRemovalCount, 0, 100000)) return null;
     if (!Object.hasOwn(run, 'playerName')) run.playerName = '루키';
     else { const name = normalizedName(run.playerName); if (!name) return null; run.playerName = name; }
-    if (!uniqueKnown(run.relics, RELICS, Object.keys(RELICS).length) || !uniqueKnown(run.offers, CARDS, 3) || !uniqueKnown(run.shopOffers, RELICS, 4) || run.shopOffers.some(id => run.relics.includes(id) || RELICS[id].shop === false)) return null;
+    if (!uniqueKnown(run.relics, RELICS, Object.keys(RELICS).length) || !uniqueKnown(run.offers, CARDS, 3) || !uniqueKnown(run.shopOffers, RELICS, 4) || run.shopOffers.some(id => run.relics.includes(id) || RELICS[id].shop === false || !relicAvailable(run,id))) return null;
+    if(campaign&&(!uniqueKnown(run.seenShopRelics,RELICS,Object.keys(RELICS).length)||run.seenShopRelics.some(id=>RELICS[id].shop===false||!relicAvailable(run,id))||run.shopOffers.length>3||run.shopOffers.some(id=>!run.seenShopRelics.includes(id))))return null;
     if (!uniqueKnown(run.relicOffers, RELICS, 3) || run.relicOffers.some(id => has(run, id))) return null;
     if (!Object.hasOwn(run, 'starterRewardUnlocked')) run.starterRewardUnlocked = false;
     if (!Object.hasOwn(run, 'starterRelic')) run.starterRelic = null;
@@ -602,7 +668,7 @@ export function validateSave(value) {
     if (run.maxCondition !== 100 + (has(run, 'captain-band') ? 15 : 0) || !integer(run.condition, 0, run.maxCondition) || !integer(run.gold, 0, 100000)) return null;
     if (!integer(run.seed, 0, 0xffffffff) || !integer(run.initialSeed, 0, 0xffffffff) || !integer(run.nextUid, 1, 100000)) return null;
     if (run.schema === 3) {
-      const canonical = generateRoute(run.initialSeed, run.routeVersion, run.encounterVersion);
+      const canonical = campaign?generateCampaignRoute(run.initialSeed):generateRoute(run.initialSeed, run.routeVersion, run.encounterVersion);
       if (!Array.isArray(run.route) || JSON.stringify(routeShape(run.route)) !== JSON.stringify(routeShape(canonical))) return null;
       run.route = canonical;
     }
@@ -611,8 +677,8 @@ export function validateSave(value) {
     const elitePool = OPPONENTS[run.match?.opponentId]?.eliteRelics ?? [];
     if (run.rewardRelic !== null && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && elitePool.includes(run.rewardRelic) && has(run, run.rewardRelic) && !run.relicOffers.length)) return null;
     if (run.relicOffers.length && !(run.phase === 'reward' && run.activeNode?.type === 'elite' && run.rewardRelic === null && JSON.stringify(run.relicOffers) === JSON.stringify(elitePool.filter(id => !has(run, id))))) return null;
-    if (!shortText(run.message) || !record(run.stats) || !integer(run.stats.wins, 0, run.schema === 3 ? 6 : 4) || !integer(run.stats.damage, 0, 1000) || !integer(run.stats.blocks, 0, 100000) || run.stats.goals !== 0) return null;
-    if (!Array.isArray(run.deck) || !integer(run.deck.length, 1, 43) || playableCount(run) > 40) return null;
+    if (!shortText(run.message) || !record(run.stats) || !integer(run.stats.wins, 0, campaign?18:6) || !integer(run.stats.damage, 0, campaign?5000:1000) || !integer(run.stats.blocks, 0, 100000) || run.stats.goals !== 0) return null;
+    if (!Array.isArray(run.deck) || !integer(run.deck.length, 1, campaign?40+Object.values(RELICS).filter(relic=>relic.injury).length:43) || playableCount(run) > 40) return null;
     const cards = new Map();
     for (const card of run.deck) {
       if (!record(card) || typeof card.uid !== 'string' || !/^c[1-9]\d*$/.test(card.uid) || typeof card.id !== 'string' || !Object.hasOwn(CARDS, card.id) || typeof card.upgraded !== 'boolean') return null;
@@ -640,7 +706,7 @@ export function validateSave(value) {
       if (Object.hasOwn(item, 'description')) item.description = node.description;
       if (item.result === 'defeat' && (run.phase !== 'defeat' || i !== run.history.length - 1)) return null;
       if (combat(node.type)) {
-        const opponent = OPPONENTS[node.opponentId], maxHp=node.encounter?encounterMaxHp(node.encounter):opponent.maxHp;
+        const opponent = OPPONENTS[node.opponentId], maxHp=node.encounter?encounterMaxHp(node.encounter):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(i):1);
         if (!['win', 'defeat'].includes(item.result) || !integer(item.damageDealt, 0, maxHp) || !integer(item.blocks, 0, 100000) || !integer(item.turns, 1, 1000) || !integer(item.remainingHp, 0, run.maxCondition)) return null;
         if (item.result === 'win' && (item.damageDealt !== maxHp || item.remainingHp <= 0)) return null;
         if (item.result === 'defeat' && item.remainingHp !== 0) return null;
@@ -650,9 +716,11 @@ export function validateSave(value) {
       }
     }
     if (run.history.length !== run.routeIndex + Number(run.phase === 'defeat')) return null;
+    if(campaign&&JSON.stringify(run.treatedActs)!==JSON.stringify(run.history.filter(item=>item.result==='treat').map(item=>campaignActAt(item.stageIndex))))return null;
+    if(run.phase==='act-clear'&&!(run.history.at(-1)?.type==='boss'&&run.history.at(-1)?.result==='win'))return null;
     if (run.phase === 'victory' ? run.routeIndex !== route.length : run.routeIndex >= route.length) return null;
     if ((run.condition === 0) !== (run.phase === 'defeat')) return null;
-    if (['map', 'victory', 'defeat'].includes(run.phase)) { if (run.activeNode !== null) return null; }
+    if (['map', 'act-clear', 'victory', 'defeat'].includes(run.phase)) { if (run.activeNode !== null) return null; }
     else {
       const node = route[run.routeIndex]?.choices.find(choice => choice.id === run.activeNode?.id);
       if (!node || node.type !== run.activeNode.type || node.opponentId !== run.activeNode.opponentId) return null;
@@ -674,7 +742,8 @@ export function validateSave(value) {
     const m = run.match, opponent = OPPONENTS[m?.opponentId];
     const encounterNode = run.activeNode ?? route[run.routeIndex]?.choices.find(choice=>choice.id===run.history.at(-1)?.nodeId);
     const encounterIds = encounterNode?.encounter;
-    if (!record(m) || !opponent || m.enemyMaxHp !== (encounterIds?encounterMaxHp(encounterIds):opponent.maxHp) || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
+    if (!record(m) || !opponent || m.enemyMaxHp !== (encounterIds?encounterMaxHp(encounterIds):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(run.routeIndex):1)) || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
+    if(campaign ? m.campaignAct!==run.actNumber : Object.hasOwn(m,'campaignAct'))return null;
     if(encounterIds ? !validEnemyState(m,encounterIds) : Object.hasOwn(m,'enemies') || Object.hasOwn(m,'targetId'))return null;
     if (Object.hasOwn(m, 'boss')) {
       const b = m.boss;

@@ -1,6 +1,6 @@
 /**
  * RuneKick's generated sprite atlases and procedural pixel effects.
- * drawPitch(ctx, { width, height, time, opponentColor, phase, animation, heroMomentum, boss, reducedMotion })
+ * drawPitch(ctx, { width, height, actNumber, time, opponentColor, phase, animation, heroMomentum, boss, reducedMotion })
  * drawCardArt(ctx, type, { width, height, upgraded, id })
  * drawPlayer(ctx, x, y, { scale, team, shirt, facing, pose, selected })
  * Player x/y is the centre of the player's feet. Time is in milliseconds.
@@ -25,9 +25,15 @@ const RIVAL_ASSETS = Object.freeze({
   charger: {key:'rivalCharger',filename:'rival-charger.png',height:242},
   buffer: {key:'rivalSupport',filename:'rival-support.png',height:236},
 });
-const ORDINARY_ROLES = Object.freeze({school:'attacker',rookie:'technique',press:'defender','late-finisher':'charger','support-coach':'buffer'});
-const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, legends: null, eliteRelics: null, cardTechnique: null, cardAttack: null, cardControl: null, ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,null])) };
-const atlasFrames = { striker: [], coaches: [], equipment: [], legends: [], eliteRelics: [], cardTechnique: [], cardAttack: [], cardControl: [], ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,[]])) };
+const ORDINARY_ROLES = Object.freeze({school:'attacker',rookie:'technique',press:'defender','late-finisher':'charger','support-coach':'buffer','pro-winger':'attacker','pro-playmaker':'technique','pro-anchor':'defender','pro-coach':'buffer','pro-target':'charger','euro-forward':'attacker','euro-maestro':'technique','euro-libero':'defender','euro-analyst':'buffer','euro-aerial':'charger'});
+const ACT_RIVAL_FRAMES = Object.freeze({attacker:0,technique:1,defender:2,buffer:3,charger:4});
+const ACT_ART = Object.freeze({
+  1:{background:'academyPitch',filename:'academy-pitch.png',filter:'saturate(0.72) brightness(0.86)',veil:'#12232e18'},
+  2:{background:'proStadium',filename:'pro-stadium.png',filter:'saturate(0.66) brightness(0.82)',veil:'#07142628'},
+  3:{background:'europeStadium',filename:'europe-stadium.png',filter:'saturate(0.76) brightness(0.86)',veil:'#080f2820'},
+});
+const rasterArt = { striker: null, rival: null, stadium: null, coaches: null, equipment: null, legends: null, eliteRelics: null, cardTechnique: null, cardAttack: null, cardControl: null, rivalsPro:null, rivalsEurope:null, actEquipment:null, ...Object.fromEntries(Object.values(ACT_ART).map(act=>[act.background,null])), ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,null])) };
+const atlasFrames = { striker: [], coaches: [], equipment: [], legends: [], eliteRelics: [], cardTechnique: [], cardAttack: [], cardControl: [], rivalsPro:[], rivalsEurope:[], actEquipment:[], ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,[]])) };
 const CARD_ART = Object.freeze({
   'through-pass': ['cardTechnique', 0], 'quick-pass': ['cardTechnique', 1], 'one-two': ['cardTechnique', 2],
   'wall-pass': ['cardTechnique', 3], 'long-pass': ['cardTechnique', 4], dribble: ['cardTechnique', 5],
@@ -52,6 +58,7 @@ const EQUIPMENT_FRAMES = Object.freeze({
   'grip-socks': 4, 'scouting-bag': 5, 'energy-flask': 6, 'lucky-coin': 7,
   'golden-whistle': 8, 'libero-seal': 9,
 });
+const ACT_EQUIPMENT_FRAMES = Object.freeze({'recoil-studs':0,'sequence-band':1,'aerial-grip':2,'precision-laces':3,'carbon-insole':4,'rebound-vest':5});
 const EQUIPMENT_CATEGORIES = Object.freeze({ boots: 0, uniform: 2, jersey: 2, band: 3, socks: 4, bag: 5, bottle: 6, coin: 7, charm: 7, whistle: 8, medal: 9 });
 let artLoading;
 
@@ -114,7 +121,7 @@ function readAtlasFrames(picture, columns, rows, characters = false, rowEdges = 
 export function initArt() {
   if (artLoading) return artLoading;
   if (typeof Image === 'undefined') return Promise.resolve(Object.fromEntries(Object.keys(rasterArt).map(key => [key, false])));
-  const sources = { striker: 'striker-football.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', legends: 'legends.png', eliteRelics: 'elite-relics.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png', ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,asset.filename])) };
+  const sources = { striker: 'striker-football.png', rival: 'rival.png', stadium: 'youth-stadium.png', coaches: 'coaches.png', equipment: 'equipment.png', legends: 'legends.png', eliteRelics: 'elite-relics.png', cardTechnique: 'cards-technique.png', cardAttack: 'cards-attack.png', cardControl: 'cards-control.png', rivalsPro:'rivals-pro.png', rivalsEurope:'rivals-europe.png', actEquipment:'act-equipment.png', ...Object.fromEntries(Object.values(ACT_ART).map(act=>[act.background,act.filename])), ...Object.fromEntries(Object.values(RIVAL_ASSETS).map(asset=>[asset.key,asset.filename])) };
   artLoading = Promise.all(Object.entries(sources).map(([key, filename]) => new Promise(resolve => {
     const picture = new Image();
     picture.decoding = 'async';
@@ -126,6 +133,8 @@ export function initArt() {
       // Each rival has a separate transparent image. Include detached boots,
       // footballs and clipboard pieces in its one-time alpha bounds scan.
       if(Object.values(RIVAL_ASSETS).some(asset=>asset.key===key))atlasFrames[key]=readAtlasFrames(picture,1,1);
+      if(key==='rivalsPro'||key==='rivalsEurope')atlasFrames[key]=readAtlasFrames(picture,3,2,true);
+      if(key==='actEquipment')atlasFrames.actEquipment=readAtlasFrames(picture,2,3,true,null,32);
       if(key==='coaches')atlasFrames.coaches=readAtlasFrames(picture,4,2,true);
       if(key==='equipment')atlasFrames.equipment=readAtlasFrames(picture,4,3);
       // Use each atlas's empty gutters; connected bounds keep the wide Ronaldo
@@ -618,13 +627,16 @@ export function getBattleLayout(width, height, enemyCount = 1) {
     : { heroX: mobile ? .23 : .292, enemyXs: [mobile ? .77 : .708], footY: .85 };
 }
 const ROLE_INK = { attacker:'#e9a17a', buffer:'#a5d59c', technique:'#c4b0ee', defender:'#8ccce4', charger:'#edd17f' };
-function rivalSprite(role) {
+function rivalSprite(role, actNumber = 1) {
+  const sheet=actNumber===2?'rivalsPro':actNumber===3?'rivalsEurope':null;
+  const frame=sheet&&atlasFrames[sheet]?.[ACT_RIVAL_FRAMES[role]];
+  if(frame&&rasterArt[sheet])return {picture:rasterArt[sheet],crop:frame,height:RIVAL_ASSETS[role]?.height||236};
   const asset=RIVAL_ASSETS[role],crop=asset&&atlasFrames[asset.key]?.[0],picture=asset&&rasterArt[asset.key];
   return picture&&crop?{picture,crop,height:asset.height}:null;
 }
-function drawOpponentRole(ctx, enemy, x, y, fit, breathing, hit, selected, primary, time, reduced) {
+function drawOpponentRole(ctx, enemy, x, y, fit, breathing, hit, selected, primary, time, reduced, actNumber = 1) {
   const role = enemy.role, dead = enemy.hp <= 0, ink = ROLE_INK[role] || '#a8bdcc';
-  const sprite = rivalSprite(role);
+  const sprite = rivalSprite(role,actNumber);
   ctx.save();
   if (dead) ctx.globalAlpha = .2;
   // Role-specific silhouettes retain football kits, while support uses a
@@ -668,14 +680,16 @@ function drawOpponentRole(ctx, enemy, x, y, fit, breathing, hit, selected, prima
 /** Responsive stage: cover the background, keep people and effects uniformly scaled. */
 export function drawPitch(ctx, options = {}) {
   const width=options.width||ctx.canvas.width||960, height=options.height||ctx.canvas.height||400;
-  const animation=options.animation,reduced=!!(options.reducedMotion||animation?.reducedMotion);
+  const actNumber=ACT_ART[options.actNumber]?Number(options.actNumber):1,theme=ACT_ART[actNumber];
+  const showEnemies=!['act-clear','victory'].includes(options.phase);
+  const animation=showEnemies?options.animation:null,reduced=!!(options.reducedMotion||animation?.reducedMotion);
   const rawProgress=clamp(Number(animation?.progress)||0,0,1),p=reduced?.64:rawProgress,type=animation?.type;
   const damage=Math.max(0,Number(animation?.damage)||0),blocked=Math.max(0,Number(animation?.blocked)||0),defenseGain=Math.max(0,Number(animation?.defenseGain)||0);
   const intensity=clamp(Number(animation?.intensity)||damage/30,0,1),target=animation?.target||(type==='concede'?'hero':'enemy');
   const contact=['shot','goal'].includes(type)?.54:.36,impactLife=animation?(p-contact)/(1-contact):-1;
   const impactPulse=impactLife>=0&&impactLife<1?Math.sin(Math.min(1,impactLife*2)*Math.PI):0;
-  const defender=options.opponentId==='legend';
-  const legendary=defender||options.opponentId==='legend-zidane'||options.opponentId==='legend-ronaldo';
+  const defender=showEnemies&&options.opponentId==='legend';
+  const legendary=showEnemies&&(defender||options.opponentId==='legend-zidane'||options.opponentId==='legend-ronaldo');
   ctx.save(); ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#101722'; ctx.fillRect(0,0,width,height);
   // Only the painted stage moves; controls and status buttons never shake.
@@ -684,9 +698,10 @@ export function drawPitch(ctx, options = {}) {
     ctx.translate(Math.sin(impactLife*83)*strength,Math.cos(impactLife*67)*strength*.45);
   }
   ctx.save();
-  ctx.filter='saturate(0.28) brightness(0.62)';
-  if (rasterArt.stadium) {
-    const picture=rasterArt.stadium;
+  const actBackground=rasterArt[theme.background];
+  ctx.filter=actBackground?theme.filter:'saturate(0.28) brightness(0.62)';
+  if (actBackground||rasterArt.stadium) {
+    const picture=actBackground||rasterArt.stadium;
     const cover=Math.max(width/picture.naturalWidth,height/picture.naturalHeight);
     const drawWidth=picture.naturalWidth*cover,drawHeight=picture.naturalHeight*cover;
     ctx.drawImage(picture,(width-drawWidth)/2,(height-drawHeight)/2,drawWidth,drawHeight);
@@ -694,12 +709,12 @@ export function drawPitch(ctx, options = {}) {
     ctx.save();ctx.scale(width/960,height/400);duelStadium(ctx);ctx.restore();
   }
   ctx.restore();
-  rect(ctx,0,0,width,height,'#101b3448');
+  rect(ctx,0,0,width,height,actBackground?theme.veil:'#101b3448');
   rect(ctx,0,height*.9,width,height*.1,'#10172245');
   // The vertical coordinate system remains 400 units tall. Horizontal anchors
   // follow the actual stage width, so a wide or narrow canvas never stretches a person.
   const scale=height/400,stageWidth=width/scale;
-  const enemies=Array.isArray(options.enemies)?options.enemies.slice(0,2):[];
+  const enemies=showEnemies&&Array.isArray(options.enemies)?options.enemies.slice(0,2):[];
   const duo=enemies.length>1,layout=getBattleLayout(width,height,enemies.length);
   const selectedIds=new Set(options.targetIds || [options.targetId]);
   const struckIds=new Set(animation?.targetIds || [animation?.targetId || options.targetId]);
@@ -707,9 +722,9 @@ export function drawPitch(ctx, options = {}) {
   ctx.scale(scale,scale);
   const heroAnchor=stageWidth*layout.heroX,enemyAnchor=stageWidth*layout.enemyXs[struckIndex];
   const heroCrop=atlasFrames.striker[0],heroHalfWidth=heroCrop?119*heroCrop[2]/heroCrop[3]+4:98;
-  const legendIndex=LEGEND_FRAMES[options.opponentId],legendCrop=atlasFrames.legends[legendIndex];
-  const ordinaryRole=ORDINARY_ROLES[options.opponentId];
-  const activeSprites=(enemies.length?enemies.map(enemy=>enemy.role):[ordinaryRole]).map(rivalSprite).filter(Boolean);
+  const legendIndex=showEnemies?LEGEND_FRAMES[options.opponentId]:undefined,legendCrop=atlasFrames.legends[legendIndex];
+  const ordinaryRole=showEnemies?ORDINARY_ROLES[options.opponentId]:undefined;
+  const activeSprites=(enemies.length?enemies.map(enemy=>enemy.role):[ordinaryRole]).map(role=>rivalSprite(role,actNumber)).filter(Boolean);
   // Alpha-trimmed silhouettes can differ in width (a defender's stance or a
   // coach's clipboard). Reserve their full width and maximum hit recoil.
   const enemyHalfWidth=activeSprites.length?Math.max(...activeSprites.map(sprite=>sprite.height/2*sprite.crop[2]/sprite.crop[3]+24)):legendCrop?118*legendCrop[2]/legendCrop[3]+4:98;
@@ -727,7 +742,7 @@ export function drawPitch(ctx, options = {}) {
   }
   pixelEllipse(ctx,heroX+2,heroY+4,76*fit,13*fit,'#101b25');
   pixelEllipse(ctx,heroX,heroY+6,55*fit,7*fit,'#303d43');
-  for(const fraction of layout.enemyXs) {
+  for(const fraction of showEnemies?layout.enemyXs:[]) {
     pixelEllipse(ctx,stageWidth*fraction+2,enemyY+4,76*fit,13*fit,'#101b25');
     pixelEllipse(ctx,stageWidth*fraction,enemyY+6,55*fit,7*fit,'#303d43');
   }
@@ -740,18 +755,20 @@ export function drawPitch(ctx, options = {}) {
   const contactTint=!reduced&&damage>0&&impactLife>=0&&impactLife<.2?.18+intensity*.22:0;
   const enemyHit=target==='enemy'?contactTint:0,heroHit=target==='hero'?contactTint:0;
   const coachIndex=COACH_FRAMES[options.opponentId],coachCrop=atlasFrames.coaches[coachIndex];
+  if(showEnemies) {
   if(enemies.length && enemies.every(enemy=>ROLE_INK[enemy.role])) {
     enemies.forEach((enemy,index)=>{
       const struck=target==='enemy'&&struckIds.has(enemy.id);
       const x=stageWidth*layout.enemyXs[index]+(struck&&!reduced?impactPulse*(5+intensity*15)*fit:0);
-      drawOpponentRole(ctx,enemy,x,enemyY,fit,breathing,struck?enemyHit:0,selectedIds.has(enemy.id),enemy.id===options.targetId,Number(options.time)||0,reduced);
+      drawOpponentRole(ctx,enemy,x,enemyY,fit,breathing,struck?enemyHit:0,selectedIds.has(enemy.id),enemy.id===options.targetId,Number(options.time)||0,reduced,actNumber);
     });
   }
   else if(rasterArt.legends&&legendCrop)drawRasterFighter(ctx,rasterArt.legends,enemyX,enemyY,{crop:legendCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
   else if(rasterArt.coaches&&coachCrop)drawRasterFighter(ctx,rasterArt.coaches,enemyX,enemyY,{crop:coachCrop,height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
-  else if(ordinaryRole)drawOpponentRole(ctx,{role:ordinaryRole,hp:options.enemyHp??1},enemyX,enemyY,fit,breathing,enemyHit,false,false,Number(options.time)||0,reduced);
+  else if(ordinaryRole)drawOpponentRole(ctx,{role:ordinaryRole,hp:options.enemyHp??1},enemyX,enemyY,fit,breathing,enemyHit,false,false,Number(options.time)||0,reduced,actNumber);
   else if(rasterArt.rival)drawRasterFighter(ctx,rasterArt.rival,enemyX,enemyY,{crop:[116,111,929,1257],height:236*fit-breathing,lean:enemyHit?pulse*.035:0,hit:enemyHit});
   else {ctx.save();ctx.translate(enemyX,enemyY);ctx.scale(fit*236/240,fit*236/240);drawDuelist(ctx,0,0,{home:false,shirt:options.opponentColor,hit:enemyHit});ctx.restore();}
+  }
   // This heraldic shield sits beside the torso, leaving the face and intent panel clear.
   if(defender) {
     drawDefenderShield(ctx,enemyX-78*fit,enemyY-132*fit,.8*fit);
@@ -953,6 +970,39 @@ function drawStrikerAction(ctx, type, options, width, height) {
     dashedPath(ctx,69,12,87,4,'#9b6144',0,5);
     dashedPath(ctx,88,4,118,12,'#9b6144',0,5);
     for(let x=25;x<58;x+=10)rect(ctx,x,65,5,2,'#ab8c67');
+  } else if (id === 'follow-through') {
+    drawCardSilhouette(ctx,40,65,'kick',1.06,1);
+    for(let i=0;i<3;i++)dashedPath(ctx,56,42-i*7,102,29-i*4,'#a36a40',0,5);
+    ball(ctx,93,28,.92);cross(ctx,66,33,4,'#c6903f');
+    frame(ctx,96,48,16,21,'#9d7352',2);frame(ctx,103,43,16,21,'#6e7e68',2);
+  } else if (id === 'tempo-switch') {
+    drawCardSilhouette(ctx,27,65,'feint',.78,1,'#b0b7a8');
+    drawCardSilhouette(ctx,61,63,'feint',1,1);ball(ctx,84,62,.8);
+    dashedPath(ctx,24,70,53,58,'#92734d',0,5);dashedPath(ctx,53,58,99,70,'#92734d',0,5);
+    fxLine(ctx,95,36,109,24,'#9b7444',3,3);fxLine(ctx,109,24,103,25,'#9b7444',3,3);
+    ctx.fillStyle='#bd9543';ctx.beginPath();ctx.moveTo(111,5);ctx.lineTo(101,18);ctx.lineTo(110,18);ctx.lineTo(104,32);ctx.lineTo(122,13);ctx.lineTo(112,13);ctx.closePath();ctx.fill();
+  } else if (id === 'cushion-header') {
+    drawCardSilhouette(ctx,43,65,'header',1.03,1);
+    drawCardSilhouette(ctx,101,67,'header',.62,1,'#a6afa2');
+    ball(ctx,63,16,.85);dashedPath(ctx,68,18,81,30,'#7b8d79',0,5);dashedPath(ctx,81,30,82,46,'#7b8d79',0,5);
+    fxLine(ctx,77,39,82,46,'#7b8d79',2,2);fxLine(ctx,87,39,82,46,'#7b8d79',2,2);
+    dashedPath(ctx,88,29,108,20,'#b18e53',0,5);
+  } else if (id === 'decisive-volley') {
+    drawCardSilhouette(ctx,91,67,'mark',.65,-1,'#a99c91');drawCardSilhouette(ctx,115,67,'mark',.65,-1,'#a99c91');
+    drawCardSilhouette(ctx,34,59,'kick',1.08,1);ball(ctx,65,34,1);
+    for(let i=0;i<3;i++)fxLine(ctx,73,29+i*6,116,17+i*18,'#a36a40',2,3);
+    cross(ctx,96,20,5,'#ad7b4d');cross(ctx,115,46,4,'#ad7b4d');
+  } else if (id === 'one-touch-break') {
+    drawCardSilhouette(ctx,31,65,'press',1,1);
+    drawCardSilhouette(ctx,84,67,'mark',.68,-1,'#a99c91');drawCardSilhouette(ctx,113,67,'mark',.68,-1,'#a99c91');
+    ball(ctx,59,55,.8);dashedPath(ctx,58,54,78,30,'#9b6144',0,5);dashedPath(ctx,78,30,114,39,'#9b6144',0,5);
+    for(const x of [83,112]){fxLine(ctx,x,8,x,20,'#886681',2,2);fxLine(ctx,x-4,16,x,20,'#886681',2,2);fxLine(ctx,x+4,16,x,20,'#886681',2,2);}
+  } else if (id === 'tower-header') {
+    drawCardSilhouette(ctx,43,63,'header',1.13,1);
+    drawCardSilhouette(ctx,89,67,'mark',.64,-1,'#a99c91');drawCardSilhouette(ctx,115,67,'mark',.64,-1,'#a99c91');
+    for(let i=0;i<3;i++)rect(ctx,22+i*8,58-i*6,6,14+i*6,'#879eac');
+    ball(ctx,65,8,.92);dashedPath(ctx,74,9,98,14,'#9b6144',0,5);dashedPath(ctx,98,14,121,30,'#9b6144',0,5);
+    cross(ctx,62,14,3,'#a77849');
   } else if (type === 'injury') {
     ctx.translate(64,38); ctx.rotate(id === 'stiff-muscle' ? -.5 : .5);
     ctx.fillStyle='#72777d';ctx.fillRect(-34,-11,68,22);ctx.fillStyle='#eee5d3';ctx.fillRect(-30,-8,60,16);
@@ -1051,16 +1101,42 @@ export function drawCardArt(ctx, type = 'tactic', options = {}) {
   ctx.restore();
 }
 
+function drawCampaignItem(ctx, id, width, height) {
+  if(!['pressure-shirt','pivot-socks','aerial-notebook'].includes(id))return false;
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,width,height);
+  const scale=Math.min(width/64,height/64);ctx.translate((width-64*scale)/2,(height-64*scale)/2);ctx.scale(scale,scale);
+  const ink='#152231',cream='#ece5cc';
+  if(id==='pressure-shirt') {
+    rect(ctx,17,9,30,7,ink);rect(ctx,10,15,44,16,ink);rect(ctx,20,28,24,27,ink);
+    rect(ctx,18,14,28,17,'#d47b4d');rect(ctx,13,18,9,10,'#ba5e3b');rect(ctx,44,18,7,10,'#ec9b64');rect(ctx,23,29,18,23,'#d47b4d');
+    rect(ctx,25,13,14,4,cream);rect(ctx,28,17,8,3,cream);rect(ctx,23,23,4,28,'#b35e3b');rect(ctx,37,23,4,28,'#e6925a');rect(ctx,23,48,18,4,cream);
+    rect(ctx,13,26,8,3,cream);rect(ctx,45,26,6,3,cream);
+  } else if(id==='pivot-socks') {
+    for(const [x,y] of [[12,12],[34,8]]) {
+      rect(ctx,x,y,15,32,ink);rect(ctx,x+2,y+2,11,28,'#827092');rect(ctx,x+2,y+5,11,4,'#c7b8ce');rect(ctx,x+2,y+11,11,2,'#b5a0bf');
+      rect(ctx,x+2,y+28,20,13,ink);rect(ctx,x+4,y+29,16,9,'#9985a7');rect(ctx,x+5,y+20,3,3,'#c7b8ce');rect(ctx,x+9,y+24,3,3,'#c7b8ce');rect(ctx,x+9,y+34,8,3,'#d4c5da');
+    }
+  } else {
+    rect(ctx,15,8,35,48,ink);rect(ctx,18,10,30,42,'#78acc0');rect(ctx,18,10,6,42,'#45798e');rect(ctx,24,12,22,36,'#9bc6d1');
+    rect(ctx,19,51,29,3,cream);rect(ctx,21,55,29,2,'#8095a0');
+    frame(ctx,28,20,14,22,'#dce9dd',2);rect(ctx,29,30,12,2,'#dce9dd');ball(ctx,34,26,.56);
+    dashedPath(ctx,30,39,40,33,'#416b80',0,4);rect(ctx,29,14,13,3,'#3b6b7f');
+  }
+  ctx.restore();return true;
+}
+
 /** Football equipment atlas, with procedural fallback. options.id selects an exact relic. */
 export function drawItemArt(ctx, category = 'rune', options = {}) {
   const width = options.width || ctx.canvas.width || 64;
   const height = options.height || ctx.canvas.height || 48;
+  if(drawCampaignItem(ctx,options.id,width,height))return;
   const redesigned = options.modern && ['scouting-bag','energy-flask','catenaccio-band','roulette-rune','fenom-cleats'].includes(options.id);
   const index = redesigned ? EQUIPMENT_CATEGORIES[category] : EQUIPMENT_FRAMES[options.id] ?? EQUIPMENT_CATEGORIES[category];
   const eliteCrop = !redesigned && atlasFrames.eliteRelics[ELITE_RELIC_FRAMES[options.id]];
   const useElite = rasterArt.eliteRelics && eliteCrop;
-  const picture = useElite ? rasterArt.eliteRelics : rasterArt.equipment;
-  const crop = useElite ? eliteCrop : atlasFrames.equipment[index];
+  const actCrop = atlasFrames.actEquipment[ACT_EQUIPMENT_FRAMES[options.id]],useAct = rasterArt.actEquipment&&actCrop;
+  const picture = useAct ? rasterArt.actEquipment : useElite ? rasterArt.eliteRelics : rasterArt.equipment;
+  const crop = useAct ? actCrop : useElite ? eliteCrop : atlasFrames.equipment[index];
   if (picture && crop) {
     ctx.save(); ctx.imageSmoothingEnabled=false; ctx.clearRect(0,0,width,height);
     const scale=Math.min(width*.92/crop[2],height*.92/crop[3]);

@@ -20,5 +20,15 @@ const rows = [
   ['street-rhythm','거리의 리듬','charm',0,'매 턴 첫 연계 시 이번 턴 다음 슈팅 피해 +4.'],
   ['ankle-tape','흔들리지 않는 발목','socks',0,'매 턴 첫 터치 카드 사용 시 방어 +3.'],
   ['tempo-charm','템포의 부적','charm',0,'한 턴에 드리블과 슈팅을 모두 사용하면 에너지 +1 (최대치까지). 턴당 1회.'],
+  ['recoil-studs','재가속 스터드','boots',180,'매 턴 처음 기세를 3 이상 소모한 슈팅의 공격 후 기세 1 반환.'],
+  ['sequence-band','연계 손목밴드','band',180,'매 턴 세 번째로 서로 다른 터치·드리블 이름을 사용하면 그 카드의 총 피해 +5. 턴당 1회.'],
+  ['aerial-grip','공중볼 그립밴드','band',180,'매 턴 처음 방어를 4 이상 소모하는 헤더 사용 시 카드 1장 뽑기.'],
+  ['pressure-shirt','압박 훈련복','uniform',170,'매 턴 첫 수비 카드 사용 시 기세가 3 이상이면 그 카드의 방어 +4.'],
+  ['pivot-socks','피벗 양말','socks',170,'매 턴 첫 연계 공격 전에 선택 상대의 방어 3 제거.'],
+  ['aerial-notebook','제공권 분석노트','bag',170,'매 턴 방어가 8 이상일 때 처음 쓰는 방어를 소모하지 않는 헤더의 피해 +5.'],
+  ['precision-laces','정밀 타격끈','socks',280,'매 턴 처음 기세를 3 이상 소모한 슈팅의 공격 후 선택 상대에게 약점 노출 2턴. 내 약점 노출 1턴도 받습니다.'],
+  ['carbon-insole','카본 인솔','boots',300,'매 턴 첫 연계 시 손패의 가장 왼쪽 다른 터치·드리블의 이번 턴 비용 −1. 중복 감소 불가. 획득 시 덱에 찰과상 1장 추가.','abrasion'],
+  ['rebound-vest','고탄성 보호조끼','uniform',300,'매 턴 처음 방어를 소모하는 헤더의 공격 후 소모량의 절반(올림, 최대 5)을 방어로 반환. 획득 시 덱에 발목 통증 1장 추가.','ankle-pain'],
 ];
-export const RELICS = Object.freeze(Object.fromEntries(rows.map(([id,name,category,price,description,injury]) => [id,Object.freeze({id,name,category,price,description,injury:injury ?? null,rarity:price ? 'uncommon' : 'legendary',shop:price > 0})])));
+export const CAMPAIGN_RELIC_ACTS = Object.freeze({'recoil-studs':2,'sequence-band':2,'aerial-grip':2,'pressure-shirt':2,'pivot-socks':2,'aerial-notebook':2,'precision-laces':3,'carbon-insole':3,'rebound-vest':3});
+export const RELICS = Object.freeze(Object.fromEntries(rows.map(([id,name,category,price,description,injury]) => [id,Object.freeze({id,name,category,price,description,injury:injury ?? null,rarity:CAMPAIGN_RELIC_ACTS[id]===3?'rare':price ? 'uncommon' : 'legendary',shop:price > 0,...(CAMPAIGN_RELIC_ACTS[id]?{minAct:CAMPAIGN_RELIC_ACTS[id]}:{})})])));
