@@ -32,6 +32,9 @@ let combatChoiceKey = null, combatSelection = null;
 let selected = null, rewardSelection = null, eliteRelicSelection = null, busy = false, animation = null, audio = null, sound = false, toastTimer, announcementTimer, saveError = false, pitchDirty = true;
 let changedElsewhere = false, previousSaveBackedUp = false;
 let rewardDialogSeen = null, rewardDialogTimer;
+const compactCombat = matchMedia('(max-width:800px), (max-width:1100px) and (max-height:520px)');
+const HAND_PAGE_SIZE = 6;
+let handPage = 0, handPageRound = '';
 let run = load();
 const firstVisit = !run;
 if (!run) run = startRun();
@@ -236,6 +239,58 @@ function enemyChangeText(before, after) {
   if (!after) return '';
   const damage = Math.max(0,before.hp-after.hp), block = Math.max(0,before.block-after.block);
   return [damage && `피해 ${damage}`, block && `방어 −${block}`, after.exposed>before.exposed && `약점 +${after.exposed-before.exposed}턴`, after.weakened>before.weakened && `약화 +${after.weakened-before.weakened}턴`, before.hp>0 && after.hp===0 && '격파'].filter(Boolean).join(' · ');
+}
+function compactEnemyViews(state = run) {
+  const views = enemyViews(state), m = state.match;
+  if (views.length || !m) return views;
+  const opponent = OPPONENTS[m.opponentId];
+  return [{id:'solo', name:opponent.name, roleLabel:opponent.coach?'감독':'상대', hp:m.enemyHp, maxHp:m.enemyMaxHp,
+    block:m.enemyBlock || 0, exposed:m.enemyExposed || 0, weakened:m.enemyWeakened || 0,
+    attack:getEnemyAttack(state), intent:m.intent, mechanic:m.intent.rule || opponent.mechanic || ''}];
+}
+function renderCompactCombat(chosen, preview, prediction, roundKey) {
+  const active = run.phase === 'match';
+  $('compact-overview').hidden = !active;
+  if (!active) return;
+  const m = run.match, views = compactEnemyViews(), after = preview ? compactEnemyViews(preview) : [], boss = getBossView(run);
+  const scope = chosen ? targetScope(chosen) : 'none', all = scope === 'all', targetId = m.targetId || views[0]?.id;
+  $('compact-opponents').dataset.count = views.length;
+  $('compact-opponents').innerHTML = views.map(enemy => {
+    const dead = enemy.hp <= 0, highlighted = !dead && (all || targetId === enemy.id);
+    const status = [`방어 ${enemy.block}`, enemy.exposed && `노출 ${enemy.exposed}`, enemy.weakened && `약화 ${enemy.weakened}`, enemy.charge && `충전 ${enemy.charge}`, enemy.attackBuff && `공격 +${enemy.attackBuff}`].filter(Boolean).join(' · ');
+    const change = enemyChangeText(enemy, after.find(e => e.id === enemy.id));
+    const label = `${enemy.name}, 체력 ${enemy.hp}/${enemy.maxHp}, ${status}, ${dead?'격파':`다음 행동 ${enemy.intent.name}, 공격 ${enemy.attack}`}${change?`, 사용 시 ${change}`:''}`;
+    const action = views.length > 1 ? `data-enemy-target="${esc(enemy.id)}" data-target-position="compact"` : 'data-action="compact-enemy-info"';
+    return `<button type="button" class="compact-opponent${highlighted?' selected':''}${dead?' defeated':''}" ${action} aria-label="${esc(label)}" aria-pressed="${highlighted}" ${dead||busy||m.choice?'disabled':''}><span class="compact-opponent-name"><strong>${esc(enemyShortName(enemy))}</strong><small>${esc(enemy.roleLabel || '')}${boss?.max?` · 전술 ${boss.progress}/${boss.max}`:''}</small></span><span class="compact-opponent-health">♥ ${enemy.hp}/${enemy.maxHp} · ${esc(status)}</span><span class="compact-opponent-intent"><strong>${dead?'격파':enemy.attack?`⚔ ${enemy.attack}`:'지원'}</strong><span>${dead?'행동 없음':esc(enemy.intent.name)}</span></span><span class="compact-opponent-preview">${esc(change || (highlighted?'✓ 선택한 상대':'눌러서 대상 선택'))}</span></button>`;
+  }).join('');
+  $('compact-incoming').textContent = `받을 피해 ${prediction.incoming} · 내 방어 ${prediction.guard}${prediction.injuryDamage?` · 부상 ${prediction.injuryDamage}`:''}`;
+  $('compact-incoming').className = prediction.incoming ? 'danger' : 'good';
+  const combo = chosen && run.rulesVersion === 2 ? comboFeedback(run, chosen) : null;
+  $('compact-card-name').textContent = chosen ? `${CARDS[chosen.id].name}${chosen.upgraded?' +':''} · ${CARDS[chosen.id].type==='injury'?'사용 불가':`에너지 ${costOf(chosen)}`}` : m.hand.length ? '손패를 눌러 선택하세요' : '손패를 모두 사용했어요';
+  const textKey = chosen?.uid || '';
+  if ($('compact-card-text').dataset.card !== textKey) $('compact-card-text').scrollTop = 0;
+  $('compact-card-text').dataset.card = textKey;
+  $('compact-card-text').textContent = chosen ? cardText(chosen) : m.choice ? '카드 효과를 마무리할 선택이 남아 있어요. 선택 계속을 눌러주세요.' : m.hand.length ? '아래 카드 선택 → 상대 선택 → 사용. 전장을 보며 다음 행동을 준비하세요.' : '턴을 종료하면 새 카드 5장을 뽑습니다.';
+  let result = chosen ? $('damage-preview').textContent : '카드를 누르는 것만으로 사용되지는 않아요.';
+  for (const enemy of views) result = result.replaceAll(enemy.name, enemyShortName(enemy));
+  $('compact-card-result').textContent = result;
+  $('compact-combo').hidden = !combo;
+  $('compact-combo').textContent = combo ? `${combo.affordable?'↗ 연계':'에너지 부족 · 연계 대기'} · ${combo.effects.join(' · ') || '다음 기술로 연결'}` : '';
+  $('compact-card-details').disabled = !chosen && !m.choice;
+  $('compact-card-details').textContent = m.choice ? '선택 계속' : '상세';
+  $('compact-player-details').textContent = m.playerExposed ? `내 노출 ${m.playerExposed}` : m.energyDebt ? `다음 −${m.energyDebt}E` : '내 상태';
+  if (handPageRound !== roundKey) { handPage = 0; handPageRound = roundKey; }
+  const pages = Math.max(1, Math.ceil(m.hand.length / HAND_PAGE_SIZE));
+  handPage = Math.max(0, Math.min(handPage, pages - 1));
+  $('compact-hand-nav').dataset.pages = pages;
+  $('compact-hand-page').textContent = `손패 ${m.hand.length}장${pages>1?` · ${handPage+1}/${pages}`:''}`;
+  document.querySelectorAll('[data-hand-page]').forEach(button => { button.disabled = Number(button.dataset.handPage)<0 ? handPage===0 : handPage===pages-1; });
+  $('mobile-hand-tabs').querySelectorAll('[data-hand]').forEach((button,index) => { button.hidden = Math.floor(index/HAND_PAGE_SIZE)!==handPage; });
+}
+function showCompactEnemyInfo() {
+  if (run.phase !== 'match') return;
+  const boss = getBossView(run);
+  openDialog('상대 행동과 전술', `<div class="dialog-copy">${boss?.max?`<p><strong>${esc(boss.title)} · 전술 진행 ${boss.progress}/${boss.max}</strong></p>`:''}${compactEnemyViews().map(enemy=>`<p><strong>${esc(enemy.name)} · ${esc(enemy.roleLabel || '상대')}</strong><br>체력 ${enemy.hp}/${enemy.maxHp} · 방어 ${enemy.block} · 약점 노출 ${enemy.exposed} · 공격 약화 ${enemy.weakened}<br><strong>${esc(enemy.intent.name)} · 다음 공격 ${enemy.attack}</strong><br>${esc(enemy.intent.description || '')}${enemy.mechanic&&!enemy.intent.description?.includes(enemy.mechanic)?`<br>${esc(enemy.mechanic)}`:''}</p>`).join('')}</div>`);
 }
 function renderEnemyTargets(chosen, preview, prediction) {
   const enabled = run.phase === 'match' && run.encounterVersion === 1 && run.activeNode?.type === 'match', views = enabled ? enemyViews(run) : [];
@@ -493,12 +548,13 @@ function render() {
     $('end-turn').disabled=busy||!!match.choice; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
   } else { delete hand.dataset.renderKey; delete hand.dataset.roundKey; renderPhase(); }
   renderEnemyTargets(active ? match.hand.find(c=>c.uid===selected) : null, selectedPreview, prediction);
+  renderCompactCombat(active ? match.hand.find(c=>c.uid===selected) : null, selectedPreview, prediction, roundKey);
   $('commentary').textContent=(run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.').replaceAll('헬스장','훈련장').replaceAll('휴식처','라커룸');
   $('sound-button').setAttribute('aria-pressed',String(sound)); $('sound-button').setAttribute('aria-label',sound?'소리 끄기':'소리 켜기'); $('sound-button').style.color=sound?'var(--mint)':'';
   paintCards();
   if(focusHand) document.querySelector(`${focusHandTab ? '.mobile-hand-tab' : '#hand .card'}[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
   if(focusReward) document.querySelector(`[data-reward="${CSS.escape(focusReward)}"]`)?.focus({preventScroll:true});
-  if(focusTarget) document.querySelector(`${focusTargetPosition==='dock'?'#mobile-targets':focusTargetPosition==='stage'?'#enemy-stage-targets':'#enemy-target-list'} [data-enemy-target="${CSS.escape(focusTarget)}"]:not(:disabled)`)?.focus({preventScroll:true});
+  if(focusTarget) document.querySelector(`${focusTargetPosition==='compact'?'#compact-opponents':focusTargetPosition==='dock'?'#mobile-targets':focusTargetPosition==='stage'?'#enemy-stage-targets':'#enemy-target-list'} [data-enemy-target="${CSS.escape(focusTarget)}"]:not(:disabled)`)?.focus({preventScroll:true});
   if (replaceHand) hand.scrollLeft = handScrollLeft;
   syncRewardDialog();
   renderStrikerStatus();
@@ -720,7 +776,7 @@ function showHelp() {
     <li>새 도전의 상점은 장비를 최대 3개, 기술 카드를 별도로 진열합니다. <strong>한 번 진열된 장비는 구매하지 않아도 이번 도전에서 다시 나오지 않습니다.</strong> 프로리그와 유럽대항전에서는 새로운 전용 기술과 장비도 만나볼 수 있습니다.</li>
     <li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복${run.rulesVersion === 2 ? ' 또는 ACT당 한 번 부상 치료' : ''}를 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li>
     ${run.rulesVersion === 2 ? '<li><strong>테크닉 연계</strong>: 서로 다른 터치·드리블을 연달아 쓰면 발동. 다른 종류는 연계를 끊습니다.</li><li><strong>제공권 헤더</strong>: 방어 일부를 먼저 소모해 공격합니다. 기세는 유지됩니다.</li><li><strong>훈련과 휘발성</strong>: 훈련은 즉시 효과 또는 전투 동안 지속되는 효과를 줍니다. 휘발성 카드는 사용 후 이번 전투에서 소멸합니다.</li><li><strong>부상</strong>: 덱 부상은 라커룸에서 ACT당 1회, 한 장 치료할 수 있습니다. 카드 효과로 생긴 전투 한정 부상은 전투 후 사라집니다. 일반 카드 제거로는 치료할 수 없습니다.</li>' : ''}
-    </ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 겹친 손패 또는 아래 카드 이름 터치 → 카드 사용. 선택한 카드가 크게 표시됩니다.<br>공격수 1명 · 기술 ${Object.values(CARDS).filter(c => c.type !== 'injury').length}종${run.rulesVersion === 2 ? ' · 부상 3종' : ''} · 아이템 ${Object.keys(RELICS).length}종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 3 ACT · 총 36개 지점입니다. 이전에 저장한 도전은 기존 유소년 경로를 유지합니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>`);
+    </ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 전장 아래 손패 선택 → 상대 선택 → 카드 사용. 같은 카드를 다시 누르면 선택을 해제합니다. 손패가 6장을 넘으면 이전/다음으로 넘기고, 전체 효과는 상세에서 확인하세요.<br>공격수 1명 · 기술 ${Object.values(CARDS).filter(c => c.type !== 'injury').length}종${run.rulesVersion === 2 ? ' · 부상 3종' : ''} · 아이템 ${Object.keys(RELICS).length}종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 3 ACT · 총 36개 지점입니다. 이전에 저장한 도전은 기존 유소년 경로를 유지합니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>`);
 }
 function showMenu() {
   const previous = previousJourney();
@@ -771,22 +827,13 @@ function selectEliteRelic(id) {
   }
   document.querySelector('[data-action="take-elite-relic"]').disabled = false;
 }
-function revealMobileCard() {
-  if (!matchMedia('(max-width:800px), (max-width:1100px) and (max-height:520px)').matches) return;
-  const card = $('hand').querySelector('.selected');
-  if (!card) return;
-  const bounds = card.getBoundingClientRect(), bottom = document.querySelector('.battle-controls').getBoundingClientRect().top - 8;
-  // Only correct vertical clipping; selecting a card never pans the hand sideways.
-  const delta = bounds.top < 8 ? bounds.top - 8 : bounds.bottom > bottom ? Math.min(bounds.bottom - bottom, bounds.top - 8) : 0;
-  if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
-}
-
 document.addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button || button.disabled) return;
   const d = button.dataset;
   if (d.starterRelic) return takeStarterReward(d.starterRelic);
   if (d.eliteRelic) return selectEliteRelic(d.eliteRelic);
-  if (d.hand) { selected = d.hand; render(); revealMobileCard(); return; }
+  if (d.handPage) { handPage += Number(d.handPage); selected = null; render(); return; }
+  if (d.hand) { selected = compactCombat.matches && selected === d.hand ? null : d.hand; if (selected) handPage = Math.floor(run.match.hand.findIndex(c=>c.uid===selected)/HAND_PAGE_SIZE); render(); return; }
   if (d.enemyTarget) return dispatch({type:'select-target',targetId:d.enemyTarget});
   if (d.reward && cardRewardKey() && run.offers.includes(d.reward)) { rewardSelection = d.reward; updateRewardSelection(); return; }
   if (d.node) { $('route-dialog').close(); return dispatch({ type: 'choose-node', id: d.node }); }
@@ -803,6 +850,17 @@ document.addEventListener('click', e => {
   if (d.event) return dispatch({ type: 'event-choice', id: d.event });
   if (d.relic) return openDialog(RELICS[d.relic].name, `<div class="equipped-item">${itemCanvas(RELICS[d.relic])}<p class="dialog-copy">${esc(RELICS[d.relic].description)}</p></div>`);
   switch (d.action) {
+    case 'compact-enemy-info': return showCompactEnemyInfo();
+    case 'compact-player-info':
+      if (run.rulesVersion === 2) return showStrikerInfo();
+      return openDialog('내 전투 상태', `<div class="dialog-copy"><p>방어 ${run.match?.defense || 0} · 기세 ${run.match?.momentum || 0}</p><p>방어는 이번 턴에 받는 피해를 줄입니다. 기세는 다음 슈팅을 강화하며 턴이 끝나도 유지됩니다.</p></div>`);
+    case 'compact-card-info': {
+      if (run.match?.choice) return syncCombatChoice(true);
+      const card = run.match?.hand.find(c=>c.uid===selected);
+      if (!card) return;
+      const combo = run.rulesVersion === 2 ? comboFeedback(run,card) : null;
+      return openDialog(CARDS[card.id].name, `<div class="dialog-cards">${cardHTML(card)}</div><p class="dialog-copy">${esc($('compact-card-result').textContent)}</p>${combo?`<p class="dialog-copy">↗ 연계: ${esc(combo.effects.join(' · ') || '다음 기술로 연결')}</p>`:''}`);
+    }
     case 'encounter-help': return openDialog('상대 역할과 대상 선택', `<div class="dialog-copy"><p>카드를 고른 뒤 상대를 누르고 <strong>카드 사용</strong>을 눌러 확정하세요. 대상만 바꾸면 에너지와 연계는 그대로입니다.</p><p><strong>공격형</strong>은 꾸준히 공격하고, <strong>버퍼형</strong>은 다른 상대의 다음 턴 공격을 강화합니다. <strong>기술형</strong>은 공격에 약점 노출을 섞고, <strong>방어형</strong>은 동료를 보호합니다. <strong>축적형</strong>은 힘을 모아 강공한 뒤 빈틈을 보입니다.</p><p>행동 예고에는 버프와 약점 효과가 반영됩니다. 상대별 방어·약점 노출·공격 약화는 따로 적용됩니다. 쓰러진 상대는 행동하지 않습니다.</p>${enemyViews(run).filter(e=>e.hp>0).map(e=>`<p><strong>${esc(e.name)} · ${esc(e.roleLabel || ENEMY_ROLES[e.role] || '')}</strong><br>${esc(e.mechanic || e.intent.description || '')}</p>`).join('')}</div>`);
     case 'open-reward': return showRewardDialog();
     case 'skip-reward': return takeCardReward(true);
@@ -878,7 +936,7 @@ function showLog() { openDialog('대결 기록', run.match?.history.length ? run
 $('log-button').addEventListener('click', showLog);
 document.addEventListener('keydown', e => {
   if (tutorial.active || $('dialog').open || $('route-dialog').open || $('reward-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (/^[1-9]$/.test(e.key)) { const card = run.match.hand[Number(e.key) - 1]; if (card) { selected = card.uid; render(); const button = $('hand').querySelector(`[data-hand="${CSS.escape(selected)}"]`); button?.focus({preventScroll:true}); button?.scrollIntoView({block:'nearest',inline:'nearest'}); } }
+  if (/^[1-9]$/.test(e.key)) { const index = Number(e.key)-1, card = run.match.hand[index]; if (card) { selected = card.uid; handPage = Math.floor(index/HAND_PAGE_SIZE); render(); const button = $(compactCombat.matches?'mobile-hand-tabs':'hand').querySelector(`[data-hand="${CSS.escape(selected)}"]`); button?.focus({preventScroll:true}); if (!compactCombat.matches) button?.scrollIntoView({block:'nearest',inline:'nearest'}); } }
   else if (e.code === 'Space' && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); dispatch({ type: 'end-turn' }); }
   else if (e.key === 'Enter' && selected && (document.activeElement.matches('[data-hand]') || !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))) { e.preventDefault(); dispatch({ type: 'play-card', uid: selected, targetId:run.match?.targetId }); }
 });
@@ -904,6 +962,7 @@ function frame(now) {
   drawPitch(context, { width: pitch.width, height: pitch.height, actNumber:actView().number, time: motion.matches ? 0 : now, reducedMotion: motion.matches, boss: getBossView(run), opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, enemies:run.match?.enemies ? enemyViews(run) : undefined,targetId:run.match?.targetId,targetIds:run.phase==='match'&&targetScope(run.match.hand.find(c=>c.uid===selected))==='all'?enemyViews(run).filter(e=>e.hp>0).map(e=>e.id):[run.match?.targetId], phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
   pitchDirty = false;
 }
+compactCombat.addEventListener('change', () => { if (run.phase === 'match') { render(); if (compactCombat.matches) window.scrollTo({top:0,behavior:'instant'}); } });
 render(); save(); requestAnimationFrame(frame);
 initArt().then(() => { pitchDirty = true; paintCards(); });
 if (firstVisit) showNameForm('welcome');
