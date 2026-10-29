@@ -36,6 +36,9 @@ const rows = [
   ['diving-header','다이빙 헤더','header',1,'uncommon','aerial',{damage:12,spendBlock:6,blockRatio:2,injury:'ankle-pain'},{damage:16}],
   ['power-header','찍어 누르는 헤더','header',2,'rare','aerial',{damage:10,spendBlock:10,blockRatio:3},{damage:14}],
   ['suppressing-header','제압 헤더','header',1,'rare','aerial',{damage:8,weakened:1,guardThreshold:8,guardBonus:4},{damage:11,weakened:2}],
+  ['sweeping-shot','감아차는 슈팅','shot',2,'common','power',{damage:7,target:'all',momentum:2,ratio:1},{damage:10}],
+  ['split-touch','교차 터치','pass',1,'common','technique',{damage:4,comboSplash:4},{damage:6,comboSplash:6}],
+  ['clearing-header','걷어내는 헤더','header',1,'uncommon','aerial',{damage:4,target:'all',spendBlock:4,blockRatio:1},{damage:6}],
 ];
 export const INJURIES = Object.freeze({
   'stiff-muscle': {name:'근육 뭉침',text:'사용 불가. 손패 한 자리를 차지합니다.'},
@@ -66,6 +69,7 @@ export function comboFeedback(run, card) {
   if (e.comboBlock) effects.push(`방어 +${e.comboBlock}`);
   if (e.comboDraw) effects.push(`카드 ${e.comboDraw}장 뽑기`);
   if (e.comboWeakened) effects.push(`공격 약화 ${e.comboWeakened}턴 추가`);
+  if (e.comboSplash) effects.push(m.enemies?.some(enemy => enemy.id !== m.targetId && enemy.hp > 0) ? `다른 상대에게 피해 ${e.comboSplash}` : '다른 상대 없음 · 추가 타격 없음');
   const has = id => run.relics.includes(id);
   if (!m.turnFlags.combo) {
     if (has('swift-boots')) effects.push('바람의 축구화: 총 피해 +3');
@@ -81,6 +85,7 @@ export function cardText(card) {
   const e = cardEffect(card), lines = [];
   if (!CARDS[card?.id]) return '알 수 없는 카드';
   if (e.damage) lines.push(`피해 ${e.damage}${e.hits ? ` × ${e.hits}회` : ''}.`);
+  if (e.target === 'all') lines.push('모든 상대를 공격. 장비·다음 공격 보너스는 선택 대상만.');
   if (e.momentum) lines.push(`기세 ${e.momentum === 'all' ? '모두' : `최대 ${e.momentum}`} 소모, 1당 피해 +${e.ratio}.`);
   if (e.spendBlock) lines.push(`공격 전에 방어 최대 ${e.spendBlock} 소모, 1당 피해 +${e.blockRatio}.`);
   if (e.block) lines.push(`${CARDS[card.id].type === 'header' ? '공격 후 ' : ''}이번 턴 방어 +${e.block}.`);
@@ -102,6 +107,7 @@ export function cardText(card) {
   if (e.comboHits) lines.push(`연계: ${e.comboHits}회 추가 타격.`);
   if (e.comboDraw) lines.push(`연계: 카드 ${e.comboDraw}장 뽑기.`);
   if (e.comboWeakened) lines.push(`연계: 공격 약화 ${e.comboWeakened}턴 추가.`);
+  if (e.comboSplash) lines.push(`연계: 다른 상대에게 피해 ${e.comboSplash}. 다른 상대가 없으면 추가 타격 없음.`);
   if (e.selfExposed) lines.push('내 약점 노출 1턴. 다음 상대 공격 피해 +50%.');
   if (e.distinctBonus) lines.push(`이번 턴 앞서 사용한 서로 다른 터치·드리블 이름당 피해 +${e.distinctBonus} (최대 4종).`);
   if (e.afterHeader) lines.push(`이번 턴 헤더를 썼다면 방어 +${e.afterHeader}.`);
@@ -118,6 +124,7 @@ export const PLAYABLE_IDS = Object.freeze(rows.map(row => row[0]));
 export const REWARD_IDS = Object.freeze(PLAYABLE_IDS.filter(id => !['shot','cover','quick-pass'].includes(id)));
 export const STARTER_DECK = Object.freeze(['shot','shot','shot','cover','cover','cover','quick-pass','quick-pass','dribble','redirect-header']);
 export const CARD_PRICES = Object.freeze({common:70,uncommon:150,rare:320});
+export const MULTI_ENEMY_CARD_IDS = Object.freeze(['sweeping-shot','split-touch','clearing-header']);
 export function rewardPool(run, rarity) {
-  return REWARD_IDS.filter(id => (!rarity || CARDS[id].rarity === rarity) && !(CARDS[id].effect.persistent && run.deck.some(card => card.id === id)));
+  return REWARD_IDS.filter(id => (!MULTI_ENEMY_CARD_IDS.includes(id) || run.encounterVersion === 1) && (!rarity || CARDS[id].rarity === rarity) && !(CARDS[id].effect.persistent && run.deck.some(card => card.id === id)));
 }

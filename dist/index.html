@@ -25,6 +25,7 @@
       <canvas id="pitch" width="960" height="400" aria-label="왼쪽의 붉은 스트라이커와 오른쪽의 라이벌 선수"></canvas>
       <div class="fighter-nameplate hero-nameplate"><h2><button id="hero-name" data-action="rename" aria-label="선수 이름 변경">루키</button></h2></div>
       <div class="fighter-nameplate enemy-nameplate"><span id="enemy-role" class="fighter-role">THE RIVAL</span><h2 id="opponent-name">첫 번째 라이벌</h2></div>
+      <div id="enemy-stage-targets" class="enemy-stage-targets" role="group" aria-label="상대 선택" hidden></div>
       <div class="enemy-intent"><span class="intent-label">상대의 다음 행동</span><div><span class="intent-blade">⚔</span><strong id="incoming-value">0</strong><b id="intent-name">돌파 준비</b></div><span id="attack-modifier" class="attack-modifier" hidden></span><p id="intent-description"></p><span id="danger-badge" class="outcome-badge">피해 예고</span></div>
       <div id="pitch-announcement" class="pitch-announcement" aria-live="polite"></div>
       <div id="combat-feedback" class="combat-feedback" aria-hidden="true"></div>
@@ -44,14 +45,19 @@
         </div>
       </div>
     </section>
+    <section id="enemy-target-panel" class="enemy-target-panel" aria-label="상대별 상태와 공격 대상" hidden>
+      <div class="enemy-target-heading"><strong id="enemy-target-instruction">공격할 상대를 선택하세요</strong><button type="button" data-action="encounter-help" class="enemy-role-help" aria-haspopup="dialog">역할 안내</button></div>
+      <div id="enemy-target-list" class="enemy-target-list" role="group" aria-label="공격 대상 선택"></div>
+      <div id="encounter-forecast" class="encounter-forecast" role="status" aria-live="polite"></div>
+    </section>
     <section id="phase-panel" class="phase-panel" hidden></section>
     <section id="hand-section" class="hand-section battle-hand" aria-label="손패">
       <div id="striker-status" class="striker-status" hidden></div>
       <div class="hand-heading"><span id="selected-info" class="selected-info"><strong>이번 턴의 플레이를 골라보세요.</strong><span>카드 선택 → 사용. 공격은 즉시, 상대 행동은 턴 종료 후.</span></span><span id="damage-preview" class="damage-preview">공격은 즉시 적용</span></div>
-      <div class="hand-zone"><div id="hand" class="hand" aria-label="사용할 카드를 선택하세요"></div><div id="mobile-hand-tabs" class="mobile-hand-tabs" role="group" aria-label="손패 바로 선택"></div><div class="battle-controls" role="group" aria-label="전투 조작"><div class="energy"><span class="energy-orb"><strong id="energy-value">3</strong></span><span id="energy-cap">/ 3 에너지</span><button id="draw-pile" class="pile-orb" aria-label="뽑을 카드 확인">▤ <b>0</b><small>뽑기</small></button></div><div class="turn-actions"><button id="discard-pile" class="pile-orb" aria-label="버린 카드 확인">▤ <b>0</b><small>버림</small></button><button id="play-card-button" class="button card-use" disabled>카드 사용</button><button id="end-turn" class="button primary">턴 종료 →</button></div></div></div>
+      <div class="hand-zone"><div id="hand" class="hand" aria-label="사용할 카드를 선택하세요"></div><div id="mobile-hand-tabs" class="mobile-hand-tabs" role="group" aria-label="손패 바로 선택"></div><div class="battle-controls" role="group" aria-label="전투 조작"><div id="mobile-targets" class="mobile-targets" role="group" aria-label="공격 대상 바로 선택" hidden></div><div class="energy"><span class="energy-orb"><strong id="energy-value">3</strong></span><span id="energy-cap">/ 3 에너지</span><button id="draw-pile" class="pile-orb" aria-label="뽑을 카드 확인">▤ <b>0</b><small>뽑기</small></button></div><div class="turn-actions"><button id="discard-pile" class="pile-orb" aria-label="버린 카드 확인">▤ <b>0</b><small>버림</small></button><button id="play-card-button" class="button card-use" disabled>카드 사용</button><button id="end-turn" class="button primary">턴 종료 →</button></div></div></div>
     </section>
     <div class="match-foot"><p id="commentary" role="status">내 기술, 내 장비, 나만의 플레이.</p><button id="log-button">대결 기록 ↗</button></div>
-    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 1.1.0</span></footer>
+    <footer class="main-footer"><span><span id="save-status">자동 저장</span> · <span id="offline-status">오프라인 준비 중</span></span><span>PERSONAL JOURNEY · PROTOTYPE 1.2.0</span></footer>
   </main>
   <dialog id="route-dialog" aria-labelledby="route-title"><div class="dialog-top"><span id="route-title">전설로 향하는 길 <small id="route-progress">1 / 12</small></span><button id="close-route" class="icon-button" aria-label="지도 닫기">×</button></div><div class="route-dialog-body"><div class="map-chapters"><span class="current">Ⅰ 유소년</span><span>Ⅱ 프로 리그 · 준비 중</span><span>Ⅲ 유럽대항전 · 준비 중</span></div><div id="route-list" class="route-list" aria-label="이번 도전 경로"></div><p class="map-note">카드 보상을 고른 뒤 밝은 지점으로 이동하세요. 훈련장·라커룸·상점은 해당 지점에서만 이용할 수 있어요.</p></div></dialog>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span id="dialog-title">나의 덱</span><button id="close-dialog" class="icon-button" aria-label="창 닫기">×</button></div><div id="dialog-body"></div></dialog>

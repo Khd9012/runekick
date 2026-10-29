@@ -182,6 +182,15 @@ Edit this existing twelve-icon football relic atlas for precise production layou
 
 # Football hero redesign · 2026-10-26
 
+## Ordinary opponent roles · 2026-10-29
+
+- Built-in `image_gen.imagegen`, five separate transparent PNG generations; no CLI fallback or bitmap post-processing.
+- Project assets: `dist/assets/rival-attacker.png`, `rival-technique.png`, `rival-defender.png`, `rival-charger.png`, `rival-support.png`.
+- All five are 1024×1536 RGBA. Transparency was checked from the alpha channel; corners are alpha 0 and each contains over one million fully transparent pixels. The preview's apparent glow outside the silhouette is RGB beneath transparent alpha.
+- 민준: orange sprinting winger; 하준: plum close-control player; 태오: broad sky-blue defender; 건우: tall yellow aerial forward; 지훈 코치: sage tracksuit, glasses and tactical clipboard. Original fictional designs without club branding.
+- Runtime trims transparent margins once and sizes the active sprites to their actual widths. First and existing ordinary solo encounters also use the matching new art. Elite and boss artwork is retained.
+- [Exact prompt set and generated source paths](docs/ordinary-opponent-art-prompts.md).
+
 - Mode: built-in `image_gen.imagegen`, transparent output.
 - Project asset: `dist/assets/striker-football.png` (1024 × 1536 RGBA; 1,615,401 bytes).
 - Generated source: `C:\Users\devco\.codex\generated_images\01a176f6-4d25-71d2-b2a1-851a8b887e69\exec-6b48a4e9-1e4b-45ef-8bf5-8a5ad6a9f449.png`.

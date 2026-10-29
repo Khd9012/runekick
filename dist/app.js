@@ -130,13 +130,17 @@ function animate(type, message, impact = {}) {
   if (message) announce(message, type === 'boss' || !!impact.bossCountered);
   playTone(type, impact);
 }
-function floatCombat(target, kind, value, heavy = false) {
+function floatCombat(target, kind, value, heavy = false, enemyId = '') {
   const layer = $('combat-feedback');
   // Keep rapid card use responsive without piling old numbers over the latest hit.
-  layer.querySelectorAll(`[data-target="${target}"][data-kind="${kind}"]`).forEach(node => node.remove());
+  layer.querySelectorAll(`[data-target="${target}"][data-kind="${kind}"][data-enemy-id="${CSS.escape(enemyId)}"]`).forEach(node => node.remove());
   const label = document.createElement('span');
   label.className = `combat-float ${kind}${heavy ? ' heavy' : ''}`;
-  label.dataset.target = target; label.dataset.kind = kind;
+  label.dataset.target = target; label.dataset.kind = kind; label.dataset.enemyId = enemyId;
+  if (target==='enemy' && run.match?.enemies?.length===2 && enemyId) {
+    const index = enemyViews(run).findIndex(e=>e.id===enemyId);
+    if (index>=0) label.style.left = `${index===0?56:83}%`;
+  }
   if (kind === 'damage') label.innerHTML = `<strong>−${value}</strong>${heavy ? '<small>강타</small>' : ''}`;
   else if (kind === 'block' || kind === 'perfect-block') label.innerHTML = `<strong>막음 ${value}</strong>${kind === 'perfect-block' ? '<small>완전 방어</small>' : ''}`;
   else if (kind === 'shield') label.innerHTML = `<strong>방어 +${value}</strong>`;
@@ -164,19 +168,29 @@ function combatFeedback(before, next, action, card) {
     return;
   }
   if (card && before.match && next.match) {
+    const beforeEnemies = before.match.enemies ? enemyViews(before) : [], afterEnemies = next.match.enemies ? enemyViews(next) : [];
+    const changes = beforeEnemies.map(enemy=>({before:enemy, after:afterEnemies.find(e=>e.id===enemy.id)})).filter(e=>e.after);
     const damage = Math.max(0, before.match.enemyHp - next.match.enemyHp);
-    const blocked = Math.max(0, before.match.enemyBlock - next.match.enemyBlock);
+    const blocked = changes.length ? changes.reduce((total,e)=>total+Math.max(0,e.before.block-e.after.block),0) : Math.max(0, before.match.enemyBlock - next.match.enemyBlock);
     const defenseGain = Math.max(0, next.match.defense - before.match.defense);
     const selfDamage = Math.max(0, before.condition - next.condition);
     const attackCard = /(?:^|\.\s*)피해 \d+/.test(cardText(card));
-    const debuffs = [['enemyExposed', '약점 노출'], ['enemyWeakened', '공격 약화']].filter(([key]) => (next.match[key] || 0) > (before.match[key] || 0)).map(([, label]) => label);
+    const debuffs = changes.length ? [...new Set(changes.flatMap(e=>[e.after.exposed>e.before.exposed&&'약점 노출',e.after.weakened>e.before.weakened&&'공격 약화'].filter(Boolean)))] : [['enemyExposed', '약점 노출'], ['enemyWeakened', '공격 약화']].filter(([key]) => (next.match[key] || 0) > (before.match[key] || 0)).map(([, label]) => label);
     const type = next.phase === 'reward' ? 'goal' : attackCard ? (CARDS[card.id].type === 'tactic' ? 'pass' : CARDS[card.id].type) : defenseGain ? 'defense' : debuffs.length ? 'debuff' : 'pass';
     animate(type, next.phase === 'reward' ? 'DUEL WON' : next.phase === 'defeat' ? '다음 도전을 향해.' : interrupted ? '전술 파훼!' : null,
-      { damage, blocked, defenseGain, intensity: Math.min(1, damage / 30), target: attackCard || debuffs.length || blocked ? 'enemy' : 'hero', ...bossImpact(boss || previousBoss, interrupted) });
-    if (damage) floatCombat('enemy', 'damage', damage, damage >= 20);
+      { damage, blocked, defenseGain, intensity: Math.min(1, damage / 30), target: attackCard || debuffs.length || blocked ? 'enemy' : 'hero', targetId:action.targetId || before.match.targetId, targetIds:changes.filter(e=>e.before.hp>e.after.hp||e.before.block>e.after.block||e.before.exposed<e.after.exposed||e.before.weakened<e.after.weakened).map(e=>e.before.id), ...bossImpact(boss || previousBoss, interrupted) });
+    if (changes.length) {
+      for (const e of changes) {
+        const dealt = e.before.hp-e.after.hp, absorbed = e.before.block-e.after.block;
+        if (dealt>0) floatCombat('enemy','damage',dealt,dealt>=20,e.before.id);
+        else if (absorbed>0) floatCombat('enemy','armor',absorbed,false,e.before.id);
+        const inflicted = [e.after.exposed>e.before.exposed&&'약점 노출',e.after.weakened>e.before.weakened&&'공격 약화'].filter(Boolean);
+        if (inflicted.length) floatCombat('enemy','debuff',inflicted.join(' · '),false,e.before.id);
+      }
+    } else if (damage) floatCombat('enemy', 'damage', damage, damage >= 20);
     else if (blocked) floatCombat('enemy', 'armor', blocked);
     if (defenseGain) floatCombat('hero', 'shield', defenseGain);
-    if (debuffs.length) floatCombat('enemy', 'debuff', debuffs.join(' · '));
+    if (debuffs.length && !changes.length) floatCombat('enemy', 'debuff', debuffs.join(' · '));
     if (selfDamage) floatCombat('hero', 'damage', selfDamage, selfDamage >= 20);
     return;
   }
@@ -189,6 +203,10 @@ function dispatch(action) {
   if (busy) return;
   const before = run, card = action.type === 'play-card' ? run.match?.hand.find(c => c.uid === action.uid) : null;
   const next = act(run, action);
+  if (action.type === 'select-target') {
+    if (next === before) return;
+    run = next; save(); render(); return;
+  }
   if (next === before) return toast('지금은 사용할 수 없는 선택이에요.');
   run = next; selected = null; rewardSelection = null; eliteRelicSelection = null;
   combatFeedback(before, run, action, card);
@@ -206,6 +224,41 @@ function dispatch(action) {
 }
 function playableDeckSize() { return run.deck.filter(c => CARDS[c.id].type !== 'injury').length; }
 function costOf(card) { return run.rulesVersion === 2 ? Current.cardCost(card, run.match) : card.upgraded ? CARDS[card.id].upgradedCost : CARDS[card.id].cost; }
+const ENEMY_ROLES = {attacker:'공격형',buffer:'버퍼형',technique:'기술형',defender:'방어형',charger:'축적형'};
+const enemyViews = state => state?.rulesVersion === 2 && Current.getEnemyViews ? Current.getEnemyViews(state) : [];
+function targetScope(card) {
+  const e = CARDS[card?.id]?.effect;
+  if (!card || !(e?.damage || e?.exposed || e?.weakened)) return 'self';
+  return e.target === 'all' ? 'all' : e.comboSplash && Current.isCombo(run.match,card) ? 'split' : 'single';
+}
+function enemyChangeText(before, after) {
+  if (!after) return '';
+  const damage = Math.max(0,before.hp-after.hp), block = Math.max(0,before.block-after.block);
+  return [damage && `피해 ${damage}`, block && `방어 −${block}`, after.exposed>before.exposed && `약점 +${after.exposed-before.exposed}턴`, after.weakened>before.weakened && `약화 +${after.weakened-before.weakened}턴`, before.hp>0 && after.hp===0 && '격파'].filter(Boolean).join(' · ');
+}
+function renderEnemyTargets(chosen, preview, prediction) {
+  const enabled = run.phase === 'match' && run.encounterVersion === 1 && run.activeNode?.type === 'match', views = enabled ? enemyViews(run) : [];
+  const duo = views.length === 2, selectedId = run.match?.targetId ?? views[0]?.id, target = views.find(e=>e.id===selectedId), scope = targetScope(chosen);
+  document.body.dataset.enemyCount = enabled ? views.length : 1;
+  document.body.dataset.targetScope = enabled && chosen ? scope : 'none';
+  $('enemy-target-panel').hidden = !enabled; $('enemy-stage-targets').hidden = !duo;
+  $('mobile-targets').hidden = !duo;
+  if (!enabled) return;
+  const after = preview ? enemyViews(preview) : [], all = scope==='all';
+  const targetLabel = !chosen ? '상대를 눌러 상태 확인 · 카드 선택 후 사용' : scope==='self' ? '자신에게 적용 · 상대 선택 불필요' : all ? `전체 공격 · 주 대상: ${target?.name || '선택하세요'}` : scope==='split' ? `주 대상: ${target?.name || '선택하세요'} · 연계로 다른 상대도 타격` : `공격 대상: ${target?.name || '선택하세요'}`;
+  $('enemy-target-instruction').textContent = targetLabel;
+  $('enemy-target-list').innerHTML = views.map((enemy,index)=>{
+    const dead = enemy.hp<=0, selectedTarget = enemy.id===selectedId, highlighted = !dead && (all || selectedTarget);
+    const change = enemyChangeText(enemy,after.find(e=>e.id===enemy.id));
+    const status = [`방어 ${enemy.block}`,enemy.exposed&&`약점 ${enemy.exposed}턴`,enemy.weakened&&`약화 ${enemy.weakened}턴`,enemy.charge&&`충전 ${enemy.charge}`,enemy.attackBuff&&`공격 강화 +${enemy.attackBuff}`].filter(Boolean);
+    const label = `${enemy.name}, ${enemy.roleLabel || ENEMY_ROLES[enemy.role] || '상대'}, 체력 ${enemy.hp}/${enemy.maxHp}, ${status.join(', ')}, ${dead?'격파':`다음 행동 ${enemy.intent.name}, 공격 ${enemy.attack}. ${enemy.intent.description || ''}`}${change?`, 사용 시 ${change}`:''}`;
+    return `<button type="button" class="enemy-target role-${esc(enemy.role)}${highlighted?' selected':''}${dead?' defeated':''}" data-enemy-target="${esc(enemy.id)}" aria-pressed="${highlighted}" aria-label="${esc(label)}" ${dead||busy||run.match.choice?'disabled':''}><span class="enemy-target-top"><strong>${esc(enemy.name)}</strong><small>${esc(enemy.roleLabel || ENEMY_ROLES[enemy.role] || '상대')}</small></span><span class="enemy-target-health"><i style="width:${Math.max(0,enemy.hp)/enemy.maxHp*100}%"></i><b>체력 ${enemy.hp} / ${enemy.maxHp}</b></span><span class="enemy-target-stats">${status.map((s,i)=>`<span class="${i===0?'target-block':''}">${esc(s)}</span>`).join('')}</span><span class="enemy-target-intent"><b>${dead?'✓ 격파':enemy.attack?`⚔ ${enemy.attack}`:'지원'}</b><span>${dead?'행동하지 않음':esc(enemy.intent.name)}</span></span>${!dead&&enemy.intent.description?`<span class="enemy-target-detail">${esc(enemy.intent.description)}</span>`:''}<span class="enemy-target-preview">${change?esc(change):dead?'':all?selectedTarget?'전체 대상 · ◎ 주 대상':'전체 대상':selectedTarget?'✓ 선택한 상대':'눌러서 대상 선택'}</span></button>`;
+  }).join('');
+  $('enemy-stage-targets').innerHTML = views.map((enemy,index)=>`<button type="button" class="enemy-stage-target${enemy.id===selectedId?' selected':''}${enemy.hp<=0?' defeated':''}" style="--enemy-x:${index===0?56:83}%" data-enemy-target="${esc(enemy.id)}" data-target-position="stage" aria-label="${esc(enemy.name)} ${enemy.hp<=0?'격파됨':'공격 대상으로 선택'}" aria-pressed="${enemy.id===selectedId}" ${enemy.hp<=0||busy||run.match.choice?'disabled':''}><strong>${esc(enemy.name)}</strong><small>${enemy.hp<=0?'격파':enemy.roleLabel || ENEMY_ROLES[enemy.role] || ''}</small></button>`).join('');
+  $('mobile-targets').innerHTML = `<span>${scope==='self'&&chosen?'자신에게 적용':all?'주 대상':'공격 대상'}</span>${views.map(enemy=>`<button type="button" class="mobile-target${!enemy.hp?' defeated':''}" data-enemy-target="${esc(enemy.id)}" data-target-position="dock" aria-pressed="${enemy.hp>0&&(all||enemy.id===selectedId)}" aria-label="${esc(enemy.name)} 대상으로 선택, 체력 ${enemy.hp}, 다음 공격 ${enemy.attack}" ${enemy.hp<=0||busy||run.match.choice||scope==='self'&&chosen?'disabled':''}>${enemy.hp<=0?'✓ ':enemy.id===selectedId?'◎ ':''}${esc(enemy.name)}<small>${enemy.hp<=0?'격파':`♥ ${enemy.hp}`}</small></button>`).join('')}`;
+  const attacks = views.filter(e=>e.hp>0&&e.attack>0).map(e=>`${e.name} ${e.attack}`).join(' + ') || '이번 턴 공격 없음';
+  $('encounter-forecast').innerHTML = `<span>${esc(attacks)}<small>내 방어 ${prediction.guard}${prediction.injuryBlockLoss?` · 부상으로 방어 −${prediction.injuryBlockLoss}`:''}${prediction.injuryDamage?` · 부상 피해 ${prediction.injuryDamage}`:''}</small></span><strong class="${prediction.incoming?'danger':'good'}">예상 체력 피해 ${prediction.incoming}</strong>`;
+}
 function cardEffectHTML(card, modern = false) {
   const [first, ...sentences] = cardText(card, modern).split(/\.\s*/).filter(Boolean);
   const highlight = text => esc(text).replace(/(약점 노출)/g, '<b class="card-debuff-exposed">$1</b>').replace(/(공격 약화)/g, '<b class="card-debuff-weakened">$1</b>').replace(/(\+?\d+)/g, '<b class="card-rule-number">$1</b>');
@@ -266,22 +319,26 @@ function routeMap(interactive = false) {
     return `<${tag} class="map-point ${point.type}${visited ? ' visited' : ''}${available ? ' available' : ''}${current ? ' current' : ''}" style="--x:${point.x}%;--y:${point.y}%" ${available ? `data-node="${esc(point.id)}"` : ''} title="${esc(point.description||hint)}" aria-label="${esc(point.name)} · ${NODE_NAMES[point.type]} · ${state} · ${esc(hint)}" ${current ? 'aria-current="location"' : ''}><span class="map-point-icon">${visited && !current ? '✓' : NODE_ICONS[point.type]}</span><strong>${esc(point.name)}</strong><small>${visited&&!current?'완료':hint}</small>${available?'<em>선택해서 이동</em>':''}</${tag}>`;
   })).join('');
   const boss = route.at(-1).choices[0], coach = OPPONENTS[boss.opponentId];
+  const encounterNotice = run.rulesVersion === 2 && !run.encounterVersion ? '<div class="legacy-notice">이어 하던 도전은 기존 상대 구성으로 진행합니다. 2인전·다섯 역할·새 카드는 새 도전부터 적용됩니다.<button class="button" data-action="restart-confirm">새 도전 시작</button></div>' : '';
   const intro = run.schema === 3
     ? `<div class="route-brief"><span>12개 지점 · 연결된 길을 따라 이동</span><strong>레전드는 선택, 마지막 정비는 확실하게.</strong><p>초반 훈련 → 장비와 도전 → 보스 전 휴식·강화</p></div><div class="boss-preview"><span>FINAL COACH</span><strong>${esc(coach.name)}</strong><p>${esc(coach.mechanic)}</p></div>`
     : '<div class="legacy-notice">이어하던 7지점 경로입니다. 새 도전부터 12지점 지도와 감독 보스가 적용됩니다.<button class="button" data-action="restart-confirm">새 지도 시작하기</button></div>';
-  return `${run.rulesVersion !== 2 ? '<div class="legacy-notice">이어 하던 도전은 기존 카드 규칙으로 진행합니다. 새 공격수 카드·장비는 새 도전부터 적용됩니다.<button class="button" data-action="restart-confirm">새 규칙으로 시작</button></div>' : ''}${intro}<div class="tactics-board" style="--board-height:${Math.max(720,route.length*112)}px" aria-label="갈림길 전술 지도"><div class="board-pitch" aria-hidden="true"><i></i><b></b></div><span class="board-label">YOUTH / YOUR OWN PATH</span><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${edges}</svg>${nodes}<span class="board-start">KICK OFF ↑</span></div><div class="map-legend"><span>⚽ 대결</span><span>◇ 엘리트</span><span>↗ 훈련장</span><span>☾ 라커룸</span><span>▣ 상점</span><span>✧ 이벤트</span><span>♛ 최종 시험</span></div>`;
+  return `${run.rulesVersion !== 2 ? '<div class="legacy-notice">이어 하던 도전은 기존 카드 규칙으로 진행합니다. 새 공격수 카드·장비는 새 도전부터 적용됩니다.<button class="button" data-action="restart-confirm">새 규칙으로 시작</button></div>' : ''}${encounterNotice}${intro}<div class="tactics-board" style="--board-height:${Math.max(720,route.length*112)}px" aria-label="갈림길 전술 지도"><div class="board-pitch" aria-hidden="true"><i></i><b></b></div><span class="board-label">YOUTH / YOUR OWN PATH</span><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${edges}</svg>${nodes}<span class="board-start">KICK OFF ↑</span></div><div class="map-legend"><span>⚽ 대결</span><span>◇ 엘리트</span><span>↗ 훈련장</span><span>☾ 라커룸</span><span>▣ 상점</span><span>✧ 이벤트</span><span>♛ 최종 시험</span></div>`;
 }
 function render() {
   ({CARDS, RELICS} = rulesFor(run));
   pitchDirty = true;
   document.body.dataset.phase = run.phase;
   const focusHand = document.activeElement?.dataset?.hand, focusHandTab = document.activeElement?.classList.contains('mobile-hand-tab'), focusReward = document.activeElement?.dataset?.reward;
+  const focusTarget = document.activeElement?.dataset?.enemyTarget, focusTargetPosition = document.activeElement?.dataset?.targetPosition;
   const match = run.match, active = run.phase === 'match', prediction = forecast(run), route = routeFor(run);
   const hand = $('hand'), roundKey = active ? `${run.initialSeed}:${run.routeIndex}:${match.turn}` : '';
   const handScrollLeft = hand.dataset.roundKey === roundKey ? hand.scrollLeft : 0;
   const handKey = active ? JSON.stringify([roundKey, match.energy, match.hand.map(card => [card.uid, card.id, card.upgraded]), match.played.at(-1)?.id, match.discounts]) : '';
   const replaceHand = active && hand.dataset.renderKey !== handKey;
   const opponent = OPPONENTS[match?.opponentId] || OPPONENTS.school;
+  const enemies = active && run.encounterVersion===1 && run.activeNode?.type==='match' ? enemyViews(run) : [], currentEnemy = enemies.find(e=>e.id===match.targetId) || enemies[0];
+  let selectedPreview = null;
   $('condition-value').innerHTML = `${run.condition} <small>/ ${run.maxCondition}</small>`;
   $('condition-bar').style.width = `${100 * run.condition / run.maxCondition}%`;
   $('condition-bar').style.background = run.condition < 30 ? '#f26757' : '#db846d';
@@ -293,14 +350,14 @@ function render() {
   $('hero-name').textContent = run.playerName || '루키';
   $('round-label').textContent = run.activeNode?.type === 'boss' ? 'FINAL TRIAL' : `${Math.min(run.routeIndex+1,route.length)} / ${route.length}번째 여정`;
   $('match-title').textContent = active ? opponent.coach ? '감독의 전술을 돌파하라.' : opponent.legend ? '레전드의 벽을 넘어라.' : match.opponentId === 'school' ? '너의 플레이를 증명해.' : match.opponentId === 'champion' ? '다음 에이스는, 나다.' : '내 앞의 벽을 넘어서.' : run.phase === 'victory' ? '내 이름으로 쓴 첫 번째 전설.' : run.phase === 'defeat' ? '다시 일어날 이유는 충분해.' : '나를 완성하는 또 하나의 선택.';
-  $('match-subtitle').textContent = active ? opponent.subtitle : '내 기술, 내 장비, 나만의 플레이.';
+  $('match-subtitle').textContent = active ? enemies.length>1 ? `${enemies.map(e=>e.name).join(' · ')} · 누구부터 공략할까요?` : opponent.subtitle : '내 기술, 내 장비, 나만의 플레이.';
   $('turn-counter').hidden = !active; $('turn-number').textContent = String(match?.turn||1).padStart(2,'0');
   $('home-score').textContent = run.condition; $('hero-max-hp').textContent = run.maxCondition;
   $('hero-hp-bar').style.width = `${run.condition/run.maxCondition*100}%`;
-  $('opponent-name').textContent = opponent.name; $('enemy-role').textContent = opponent.coach?'THE COACH':opponent.legend?'THE LEGEND':run.activeNode?.type==='boss'?'THE ACE':'THE RIVAL';
-  $('pitch').setAttribute('aria-label', `${run.playerName||'루키'}와 ${opponent.name}의 개인 대결`);
+  $('opponent-name').textContent = currentEnemy?.name || opponent.name; $('enemy-role').textContent = currentEnemy?.roleLabel || ENEMY_ROLES[currentEnemy?.role] || (opponent.coach?'THE COACH':opponent.legend?'THE LEGEND':run.activeNode?.type==='boss'?'THE ACE':'THE RIVAL');
+  $('pitch').setAttribute('aria-label', `${run.playerName||'루키'}와 ${enemies.length?enemies.map(e=>e.name).join(', '):opponent.name}의 대결`);
   const boss = active ? getBossView(run) : null, rule = $('combat-rule');
-  rule.hidden = !active || !(boss || match.intent.rule || opponent.mechanic);
+  rule.hidden = !active || !!enemies.length || !(boss || match.intent.rule || opponent.mechanic);
   rule.classList.toggle('boss-rule', !!boss); rule.classList.toggle('countered', !!boss?.countered);
   if (boss) {
     const progress = Math.max(0, Math.min(boss.max || 0, boss.progress || 0));
@@ -387,23 +444,32 @@ function render() {
       }
     }
     if (chosen&&affordable) {
-      const preview=act(run,{type:'play-card',uid:chosen.uid});
+      const preview=act(run,{type:'play-card',uid:chosen.uid,targetId:match.targetId});
+      selectedPreview = preview;
       const damage=Math.max(0,match.enemyHp-(preview.match?.enemyHp??match.enemyHp)), block=Math.max(0,(preview.match?.defense||0)-match.defense);
       const healthCost=Math.max(0,run.condition-preview.condition), broken=Math.max(0,match.enemyBlock-(preview.match?.enemyBlock??match.enemyBlock));
       const momentumGain=Math.max(0,(preview.match?.momentum??match.momentum)-match.momentum);
       const exposedGain=Math.max(0,(preview.match?.enemyExposed||0)-(match.enemyExposed||0)), weakenedGain=Math.max(0,(preview.match?.enemyWeakened||0)-(match.enemyWeakened||0));
       const remainingBlock = preview.match?.defense ?? match.defense;
       const previewEffects = [CARDS[chosen.id].type === 'header' && `사용 후 방어 ${remainingBlock}`, damage&&`피해 ${damage}`, block&&`방어 +${block}`, broken&&`상대 방어 −${broken}`, momentumGain&&`기세 +${momentumGain}`, exposedGain&&`약점 노출 +${exposedGain}턴`, weakenedGain&&`공격 약화 +${weakenedGain}턴`, weakenedGain&&getEnemyAttack(preview)!==enemyAttack&&`상대 공격 ${enemyAttack} → ${getEnemyAttack(preview)}`, healthCost&&`내 체력 −${healthCost}`].filter(Boolean);
-      $('damage-preview').textContent = (combo ? '연계 포함 · ' : '') + (previewEffects.join(' · ')||'카드 효과 적용');
+      const perTarget = enemies.length ? enemies.filter(e=>e.hp>0).map(enemy=>{
+        const change = enemyChangeText(enemy,enemyViews(preview).find(e=>e.id===enemy.id));
+        return change && `${enemy.name}: ${change}`;
+      }).filter(Boolean) : [];
+      const summary = perTarget.length ? [...perTarget, block&&`내 방어 +${block}`, CARDS[chosen.id].type==='header'&&`남는 방어 ${remainingBlock}`,momentumGain&&`기세 +${momentumGain}`,healthCost&&`내 체력 −${healthCost}`].filter(Boolean).join(' · ') : previewEffects.join(' · ');
+      $('damage-preview').textContent = (combo ? '연계 포함 · ' : '') + (summary||'카드 효과 적용');
     } else $('damage-preview').textContent=chosen ? CARDS[chosen.id].type === 'injury' ? '부상은 사용할 수 없어요 · 턴 종료 효과를 확인하세요' : '에너지가 부족해요' : run.rulesVersion === 2 ? '기세 · 연계 · 제공권' : '드리블 → 기세 → 강화된 슛';
     $('play-card-button').disabled=busy||!affordable||!!match.choice; $('play-card-button').textContent=chosen&&CARDS[chosen.id].type === 'injury'?'사용 불가':chosen&&!affordable?'에너지 부족':'카드 사용';
+    if (chosen && affordable && enemies.length>1) { const scope=targetScope(chosen); $('play-card-button').textContent=scope==='all'?'전체 공격':scope==='self'?'카드 사용':`${currentEnemy?.name || '상대'}에게 사용`; }
     $('end-turn').disabled=busy||!!match.choice; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
   } else { delete hand.dataset.renderKey; delete hand.dataset.roundKey; renderPhase(); }
+  renderEnemyTargets(active ? match.hand.find(c=>c.uid===selected) : null, selectedPreview, prediction);
   $('commentary').textContent=(run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.').replaceAll('헬스장','훈련장').replaceAll('휴식처','라커룸');
   $('sound-button').setAttribute('aria-pressed',String(sound)); $('sound-button').setAttribute('aria-label',sound?'소리 끄기':'소리 켜기'); $('sound-button').style.color=sound?'var(--mint)':'';
   paintCards();
   if(focusHand) document.querySelector(`${focusHandTab ? '.mobile-hand-tab' : '#hand .card'}[data-hand="${CSS.escape(focusHand)}"]`)?.focus({preventScroll:true});
   if(focusReward) document.querySelector(`[data-reward="${CSS.escape(focusReward)}"]`)?.focus({preventScroll:true});
+  if(focusTarget) document.querySelector(`${focusTargetPosition==='dock'?'#mobile-targets':focusTargetPosition==='stage'?'#enemy-stage-targets':'#enemy-target-list'} [data-enemy-target="${CSS.escape(focusTarget)}"]:not(:disabled)`)?.focus({preventScroll:true});
   if (replaceHand) hand.scrollLeft = handScrollLeft;
   syncRewardDialog();
   renderStrikerStatus();
@@ -672,6 +738,7 @@ document.addEventListener('click', e => {
   if (d.starterRelic) return takeStarterReward(d.starterRelic);
   if (d.eliteRelic) return selectEliteRelic(d.eliteRelic);
   if (d.hand) { selected = d.hand; render(); revealMobileCard(); return; }
+  if (d.enemyTarget) return dispatch({type:'select-target',targetId:d.enemyTarget});
   if (d.reward && cardRewardKey() && run.offers.includes(d.reward)) { rewardSelection = d.reward; updateRewardSelection(); return; }
   if (d.node) { $('route-dialog').close(); return dispatch({ type: 'choose-node', id: d.node }); }
   if (d.upgrade) return showUpgradePreview(d.upgrade);
@@ -687,6 +754,7 @@ document.addEventListener('click', e => {
   if (d.event) return dispatch({ type: 'event-choice', id: d.event });
   if (d.relic) return openDialog(RELICS[d.relic].name, `<div class="equipped-item">${itemCanvas(RELICS[d.relic])}<p class="dialog-copy">${esc(RELICS[d.relic].description)}</p></div>`);
   switch (d.action) {
+    case 'encounter-help': return openDialog('상대 역할과 대상 선택', `<div class="dialog-copy"><p>카드를 고른 뒤 상대를 누르고 <strong>카드 사용</strong>을 눌러 확정하세요. 대상만 바꾸면 에너지와 연계는 그대로입니다.</p><p><strong>공격형</strong>은 꾸준히 공격하고, <strong>버퍼형</strong>은 다른 상대의 다음 턴 공격을 강화합니다. <strong>기술형</strong>은 공격에 약점 노출을 섞고, <strong>방어형</strong>은 동료를 보호합니다. <strong>축적형</strong>은 힘을 모아 강공한 뒤 빈틈을 보입니다.</p><p>행동 예고에는 버프와 약점 효과가 반영됩니다. 상대별 방어·약점 노출·공격 약화는 따로 적용됩니다. 쓰러진 상대는 행동하지 않습니다.</p>${enemyViews(run).filter(e=>e.hp>0).map(e=>`<p><strong>${esc(e.name)} · ${esc(e.roleLabel || ENEMY_ROLES[e.role] || '')}</strong><br>${esc(e.mechanic || e.intent.description || '')}</p>`).join('')}</div>`);
     case 'open-reward': return showRewardDialog();
     case 'skip-reward': return takeCardReward(true);
     case 'take-reward': return takeCardReward();
@@ -738,7 +806,7 @@ document.addEventListener('submit', e => {
   }
   $('dialog').close(); save(); render(); toast(`${name}, 당신의 전설을 시작하세요.`);
 });
-$('play-card-button').addEventListener('click', () => { if (selected) dispatch({ type: 'play-card', uid: selected }); });
+$('play-card-button').addEventListener('click', () => { if (selected) dispatch({ type: 'play-card', uid: selected, targetId:run.match?.targetId }); });
 $('end-turn').addEventListener('click', () => dispatch({ type: 'end-turn' }));
 $('map-button').addEventListener('click', () => { $('route-dialog').showModal(); $('route-list').querySelector('.map-point.available, .map-point.current')?.scrollIntoView({block:'center'}); }); $('close-route').addEventListener('click', () => $('route-dialog').close());
 $('help-button').addEventListener('click', showHelp); $('menu-button').addEventListener('click', showMenu); $('deck-button').addEventListener('click', () => showDeck());
@@ -762,7 +830,7 @@ document.addEventListener('keydown', e => {
   if (tutorial.active || $('dialog').open || $('route-dialog').open || $('reward-dialog').open || run.phase !== 'match' || busy || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[1-9]$/.test(e.key)) { const card = run.match.hand[Number(e.key) - 1]; if (card) { selected = card.uid; render(); const button = $('hand').querySelector(`[data-hand="${CSS.escape(selected)}"]`); button?.focus({preventScroll:true}); button?.scrollIntoView({block:'nearest',inline:'nearest'}); } }
   else if (e.code === 'Space' && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); dispatch({ type: 'end-turn' }); }
-  else if (e.key === 'Enter' && selected && (document.activeElement.matches('[data-hand]') || !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))) { e.preventDefault(); dispatch({ type: 'play-card', uid: selected }); }
+  else if (e.key === 'Enter' && selected && (document.activeElement.matches('[data-hand]') || !['BUTTON', 'INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))) { e.preventDefault(); dispatch({ type: 'play-card', uid: selected, targetId:run.match?.targetId }); }
 });
 window.addEventListener('storage', e => { if (e.key === SAVE_KEY && e.newValue && e.newValue !== JSON.stringify(run)) { changedElsewhere = true; $('save-status').textContent = '다른 창에서 진행 중'; toast('다른 창의 진행이 저장됐어요. 이 창은 새로고침 후 이어해 주세요.'); } });
 
@@ -783,7 +851,7 @@ function frame(now) {
   lastFrame = now;
   let current = null;
   if (animation) { const progress = Math.min(1, (now - animation.started) / animation.duration); if (progress < 1) current = { ...animation, progress, reducedMotion: motion.matches }; if (progress === 1) animation = null; }
-  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, reducedMotion: motion.matches, boss: getBossView(run), opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
+  drawPitch(context, { width: pitch.width, height: pitch.height, time: motion.matches ? 0 : now, reducedMotion: motion.matches, boss: getBossView(run), opponentId: run.match?.opponentId, opponentColor: OPPONENTS[run.match?.opponentId]?.color, enemies:run.match?.enemies ? enemyViews(run) : undefined,targetId:run.match?.targetId,targetIds:run.phase==='match'&&targetScope(run.match.hand.find(c=>c.uid===selected))==='all'?enemyViews(run).filter(e=>e.hp>0).map(e=>e.id):[run.match?.targetId], phase: run.phase, heroHp:run.condition,heroMomentum:run.phase === 'match' ? run.match?.momentum || 0 : 0,enemyHp:run.match?.enemyHp||0, animation: current });
   pitchDirty = false;
 }
 render(); save(); requestAnimationFrame(frame);

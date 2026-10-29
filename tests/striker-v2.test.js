@@ -14,12 +14,12 @@ function fixture(ids, relics = [], opponent) {
 }
 const play = (run,id) => act(run,{type:'play-card',uid:run.match.hand.find(c=>c.id===id).uid});
 const check = run => { assert.ok(validateSave(copy(run)), `save ${run.phase} turn ${run.match?.turn}`); return run; };
-test('catalog has 36 playable cards, 3 injuries, correct rarity and training volumes',()=>{
-  assert.equal(PLAYABLE_IDS.length,36); assert.equal(Object.keys(CARDS).length,39);
-  assert.deepEqual(['common','uncommon','rare'].map(r=>PLAYABLE_IDS.filter(id=>CARDS[id].rarity===r).length),[15,15,6]);
+test('catalog has 39 playable cards, 3 injuries, correct rarity and training volumes',()=>{
+  assert.equal(PLAYABLE_IDS.length,39); assert.equal(Object.keys(CARDS).length,42);
+  assert.deepEqual(['common','uncommon','rare'].map(r=>PLAYABLE_IDS.filter(id=>CARDS[id].rarity===r).length),[17,16,6]);
   assert.equal(PLAYABLE_IDS.filter(id=>CARDS[id].type==='training').length,6);
   assert.equal(PLAYABLE_IDS.filter(id=>cardEffect({id}).volatile).length,7);
-  assert.equal(REWARD_IDS.length,33); assert.equal(Object.keys(RELICS).length,21);
+  assert.equal(REWARD_IDS.length,36); assert.equal(Object.keys(RELICS).length,21);
   assert.equal(Object.values(RELICS).filter(r=>r.shop).length,9);
   assert.equal(Object.values(RELICS).filter(r=>r.injury).length,3);
   assert.equal(createRun(1).deck.length,10);

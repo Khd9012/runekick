@@ -5,6 +5,8 @@ export function resolveCard(run, card, hooks) {
   const m = run.match, e = cardEffect(card), type = CARDS[card.id].type;
   const prior = m.played.slice(0, -1), combo = isCombo({...m, played:prior}, card);
   const has = id => run.relics.includes(id);
+  const selectedEnemy = m.enemies?.find(enemy => enemy.id === m.targetId);
+  const breakBlock = amount => hooks.breakBlock ? hooks.breakBlock(amount) : (m.enemyBlock = Math.max(0, m.enemyBlock - amount));
   const once = key => { if (m.turnFlags[key]) return false; m.turnFlags[key] = true; return true; };
   const energy = () => { m.energy = Math.min(m.maxEnergy, m.energy + 1); };
   const names = new Set(prior.filter(isTechnique).map(c => c.id));
@@ -37,9 +39,9 @@ export function resolveCard(run, card, hooks) {
     if (has('scouting-bag') && !m.previousShot && !m.shotCardPlayed) bonus += 5;
     if (spentMomentum && has('power-cleats') && once('power-cleats')) bonus += 3;
     if (spentMomentum && has('fenom-cleats')) bonus += Math.min(6, spentMomentum);
-    if (has('nine-crest') && m.enemyHp <= m.enemyMaxHp / 2 && once('nine-crest')) bonus += 5;
+    if (has('nine-crest') && (selectedEnemy?.hp ?? m.enemyHp) <= (selectedEnemy?.maxHp ?? m.enemyMaxHp) / 2 && once('nine-crest')) bonus += 5;
     if (spentMomentum >= 3 && has('burst-laces') && !m.battleFlags.burst) { m.battleFlags.burst = true; energy(); }
-    if (spentMomentum >= 3 && e.breakBlock) m.enemyBlock = Math.max(0, m.enemyBlock - e.breakBlock);
+    if (spentMomentum >= 3 && e.breakBlock) breakBlock(e.breakBlock);
     m.shotCardPlayed = true;
   }
   if (type === 'header') {
@@ -51,7 +53,7 @@ export function resolveCard(run, card, hooks) {
   if (damage && m.enemyExposed && has('playmaker-lens') && once('playmaker-lens')) bonus += 4;
   if (type === 'dribble') {
     m.dribbleCardPlayed = true;
-    m.enemyBlock = Math.max(0, m.enemyBlock - (m.intent.dribbleBreak || 0));
+    breakBlock(m.intent.dribbleBreak || 0);
   }
   if (type === 'pass') {
     if (!m.passCardPlayed && has('ankle-tape')) block += 3;
@@ -68,10 +70,22 @@ export function resolveCard(run, card, hooks) {
   }
   if (has('tempo-charm') && m.dribbleCardPlayed && m.shotCardPlayed && !m.tempoTriggered) { energy(); m.tempoTriggered = true; }
   // Fixed bonuses occur on the first strike only, before exposure multipliers.
-  if (damage) for (let hit = 0; hit < hits; hit++) hooks.damage(damage + (hit === 0 ? bonus : 0));
+  if (damage) {
+    if (e.target === 'all' && m.enemies) {
+      // Resource bonuses apply to each target; flat equipment bonuses apply only once.
+      const resourceBonus = spentBlock * (e.blockRatio || 0) + spentMomentum * (e.ratio || 0);
+      const targets = m.enemies.filter(enemy => enemy.hp > 0).map(enemy => enemy.id);
+      for (const id of targets) hooks.damage(damage + (id === m.targetId ? bonus : resourceBonus), id);
+    } else for (let hit = 0; hit < hits; hit++) hooks.damage(damage + (hit === 0 ? bonus : 0));
+    if (combo && e.comboSplash) hooks.damage(e.comboSplash, 'other');
+  }
   m.defense += block;
-  m.enemyExposed = Math.min(99, m.enemyExposed + (e.exposed || 0));
-  m.enemyWeakened = Math.min(99, m.enemyWeakened + (e.weakened || 0) + (combo ? e.comboWeakened || 0 : 0));
+  const status = {exposed:e.exposed || 0, weakened:(e.weakened || 0) + (combo ? e.comboWeakened || 0 : 0)};
+  if (hooks.status) hooks.status(status);
+  else {
+    m.enemyExposed = Math.min(99, m.enemyExposed + status.exposed);
+    m.enemyWeakened = Math.min(99, m.enemyWeakened + status.weakened);
+  }
   if (e.injury) {
     const injury = {uid:`c${run.nextUid++}`, id:e.injury, upgraded:false, temporary:true};
     m.temporaryCards.push(injury); m.draw = hooks.shuffle([...m.draw, injury]);
