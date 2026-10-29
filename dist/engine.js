@@ -1,5 +1,5 @@
 import { REGULAR_ENEMIES, ENEMY_ROLES, regularComposition, campaignComposition, encounterMaxHp, makeEnemies, selectedEnemy, regularIntent, regularAttack, syncEnemies, startEnemyRound, finishEnemyRound, damageEnemy, enemyViews, validEnemyState } from './encounters.js';
-import { ACTS, CAMPAIGN_BOSSES, campaignActAt, getActView, campaignSeed, scaledOpponentHp, campaignReward } from './campaign.js';
+import { ACTS, CAMPAIGN_BOSSES, LEGACY_CAMPAIGN_BOSSES, LEGACY_COACH_IDS, campaignActAt, getActView, campaignSeed, scaledOpponentHp, campaignReward } from './campaign.js';
 import { resolveCard, resolveChoice } from './striker-combat.js';
 import { CARDS, INJURIES, STARTER_DECK, CARD_PRICES, cardEffect, cardCost, cardText, isTechnique, isCombo, rewardPool } from './striker-cards.js';
 import { RELICS } from './striker-equipment.js';
@@ -14,6 +14,8 @@ export const ELITE_RELICS = Object.freeze({
   elite: Object.freeze(['street-rhythm', 'ankle-tape', 'tempo-charm']),
 });
 export const OPPONENTS = Object.freeze({
+  'coach-dezerbi':{id:'coach-dezerbi',name:'데제르비',subtitle:'감독 보스 · 유도하는 빌드업',coach:true,color:'#90b9ba',maxHp:88,reward:60,intro:'압박하면 그 뒤의 공간이 열리지.',mechanic:'두 턴 빌드업 중 각각 공격과 수비 또는 기술을 함께 쓰면 다음 강공이 6씩 약해집니다. 강공 뒤에는 재정비합니다.',patterns:[['후방 빌드업',6,4],['압박 유도',8,3],['빌드업 돌파',22,1],['재정비',5,0]]},
+  'coach-simeone':{id:'coach-simeone',name:'시메오네',subtitle:'감독 보스 · 유형 경계',coach:true,color:'#a6adb7',maxHp:94,reward:60,intro:'한 번 더 생각하고 움직여라.',mechanic:'매 턴 공격→수비→기술 순서로 경계합니다. 경계한 유형의 카드 효과가 끝날 때마다 방어 +8, 이번 반격 +6. 다음 턴에는 초기화됩니다.',patterns:[['공격 경계',6,4],['수비 경계',6,4],['기술 경계',6,4]]},
   ...Object.fromEntries(Object.keys(REGULAR_ENEMIES).filter(id=>!['school','rookie','press'].includes(id)).map(id => [id, {...REGULAR_ENEMIES[id], subtitle: ENEMY_ROLES[REGULAR_ENEMIES[id].role], reward:35, patterns:[['기본 견제',5,2]]}])),
   school: { id: 'school', name: '민준', subtitle: '재빠른 윙어 · 첫 번째 라이벌', color: '#70c9e8', maxHp: 42, reward: 25,
     patterns: [['가벼운 견제', 7, 2], ['빠른 발놀림', 9, 0], ['거리 재기', 6, 4], ['전력 돌파', 11, 0]] },
@@ -123,10 +125,10 @@ function acquireRelic(run, id) {
 }
 function addCard(run, id) { run.deck.push({ uid: `c${run.nextUid++}`, id, upgraded: false }); }
 const regularEncounterReward = stage => stage === 7 ? 35 : 30;
-function generateRoute(initialSeed, version = 2, encounterVersion, campaignAct) {
+function generateRoute(initialSeed, version = 2, encounterVersion, campaignAct,challengeVersion) {
   // Map randomness never consumes the draw/reward RNG, so combat cannot change the map.
   const rng = { seed: (initialSeed ^ 0x9e3779b9) >>> 0 };
-  const coachIds = campaignAct ? CAMPAIGN_BOSSES[campaignAct-1] : Object.keys(OPPONENTS).filter(id => OPPONENTS[id].coach);
+  const coachIds = campaignAct ? (challengeVersion===2?CAMPAIGN_BOSSES:LEGACY_CAMPAIGN_BOSSES)[campaignAct-1] : LEGACY_COACH_IDS;
   const coachId = coachIds[Math.floor(random(rng) * coachIds.length)], coach = OPPONENTS[coachId];
   const regular = (opponentId, name) => ({ type: 'match', opponentId, name, description: `${OPPONENTS[opponentId].name}과 일대일로 실력을 겨룹니다. 승리하면 코인 ${OPPONENTS[opponentId].reward}과 카드 보상을 얻습니다.` });
   const rest = name => ({ type: 'rest', name, description: '체력 30 회복 또는 ACT당 한 번 덱 부상 한 장 치료를 선택합니다.' });
@@ -205,13 +207,29 @@ function generateRoute(initialSeed, version = 2, encounterVersion, campaignAct) 
   }
   return route;
 }
-function generateCampaignRoute(seed) {
+function generateCampaignRoute(seed,challengeVersion,history=[]) {
   const route=[];
   for(let number=1;number<=3;number++) {
-    const chapter=generateRoute(campaignSeed(seed,number),2,1,number),prefix=number===1?'':`act${number}-`;
+    const chapter=generateRoute(campaignSeed(seed,number),2,1,number,challengeVersion),prefix=number===1?'':`act${number}-`;
     for(const row of chapter){row.id=prefix+row.id;for(const node of row.choices){node.id=prefix+node.id;node.next=node.next.map(id=>prefix+id);}}
     if(route.length)for(const node of route.at(-1).choices)node.next=chapter[0].choices.map(n=>n.id);
     route.push(...chapter);
+  }
+  if(challengeVersion===2) {
+    // Slot IDs/links stay fixed. Reconstruct opponents from actual earlier visits,
+    // so skipped legends stay available and old completed rows never change.
+    const met=new Set(),pool=Object.keys(ELITE_RELICS);
+    for(let i=0;i<route.length;i++) {
+      const assigned=new Set();
+      for(const node of route[i].choices.filter(n=>n.type==='elite')) {
+        const candidates=pool.filter(id=>!met.has(id)&&!assigned.has(id));
+        const id=candidates.includes(node.opponentId)?node.opponentId:candidates[(seed+i)%Math.max(1,candidates.length)];
+        if(id){assigned.add(id);node.opponentId=id;node.name=OPPONENTS[id].name;node.description=`${OPPONENTS[id].subtitle}. 승리 시 코인 ${campaignReward(i,'elite',OPPONENTS[id].reward)}, 희귀 카드와 전용 유물 선택 보상을 얻습니다.`;}
+        else {node.type='event';delete node.opponentId;node.name='다음 무대를 위한 우회';node.description='이번 도전의 모든 엘리트를 만났습니다. 회복과 보급을 준비하세요.';}
+      }
+      const visited=route[i].choices.find(n=>n.id===history[i]?.nodeId);
+      if(visited?.type==='elite')met.add(visited.opponentId);
+    }
   }
   return route;
 }
@@ -236,8 +254,8 @@ export function createRun(seed, playerName = '루키') {
   STARTER_DECK.forEach(id => addCard(run, id));
   return run;
 }
-export function createCampaignRun(seed,playerName='루키') {
-  const run=createRun(seed,playerName);run.campaignVersion=1;run.seenShopRelics=[];run.route=generateCampaignRoute(run.initialSeed);
+export function createCampaignRun(seed,playerName='루키',options={}) {
+  const run=createRun(seed,playerName);run.campaignVersion=1;if(options.challengeVersion!==1)run.challengeVersion=2;run.seenShopRelics=[];run.route=generateCampaignRoute(run.initialSeed,run.challengeVersion);
   run.message='유소년에서 프로리그, 유럽대항전까지 나만의 커리어를 시작하세요.';return run;
 }
 // Active pre-pattern saves keep their original intent text and numbers.
@@ -278,11 +296,64 @@ function setpieceDamage(m) {
   const previous = m.history.filter(out => out.turn >= start && out.turn < start + 2 && out.turn < m.turn).reduce((total, out) => total + out.damageDealt, 0);
   return Math.min(12, previous + (phase < 2 ? m.chance : 0));
 }
+const restrictedCategory = m => ['attack','defense','skill'][(m.turn-1)%3];
+const categoryLabels={attack:'공격',defense:'수비',skill:'기술'};
+const upgraded = m => m.challengeVersion===2;
+const mourinhoCycle = m => upgraded(m)?4:3;
+const mourinhoWall = m => upgraded(m)?14:12;
+const kloppRecovery = m => (m.turn-1)%(upgraded(m)?4:3)===(upgraded(m)?3:2);
+const overtimeThreshold = m => upgraded(m)?4:3;
+const buildupAnswered = m => {const c=coachCounts(m);return c.attack>0&&(c.defense>0||c.skill>0);};
+const guardiolaGain = (m,counts) => upgraded(m)&&Number(counts.attack>0)+Number(counts.defense>0)+Number(counts.skill>0)<=((m.intentHp??m.enemyHp)*2<=m.enemyMaxHp?2:1)?2:1;
+function strongerCoachSpec(m,spec) {
+  const b=m.boss,counts=coachCounts(m),phase=(m.opponentId==='coach-ferguson'?!!b.overtimeStart:['coach-ancelotti','coach-guardiola'].includes(m.opponentId)&&(m.intentHp??m.enemyHp)*2<=m.enemyMaxHp)?2:1;
+  spec.phase=phase;
+  if(m.opponentId==='coach-mourinho') {
+    const p=(m.turn-1)%4;
+    if(p===0)Object.assign(spec,{title:'두 겹 수비의 준비',effect:'wall',attack:8,defense:14,progress:m.enemyBlock,max:14,countered:m.enemyBlock===0,detail:`남은 방어 ${m.enemyBlock}이 다음 역습에 추가됩니다. 이후 전진 압박, 무방비 재정비가 이어집니다.`});
+    if(p===1)Object.assign(spec,{title:'수비벽에서 역습',effect:'counter',attack:10+b.counterCharge,defense:2,progress:b.counterCharge,max:14,countered:!b.counterCharge,detail:`기본 10 + 남은 수비벽 ${b.counterCharge}. 다음 턴은 전진 압박입니다.`});
+    if(p===2)Object.assign(spec,{title:'전진 압박',effect:'press',attack:11,defense:6,progress:0,max:1,countered:false,detail:'역습 이후 라인을 끌어올립니다. 다음 턴은 방어 0의 재정비입니다.'});
+    if(p===3)Object.assign(spec,{title:'수비 재정비의 빈틈',effect:'recover',attack:6,defense:0,progress:0,max:1,countered:false,detail:'이번 턴 방어 0. 다음 턴 다시 방어 14를 준비합니다.'});
+  }
+  if(m.opponentId==='coach-klopp') {
+    const p=(m.turn-1)%4,recovery=p===3;
+    Object.assign(spec,{title:recovery?'압박 소진의 빈틈':p===2?'마지막 압박 돌진':'연속 게겐프레싱',effect:recovery?'recover':'press',attack:[15,17,19,6][p],defense:[4,2,0,0][p],progress:recovery?0:Number(counts.skill>0),max:1,detail:recovery?'세 번의 압박 뒤 회복. 이번 턴 받는 카드 피해 +40%, 방어 0.':`${3-p}턴 뒤 회복의 빈틈. 이번 턴 첫 기술은 체력 3 소모${counts.skill?' (이미 적용)':''}. 회복 턴에는 받는 카드 피해 +40%.`});
+  }
+  if(m.opponentId==='coach-guardiola') {
+    const categories=Number(counts.attack>0)+Number(counts.defense>0)+Number(counts.skill>0),gain=guardiolaGain(m,counts);
+    Object.assign(spec,{title:(phase===2?'후반 · ':'')+(b.pressure===0?'포위망 재배치':b.pressure>=4?'완성된 포위망':'압박을 좁히는 포위망'),effect:b.pressure===0?'recover':'pressure',attack:b.pressure>=4?26:b.pressure===0?6:8+b.pressure*3,defense:b.pressure===0?0:b.pressure>=4?2:phase===2?8:6,progress:b.pressure,max:4,countered:categories===3,detail:`압박 ${b.pressure}/4. 공격·수비·기술을 모두 쓰면 압박 −2. ${phase===2?'후반 전술: 두 유형까지만 사용해도 압박 +2, 기본 방어 8. ':''}${b.pressure>=4?'강공 후 압박 0으로 초기화됩니다.':b.pressure===0?'재배치 중 방어 0, 받는 카드 피해 +25%.':`이번 턴 사용한 유형 ${categories}종 → 다음 압박 +${gain} (${phase===2?2:1}종 이하 +2, 그 외 +1).`}`});
+  }
+  if(m.opponentId==='coach-ancelotti') {
+    if((m.turn-1)%4===3)Object.assign(spec,{title:'전술 전환의 빈틈',effect:'recover',attack:7,defense:0,detail:'세 번의 맞춤 대응 뒤 전술을 재정비합니다. 방어 0, 다음 턴 다시 직전 카드 유형에 대응합니다.'});
+    else if(phase===2) {
+      const [attack,defense]={none:[12,7],attack:[12,17],defense:[23,3],skill:[18,7]}[b.adaptation];
+      Object.assign(spec,{title:`후반 · ${spec.title}`,attack,defense,detail:`체력 절반 이후 맞춤 대응 강화. ${spec.detail} 4번째 턴마다 방어 0의 전술 전환이 옵니다.`});
+    } else spec.detail+=' 체력 절반부터 대응 전술 강화. 4번째 턴에는 방어 0으로 재정비합니다.';
+  }
+  if(m.opponentId==='coach-ferguson') {
+    const overtime=b.overtimeStart?m.turn-b.overtimeStart:-1;
+    if(overtime>=0&&overtime<3)Object.assign(spec,{attack:[18,22,28][overtime],defense:[5,3,0][overtime],detail:`추가시간 ${overtime+1}/3 · 기본 공격 18 → 22 → 28. 끝나면 방어 0의 회복 턴입니다. 한 번만 발동합니다.`});
+    else if(overtime<0)Object.assign(spec,{attack:m.turn%2?14:17,detail:`체력 ${Math.floor(m.enemyMaxHp*.4)} 이하가 되면 즉시 추가시간 3턴. 18 → 22 → 28 강공 뒤 회복합니다.`});
+  }
+}
 function coachSpec(m) {
   if (!m.boss || m.boss.version !== 1) return null;
   const b = m.boss, counts = coachCounts(m), categories = Number(counts.attack > 0) + Number(counts.defense > 0) + Number(counts.skill > 0);
   const spec = { id: m.opponentId, title: '', detail: '', effect: 'normal', progress: 0, max: 1, countered: false, attack: 10, defense: 4 };
   switch (m.opponentId) {
+    case 'coach-dezerbi': {
+      const p=(m.turn-1)%4,answered=b.buildUpBreaks+Number(p<2&&buildupAnswered(m));
+      Object.assign(spec,{phase:1,progress:Math.min(2,answered),max:2,countered:answered>=2});
+      if(p<2)Object.assign(spec,{title:buildupAnswered(m)?'빌드업 압박 성공':'빌드업으로 압박 유도',effect:buildupAnswered(m)?'build-up-broken':'build-up',attack:p?8:6,defense:p?3:4,detail:`빌드업 ${p+1}/2 · 이번 턴 공격 ${counts.attack>0?'✓':'0'} + 수비/기술 ${counts.defense+counts.skill>0?'✓':'0'}. 두 조건을 함께 채운 턴마다 강공 −6. 현재 예상 강공 ${22-Math.min(2,answered)*6}.`});
+      else if(p===2)Object.assign(spec,{title:answered?'흔들린 빌드업 돌파':'완성된 빌드업 돌파',effect:answered?'build-up-broken':'build-up-shot',attack:22-answered*6,defense:1,detail:`빌드업 대응 ${answered}/2 · 강공 22 − ${answered*6} = ${22-answered*6}. 다음 턴 방어 0의 재정비입니다.`});
+      else Object.assign(spec,{title:'빌드업 재정비',effect:'recover',attack:5,defense:0,detail:'방어 0의 빈틈. 다음 턴부터 새로운 2턴 빌드업이 시작됩니다.'});
+      break;
+    }
+    case 'coach-simeone': {
+      const restricted=restrictedCategory(m),next=['attack','defense','skill'][m.turn%3],triggers=counts[restricted];
+      Object.assign(spec,{phase:1,title:`${categoryLabels[restricted]} 유형 경계`,effect:`mark-${restricted}`,attack:6+triggers*6,defense:4+triggers*8,progress:triggers,max:Math.max(1,triggers),restrictedCategory:restricted,nextRestrictedCategory:next,restrictionBlock:8,restrictionAttack:6,restrictionTriggers:triggers,detail:`이번 턴 ${categoryLabels[restricted]} 카드 효과 후마다 방어 +8, 이번 반격 +6. 현재 ${triggers}회 반응. 다음 턴 ${categoryLabels[next]} 경계로 바뀌며 강화는 초기화됩니다. 경계 유형도 사용할 수 있습니다.`});
+      break;
+    }
     case 'coach-mourinho': {
       const phase = (m.turn - 1) % 3;
       if (phase === 0) Object.assign(spec, { title: '철벽의 준비', effect: 'wall', attack: 8, defense: 12, progress: m.enemyBlock, max: 12, countered: m.enemyBlock === 0, detail: `남은 방어 ${m.enemyBlock} → 다음 역습에 추가. 방어를 깨면 역습이 약해집니다.` });
@@ -323,6 +394,7 @@ function coachSpec(m) {
     }
     default: return null;
   }
+  if(upgraded(m))strongerCoachSpec(m,spec);
   const baseAttack=spec.attack,pressure=Math.max(0,m.turn-12)*2,actPressure=Math.max(0,(m.campaignAct??1)-1)*2;
   spec.attack+=pressure+actPressure;
   if(m.campaignAct&&(actPressure||pressure))spec.detail=`기본 패턴: ${spec.detail} 이번 턴 공격: 기본 ${baseAttack}${actPressure?` + ACT ${ACTS[m.campaignAct-1].roman} 압박 ${actPressure}`:''}${pressure?` + 장기전 압박 ${pressure}`:''} = ${spec.attack}.`;
@@ -332,6 +404,21 @@ export function getBossView(run) {
   const spec = run?.match && coachSpec(run.match);
   if (!spec) return null;
   const { attack, defense, ...view } = spec;
+  if(upgraded(run.match)){
+    const m=run.match;
+    const hints={
+      'coach-dezerbi':(m.turn-1)%4<2?`공격 + 수비/기술 → 강공 −6 · 대응 ${spec.progress}/2`:(m.turn-1)%4===2?`빌드업 강공 · 대응 ${spec.progress}/2 · 다음 턴 빈틈`:'방어 0 · 다음 턴 빌드업 시작',
+      'coach-simeone':`${categoryLabels[spec.restrictedCategory]} 사용 → 방어 +8·반격 +6 / 다음 ${categoryLabels[spec.nextRestrictedCategory]}`,
+      'coach-mourinho':spec.effect==='wall'?'수비벽을 깨면 다음 역습 약화':spec.effect==='recover'?'방어 0 · 다음 턴 수비벽 14':spec.effect==='counter'?`남은 수비벽 ${m.boss.counterCharge}만큼 역습 강화`:'다음 턴 방어 0의 재정비',
+      'coach-klopp':spec.effect==='recover'?'이번 턴 받는 피해 +40% · 공격 기회':`${3-(m.turn-1)%4}턴 뒤 회복 · 첫 기술 체력 −3`,
+      'coach-guardiola':spec.effect==='recover'?'압박 0 · 이번 턴 받는 피해 +25%':`3유형 모두 사용 → 압박 −2 (${m.boss.pressure}/4)`,
+      'coach-ancelotti':spec.effect==='recover'?'방어 0 · 다음 턴 맞춤 대응':`직전 최다 유형에 대응${spec.phase===2?' · 후반 강화':''}`,
+      'coach-ferguson':spec.effect==='overtime'?`추가시간 ${spec.progress}/3 · 강공 뒤 빈틈`:spec.effect==='recover'?'추가시간 종료 · 방어 0':m.boss.overtimeStart?'추가시간 소진 · 기본 압박 지속':'체력 40% 이하 → 추가시간 3턴',
+      'coach-arteta':'준비 중 체력 피해 12 → 세트피스 차단',
+      'coach-wenger':'한 턴 피해 카드 3장 → 연계 초기화',
+    };
+    view.hint=hints[m.opponentId];
+  }
   return view;
 }
 function bossIntent(m) {
@@ -348,17 +435,19 @@ function coachAfterCard(m) {
   const counts = coachCounts(m), category = cardCategory(m.played.at(-1));
   if (m.opponentId === 'coach-guardiola' && counts.attack && counts.defense && counts.skill && counts[category] === 1) b.pressure = Math.max(0, b.pressure - 2);
   if (m.opponentId === 'coach-wenger' && !NON_DAMAGE_CARDS.has(m.played.at(-1).id) && counts.hits === 3) b.combo = 0;
-  if (m.opponentId === 'coach-ferguson' && !b.overtimeStart && m.enemyHp * 10 <= m.enemyMaxHp * 3) b.overtimeStart = m.turn;
+  if(m.opponentId==='coach-simeone'&&m.enemyHp>0&&category===restrictedCategory(m))m.enemyBlock+=8;
+  if (m.opponentId === 'coach-ferguson' && !b.overtimeStart && m.enemyHp * 10 <= m.enemyMaxHp * overtimeThreshold(m)) b.overtimeStart = m.turn;
   refreshBossIntent(m);
 }
 function coachAfterTurn(m) {
   const b = m.boss;
   if (!b) return;
   const counts = coachCounts(m);
-  if (m.opponentId === 'coach-mourinho') b.counterCharge = (m.turn - 1) % 3 === 0 ? Math.min(12, m.enemyBlock) : 0;
-  if (m.opponentId === 'coach-guardiola') b.pressure = b.pressure >= 3 ? 0 : b.pressure + 1;
+  if (m.opponentId === 'coach-mourinho') b.counterCharge = (m.turn - 1) % mourinhoCycle(m) === 0 ? Math.min(mourinhoWall(m), m.enemyBlock) : 0;
+  if (m.opponentId === 'coach-guardiola') {const cap=upgraded(m)?4:3;b.pressure=b.pressure>=cap?0:Math.min(cap,b.pressure+guardiolaGain(m,counts));}
   if (m.opponentId === 'coach-ancelotti') b.adaptation = dominantCategory(counts);
   if (m.opponentId === 'coach-wenger') b.combo = counts.hits >= 3 ? 0 : Math.min(5, b.combo + 1);
+  if(m.opponentId==='coach-dezerbi'){const p=(m.turn-1)%4;if(p<2)b.buildUpBreaks+=Number(buildupAnswered(m));if(p===3)b.buildUpBreaks=0;}
 }
 function drawCards(run, count) {
   const m = run.match;
@@ -385,18 +474,19 @@ function nextRound(run) {
   drawCards(run, 5);
 }
 function startMatch(run, opponentId) {
-  const maxEnergy = 3, enemyMaxHp = scaledOpponentHp(OPPONENTS[opponentId].maxHp,run.campaignVersion===1?run.actNumber:1);
+  const maxEnergy = 3, enemyMaxHp = scaledOpponentHp(OPPONENTS[opponentId].maxHp,run.campaignVersion===1?run.actNumber:1,run.challengeVersion);
   run.phase = 'match'; run.relicOffers = [];
   run.match = { opponentId, turn: 1, energy: maxEnergy, maxEnergy, chance: 0, defense: 0, momentum: 0,
     ...(run.campaignVersion===1?{campaignAct:run.actNumber}:{}),
+    ...(run.challengeVersion===2?{challengeVersion:2}:{}),
     training: {}, turnFlags: {}, battleFlags: {}, playerExposed: 0, energyDebt: 0, choice: null, temporaryCards: [],
     enemyExposed: 0, enemyWeakened: 0,
     enemyHp: enemyMaxHp, enemyMaxHp, enemyBlock: 0, damageDealt: 0, blocks: 0, defenseCardPlayed: false, dribbleCardPlayed: false, counterReady: false, intentHp: enemyMaxHp,
     hand: [], draw: shuffle(run, clone(run.deck)), discard: [], exhaust: [], played: [], intent: null,
     lastOutcome: null, history: [], status: 'playing',
-    ...(OPPONENTS[opponentId].coach ? { boss: { version: 1, counterCharge: 0, pressure: opponentId === 'coach-guardiola' ? 1 : 0, adaptation: 'none', combo: 0, overtimeStart: 0 } } : {}) };
+    ...(OPPONENTS[opponentId].coach ? { boss: { version: 1, counterCharge: 0, pressure: opponentId === 'coach-guardiola' ? 1 : 0, adaptation: 'none', combo: 0, overtimeStart: 0,...(opponentId==='coach-dezerbi'?{buildUpBreaks:0}:{}) } } : {}) };
   if (run.encounterVersion === 1 && run.activeNode?.encounter) {
-    run.match.enemies = makeEnemies(run.activeNode.encounter); run.match.targetId = 'e1'; syncEnemies(run.match);
+    run.match.enemies = makeEnemies(run.activeNode.encounter,run.challengeVersion); run.match.targetId = 'e1'; syncEnemies(run.match);
   }
   nextRound(run);
 }
@@ -429,12 +519,14 @@ function finishNode(run, result) {
   run.history.push(nodeRecord(run, result));
   run.activeNode = null; run.match = null; run.offers = []; run.relicOffers = []; run.shopOffers = []; run.shopCards = []; run.rewardRelic = null; run.rewardInjuryUid = null; run.routeIndex++;
   run.phase = run.routeIndex >= routeFor(run).length ? 'victory' : 'map';
+  if(run.challengeVersion===2)run.route=generateCampaignRoute(run.initialSeed,2,run.history);
   if(run.campaignVersion===1){run.actNumber=campaignActAt(run.routeIndex);if(run.phase!=='victory'&&run.routeIndex%12===0){run.phase='act-clear';run.message=`${ACTS[run.actNumber-2].name} 돌파! 다음 무대에서 체력 30을 회복합니다.`;}}
 }
 function failRun(run, reason) {
   run.phase = 'defeat'; run.message = reason; run.relicOffers = [];
   if (run.match) run.match.status = 'lost';
   run.history.push(nodeRecord(run, 'defeat')); run.activeNode = null;
+  if(run.challengeVersion===2)run.route=generateCampaignRoute(run.initialSeed,2,run.history);
 }
 function outcome(run, damageTaken, blocked, summary) {
   const m = run.match;
@@ -465,7 +557,7 @@ function winDuel(run) {
 }
 function dealDamage(run, power) {
   const m = run.match;
-  const recoveryBonus = m.boss && m.opponentId === 'coach-klopp' && (m.turn - 1) % 3 === 2 ? 1.25 : 1;
+  const recoveryBonus = m.boss && m.opponentId === 'coach-klopp' && kloppRecovery(m) ? upgraded(m)?1.4:1.25 : m.boss&&upgraded(m)&&m.opponentId==='coach-guardiola'&&m.boss.pressure===0?1.25:1;
   power = Math.floor(power * ((m.enemyExposed ?? 0) > 0 ? 1.5 : 1) * recoveryBonus);
   const absorbed = Math.min(m.enemyBlock, power);
   m.enemyBlock -= absorbed;
@@ -479,7 +571,7 @@ function playCard(run, uid) {
   if (cardCost(card, m) > m.energy) return false;
   m.energy -= cardCost(card, m); m.hand.splice(index, 1); m.played.push(card);
   let reflectedDamage = 0;
-  const pressingCost = m.boss && m.opponentId === 'coach-klopp' && (m.turn - 1) % 3 !== 2 && cardCategory(card) === 'skill' && coachCounts(m).skill === 1 ? Math.min(3, run.condition) : 0;
+  const pressingCost = m.boss && m.opponentId === 'coach-klopp' && !kloppRecovery(m) && cardCategory(card) === 'skill' && coachCounts(m).skill === 1 ? Math.min(3, run.condition) : 0;
   run.condition -= pressingCost;
   if (cardEffect(card).damage && m.counterReady) { reflectedDamage = Math.min(run.condition, m.intent.counterDamage); run.condition -= reflectedDamage; m.counterReady = false; }
   const lockedTarget = m.targetId;
@@ -643,7 +735,7 @@ const uniqueKnown = (value, known, max) => Array.isArray(value) && value.length 
 const routeShape = route => route.map(stage => ({ id: stage.id, choices: stage.choices.map(node => ({ id: node.id, type: node.type, opponentId: node.opponentId ?? null, encounter: node.encounter ?? null, lane: node.lane, next: node.next })) }));
 export function validateSave(value) {
   try {
-    if (!record(value) || value.rulesVersion !== 2 || (value.encounterVersion !== undefined && value.encounterVersion !== 1) || (value.campaignVersion!==undefined&&value.campaignVersion!==1)) return null;
+    if (!record(value) || value.rulesVersion !== 2 || (value.encounterVersion !== undefined && value.encounterVersion !== 1) || (value.campaignVersion!==undefined&&value.campaignVersion!==1) || (value.challengeVersion!==undefined&&(value.challengeVersion!==2||value.campaignVersion!==1))) return null;
     const encoded = JSON.stringify(value);
     if (encoded.length > 500000) return null;
     const run = JSON.parse(encoded);
@@ -668,7 +760,7 @@ export function validateSave(value) {
     if (run.maxCondition !== 100 + (has(run, 'captain-band') ? 15 : 0) || !integer(run.condition, 0, run.maxCondition) || !integer(run.gold, 0, 100000)) return null;
     if (!integer(run.seed, 0, 0xffffffff) || !integer(run.initialSeed, 0, 0xffffffff) || !integer(run.nextUid, 1, 100000)) return null;
     if (run.schema === 3) {
-      const canonical = campaign?generateCampaignRoute(run.initialSeed):generateRoute(run.initialSeed, run.routeVersion, run.encounterVersion);
+      const canonical = campaign?generateCampaignRoute(run.initialSeed,run.challengeVersion,run.history):generateRoute(run.initialSeed, run.routeVersion, run.encounterVersion);
       if (!Array.isArray(run.route) || JSON.stringify(routeShape(run.route)) !== JSON.stringify(routeShape(canonical))) return null;
       run.route = canonical;
     }
@@ -706,7 +798,7 @@ export function validateSave(value) {
       if (Object.hasOwn(item, 'description')) item.description = node.description;
       if (item.result === 'defeat' && (run.phase !== 'defeat' || i !== run.history.length - 1)) return null;
       if (combat(node.type)) {
-        const opponent = OPPONENTS[node.opponentId], maxHp=node.encounter?encounterMaxHp(node.encounter):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(i):1);
+        const opponent = OPPONENTS[node.opponentId], maxHp=node.encounter?encounterMaxHp(node.encounter,run.challengeVersion):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(i):1,run.challengeVersion);
         if (!['win', 'defeat'].includes(item.result) || !integer(item.damageDealt, 0, maxHp) || !integer(item.blocks, 0, 100000) || !integer(item.turns, 1, 1000) || !integer(item.remainingHp, 0, run.maxCondition)) return null;
         if (item.result === 'win' && (item.damageDealt !== maxHp || item.remainingHp <= 0)) return null;
         if (item.result === 'defeat' && item.remainingHp !== 0) return null;
@@ -742,16 +834,20 @@ export function validateSave(value) {
     const m = run.match, opponent = OPPONENTS[m?.opponentId];
     const encounterNode = run.activeNode ?? route[run.routeIndex]?.choices.find(choice=>choice.id===run.history.at(-1)?.nodeId);
     const encounterIds = encounterNode?.encounter;
-    if (!record(m) || !opponent || m.enemyMaxHp !== (encounterIds?encounterMaxHp(encounterIds):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(run.routeIndex):1)) || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
+    if (!record(m) || !opponent || m.enemyMaxHp !== (encounterIds?encounterMaxHp(encounterIds,run.challengeVersion):scaledOpponentHp(opponent.maxHp,campaign?campaignActAt(run.routeIndex):1,run.challengeVersion)) || !integer(m.enemyHp, 0, m.enemyMaxHp) || !integer(m.turn, 1, 1000)) return null;
     if(campaign ? m.campaignAct!==run.actNumber : Object.hasOwn(m,'campaignAct'))return null;
+    if(m.challengeVersion!==run.challengeVersion)return null;
     if(encounterIds ? !validEnemyState(m,encounterIds) : Object.hasOwn(m,'enemies') || Object.hasOwn(m,'targetId'))return null;
     if (Object.hasOwn(m, 'boss')) {
       const b = m.boss;
-      if (!opponent.coach || !record(b) || Object.keys(b).sort().join(',') !== 'adaptation,combo,counterCharge,overtimeStart,pressure,version' || b.version !== 1) return null;
-      if (!integer(b.counterCharge, 0, 12) || !integer(b.pressure, 0, 3) || !integer(b.combo, 0, 5) || !integer(b.overtimeStart, 0, m.turn) || !['none', 'attack', 'defense', 'skill'].includes(b.adaptation)) return null;
-      if (m.opponentId !== 'coach-mourinho' && b.counterCharge !== 0 || m.opponentId === 'coach-mourinho' && (m.turn - 1) % 3 !== 1 && b.counterCharge !== 0) return null;
+      const bossKeys=m.opponentId==='coach-dezerbi'?'adaptation,buildUpBreaks,combo,counterCharge,overtimeStart,pressure,version':'adaptation,combo,counterCharge,overtimeStart,pressure,version';
+      if (!opponent.coach || !record(b) || Object.keys(b).sort().join(',') !== bossKeys || b.version !== 1) return null;
+      if (!integer(b.counterCharge, 0, mourinhoWall(m)) || !integer(b.pressure, 0, upgraded(m)?4:3) || !integer(b.combo, 0, 5) || !integer(b.overtimeStart, 0, m.turn) || !['none', 'attack', 'defense', 'skill'].includes(b.adaptation)) return null;
+      if(m.opponentId==='coach-dezerbi'&&(!upgraded(m)||!integer(b.buildUpBreaks,0,Math.min(2,(m.turn-1)%4))))return null;
+      if(m.opponentId==='coach-simeone'&&!upgraded(m))return null;
+      if (m.opponentId !== 'coach-mourinho' && b.counterCharge !== 0 || m.opponentId === 'coach-mourinho' && (m.turn - 1) % mourinhoCycle(m) !== 1 && b.counterCharge !== 0) return null;
       if (m.opponentId !== 'coach-guardiola' && b.pressure !== 0 || m.opponentId !== 'coach-ancelotti' && b.adaptation !== 'none' || m.opponentId !== 'coach-wenger' && b.combo !== 0 || m.opponentId !== 'coach-ferguson' && b.overtimeStart !== 0) return null;
-      if (m.opponentId === 'coach-ferguson' && Boolean(b.overtimeStart) !== (m.enemyHp * 10 <= m.enemyMaxHp * 3)) return null;
+      if (m.opponentId === 'coach-ferguson' && Boolean(b.overtimeStart) !== (m.enemyHp * 10 <= m.enemyMaxHp * overtimeThreshold(m))) return null;
       if (m.opponentId === 'coach-wenger' && coachCounts(m).hits >= 3 && b.combo !== 0) return null;
     }
     for (const status of ['enemyExposed', 'enemyWeakened']) {

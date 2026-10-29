@@ -1,0 +1,17 @@
+# Extra manager artwork
+
+Generated with the built-in image_gen tool in transparent-background mode. Original output was copied without bitmap processing; existing coaches.png is unchanged.
+
+- Project: `dist/assets/coaches-extra.png`
+- Source: `C:/Users/devco/.codex/generated_images/01a18522-f497-7b61-97aa-1ec65e38b1d3/exec-5766e625-0c88-4804-a32e-e84bf9a2bcfc.png`
+- Atlas: 1536×1024, 2 columns × 1 row; left coach-dezerbi, right coach-simeone.
+- Validation: real transparent RGBA, two isolated full-body connected silhouettes; loader trims connected alpha bounds. Each uses a distinct face, outfit and touchline gesture. De Zerbi has build-up, broken build-up and release diagrams; Simeone has attack/defense/skill marking diagrams. Reduced motion keeps diagrams static.
+
+## Final generation prompt
+
+```text
+Use case: stylized-concept. Create a production character sprite atlas for RUNEKICK, a grounded association-football pixel-art deckbuilding game. Exactly TWO complete adult football managers, left ROBERTO DE ZERBI and right DIEGO SIMEONE, with recognizable respectful likenesses. This is original pixel-art game artwork, not a photograph. Transparent PNG, 1536 x 1024 landscape, invisible 2-column by 1-row grid: left figure entirely within left 768x1024 cell, right figure entirely within right 768x1024 cell. Each full body is approximately 800px tall with feet on one shared baseline y=925. At least 95px transparent margin inside every cell edge, generous clear gutter between characters. Entire hair, hands and shoes visible. Both face LEFT toward the opposing player in three-quarter side view. Style: polished detailed 2D pixel illustration, crisp stepped pixel clusters, dark navy outlines, restrained highlights, normal adult human proportions, serious modern football touchline atmosphere. Match traditional detailed pixel football manager sprites, with no martial arts or fighting poses. Genuine alpha 0 outside the physical figures; no floor, shadow, background, glow, colored haze, gradient or checkerboard. No text, letters, numbers, labels, logos, sponsors, club crests, weapons or magic.
+LEFT, Roberto De Zerbi: olive/light skin, short dark hair brushed back with subtle grey at temples, neat dark beard with some grey, thoughtful intense face. Charcoal zip-up coaching jacket open over dark navy crewneck, tapered navy football staff trousers, understated black-and-cream trainers. Lean adult build. Slightly forward at waist, one hand held low palm-down calming and inviting a short pass, other hand raised loosely in a small deliberate tactical cue at chest height. Grounded narrow stance. Calm precise build-up coaching gesture, no clipboard.
+RIGHT, Diego Simeone: light/olive skin, short dark slightly wavy hair, defined strong cheekbones, short stubble, intense focused eyebrows. Fitted black two-piece suit over black shirt and thin black tie, black dress shoes, athletic adult build. Firm broad planted stance, torso leaning slightly LEFT, both hands open and held forward at chest-to-waist level in an emphatic organizing defensive gesture, one palm vertical and the other pointing low LEFT. Animated commanding expression with mouth slightly open. He must look unmistakably different from De Zerbi through face, tailored suit, wide posture and hand gesture. All visible limbs and clothing remain fully inside their own cells. Two isolated opaque figures only.
+```
+

@@ -1117,6 +1117,13 @@ body:has(#reward-dialog[open]){overflow:hidden;overscroll-behavior:none}
 
 /* Mobile combat keeps the pitch, target, selected effect and actions on one screen. */
 .compact-overview,.compact-selection,.compact-hand-nav { display:none; }
+.boss-watch-badge { position:absolute; z-index:4; top:66px; right:8px; padding:3px 6px; border:1px solid #ffb894; border-radius:4px; background:#582b22; color:#ffe0b7; font-size:11px; font-weight:700; pointer-events:none; }
+.card.boss-watched { outline:2px solid #d18b6d; outline-offset:-2px; }
+.compact-selection.boss-risk { border-color:#cf9278; }
+.compact-selection.boss-risk #compact-card-result { color:#ffc6a5; }
+.mobile-hand-tab.boss-watched { position:relative; }
+.mobile-hand-tab .boss-watch-badge { top:auto; bottom:1px; right:3px; padding:0 2px; font-size:8px; line-height:10px; }
+#mobile-hand-tabs>.mobile-hand-tab.boss-watched { padding-bottom:11px; }
 #mobile-hand-tabs>button[hidden] { display:none!important; }
 @media(max-width:800px), (max-width:1100px) and (max-height:520px) {
  body.personal-duel[data-phase="match"] { --compact-hand-height:260px; display:flex; flex-direction:column; height:100dvh; min-height:0; overflow:hidden; scroll-padding:0; }

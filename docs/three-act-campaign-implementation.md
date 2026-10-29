@@ -1,5 +1,7 @@
 # RUNEKICK v1.3 · 3 ACT 캠페인 구현
 
+이 문서는 v1.3 당시 기록입니다. 현재 감독 배치·난이도·엘리트 중복 규칙은 [v1.4 구현 문서](director-challenge-implementation.md)를 기준으로 합니다.
+
 기준일: 2026-10-29. 수치는 현재 `dist/campaign.js`, `engine.js`, `encounters.js`, `striker-cards.js`, `striker-equipment.js`의 구현 기준입니다. v1.1 설계안과 v1.2의 ACT I 범위는 과거 문서이며, 현재 캠페인 규칙은 이 문서를 기준으로 합니다.
 
 작성 시점 로컬 자동 테스트 162개와 아래의 브라우저 검증을 통과했습니다. 공개 배포는 아직 완료하지 않았습니다. 이 문서는 소스 구현·로컬 검증 범위를 설명하며 공개 서비스의 배포 완료를 의미하지 않습니다.

@@ -180,7 +180,9 @@ function combatFeedback(before, next, action, card) {
     const attackCard = /(?:^|\.\s*)피해 \d+/.test(cardText(card));
     const debuffs = changes.length ? [...new Set(changes.flatMap(e=>[e.after.exposed>e.before.exposed&&'약점 노출',e.after.weakened>e.before.weakened&&'공격 약화'].filter(Boolean)))] : [['enemyExposed', '약점 노출'], ['enemyWeakened', '공격 약화']].filter(([key]) => (next.match[key] || 0) > (before.match[key] || 0)).map(([, label]) => label);
     const type = next.phase === 'reward' ? 'goal' : attackCard ? (CARDS[card.id].type === 'tactic' ? 'pass' : CARDS[card.id].type) : defenseGain ? 'defense' : debuffs.length ? 'debuff' : 'pass';
-    animate(type, next.phase === 'reward' ? 'DUEL WON' : next.phase === 'defeat' ? '다음 도전을 향해.' : interrupted ? '전술 파훼!' : null,
+    const restrictionTriggered = next.phase === 'match' && watchedCard(card, previousBoss);
+    const phaseChanged = boss?.phase > (previousBoss?.phase || 1);
+    animate(type, next.phase === 'reward' ? 'DUEL WON' : next.phase === 'defeat' ? '다음 도전을 향해.' : phaseChanged ? '감독 전술 2단계!' : restrictionTriggered ? `${CARD_CATEGORIES[previousBoss.restrictedCategory].name} 경계 발동!` : interrupted ? '전술 파훼!' : null,
       { damage, blocked, defenseGain, intensity: Math.min(1, damage / 30), target: attackCard || debuffs.length || blocked ? 'enemy' : 'hero', targetId:action.targetId || before.match.targetId, targetIds:changes.filter(e=>e.before.hp>e.after.hp||e.before.block>e.after.block||e.before.exposed<e.after.exposed||e.before.weakened<e.after.weakened).map(e=>e.before.id), ...bossImpact(boss || previousBoss, interrupted) });
     if (changes.length) {
       for (const e of changes) {
@@ -193,6 +195,7 @@ function combatFeedback(before, next, action, card) {
     } else if (damage) floatCombat('enemy', 'damage', damage, damage >= 20);
     else if (blocked) floatCombat('enemy', 'armor', blocked);
     if (defenseGain) floatCombat('hero', 'shield', defenseGain);
+    if (restrictionTriggered) floatCombat('enemy', 'shield', previousBoss.restrictionBlock);
     if (debuffs.length && !changes.length) floatCombat('enemy', 'debuff', debuffs.join(' · '));
     if (selfDamage) floatCombat('hero', 'damage', selfDamage, selfDamage >= 20);
     return;
@@ -248,6 +251,28 @@ function compactEnemyViews(state = run) {
     block:m.enemyBlock || 0, exposed:m.enemyExposed || 0, weakened:m.enemyWeakened || 0,
     attack:getEnemyAttack(state), intent:m.intent, mechanic:m.intent.rule || opponent.mechanic || ''}];
 }
+function watchedCard(card, boss = getBossView(run)) {
+  const type = card && CARDS[card.id]?.type;
+  if (!boss?.restrictedCategory || !type || type === 'injury') return false;
+  const category = type === 'defense' ? 'defense' : ['shot','pass','dribble','header'].includes(type) ? 'attack' : 'skill';
+  return category === boss.restrictedCategory;
+}
+function restrictionText(boss) {
+  return `시메오네 방어 +${boss.restrictionBlock} · 공격 강화 +${boss.restrictionAttack}`;
+}
+function renderBossWarnings() {
+  const boss = run.phase === 'match' ? getBossView(run) : null;
+  for (const button of $('hand-section').querySelectorAll('[data-hand]')) {
+    const card = run.match?.hand.find(c=>c.uid===button.dataset.hand), watched = watchedCard(card, boss);
+    button.classList.toggle('boss-watched', watched);
+    button.querySelector('.boss-watch-badge')?.remove();
+    const label = (button.getAttribute('aria-label') || '').split(' · 시메오네 경계:')[0];
+    button.setAttribute('aria-label', label + (watched ? ` · 시메오네 경계: ${restrictionText(boss)}` : ''));
+    if (watched) {
+      const badge = document.createElement('span'); badge.className = 'boss-watch-badge'; badge.textContent = '⚠ 경계'; badge.setAttribute('aria-hidden','true'); button.append(badge);
+    }
+  }
+}
 function renderCompactCombat(chosen, preview, prediction, roundKey) {
   const active = run.phase === 'match';
   $('compact-overview').hidden = !active;
@@ -261,7 +286,9 @@ function renderCompactCombat(chosen, preview, prediction, roundKey) {
     const change = enemyChangeText(enemy, after.find(e => e.id === enemy.id));
     const label = `${enemy.name}, 체력 ${enemy.hp}/${enemy.maxHp}, ${status}, ${dead?'격파':`다음 행동 ${enemy.intent.name}, 공격 ${enemy.attack}`}${change?`, 사용 시 ${change}`:''}`;
     const action = views.length > 1 ? `data-enemy-target="${esc(enemy.id)}" data-target-position="compact"` : 'data-action="compact-enemy-info"';
-    return `<button type="button" class="compact-opponent${highlighted?' selected':''}${dead?' defeated':''}" ${action} aria-label="${esc(label)}" aria-pressed="${highlighted}" ${dead||busy||m.choice?'disabled':''}><span class="compact-opponent-name"><strong>${esc(enemyShortName(enemy))}</strong><small>${esc(enemy.roleLabel || '')}${boss?.max?` · 전술 ${boss.progress}/${boss.max}`:''}</small></span><span class="compact-opponent-health">♥ ${enemy.hp}/${enemy.maxHp} · ${esc(status)}</span><span class="compact-opponent-intent"><strong>${dead?'격파':enemy.attack?`⚔ ${enemy.attack}`:'지원'}</strong><span>${dead?'행동 없음':esc(enemy.intent.name)}</span></span><span class="compact-opponent-preview">${esc(change || (highlighted?'✓ 선택한 상대':'눌러서 대상 선택'))}</span></button>`;
+    const restriction = boss?.restrictedCategory ? `다음: ${CARD_CATEGORIES[boss.nextRestrictedCategory]?.name || '—'} · 경계 카드마다 방어 +${boss.restrictionBlock} / 공격 +${boss.restrictionAttack}` : '';
+    const bossLabel = boss?.restrictedCategory ? ` · ${CARD_CATEGORIES[boss.restrictedCategory].name} 경계` : boss?.max ? ` · 전술 ${boss.progress}/${boss.max}` : '';
+    return `<button type="button" class="compact-opponent${highlighted?' selected':''}${dead?' defeated':''}" ${action} aria-label="${esc(label)}${restriction?` · ${esc(restriction)}`:''}" aria-pressed="${highlighted}" ${dead||busy||m.choice?'disabled':''}><span class="compact-opponent-name"><strong>${esc(enemyShortName(enemy))}</strong><small>${esc(enemy.roleLabel || '')}${boss?.phase>1?' · 2단계':''}${bossLabel}</small></span><span class="compact-opponent-health">♥ ${enemy.hp}/${enemy.maxHp} · ${esc(status)}</span><span class="compact-opponent-intent"><strong>${dead?'격파':enemy.attack?`⚔ ${enemy.attack}`:'지원'}</strong><span>${dead?'행동 없음':esc(enemy.intent.name)}</span></span><span class="compact-opponent-preview">${esc(restriction || boss?.hint || change || (highlighted?'✓ 선택한 상대':'눌러서 대상 선택'))}</span></button>`;
   }).join('');
   $('compact-incoming').textContent = `받을 피해 ${prediction.incoming} · 내 방어 ${prediction.guard}${prediction.injuryDamage?` · 부상 ${prediction.injuryDamage}`:''}`;
   $('compact-incoming').className = prediction.incoming ? 'danger' : 'good';
@@ -274,6 +301,7 @@ function renderCompactCombat(chosen, preview, prediction, roundKey) {
   let result = chosen ? $('damage-preview').textContent : '카드를 누르는 것만으로 사용되지는 않아요.';
   for (const enemy of views) result = result.replaceAll(enemy.name, enemyShortName(enemy));
   $('compact-card-result').textContent = result;
+  $('compact-selection').classList.toggle('boss-risk', watchedCard(chosen, boss));
   $('compact-combo').hidden = !combo;
   $('compact-combo').textContent = combo ? `${combo.affordable?'↗ 연계':'에너지 부족 · 연계 대기'} · ${combo.effects.join(' · ') || '다음 기술로 연결'}` : '';
   $('compact-card-details').disabled = !chosen && !m.choice;
@@ -366,7 +394,8 @@ function chapterProgress() {
   }).join('')}</ol>`;
 }
 function campaignNotice() {
-  return run.campaignVersion === 1 ? '' : '<div class="legacy-notice">이어 하던 도전은 기존 유소년 여정으로 마무리됩니다. 유소년 → 프로리그 → 유럽대항전의 3 ACT는 새 도전부터 시작해요.<button class="button" data-action="restart-confirm">3 ACT 새 도전</button></div>';
+  if (run.campaignVersion === 1) return run.challengeVersion === 2 ? '' : '<div class="legacy-notice">이어 하던 도전은 기존 감독 배치와 난이도를 유지합니다. 감독 9명·ACT별 강화 패턴·엘리트 중복 방지는 새 도전부터 적용돼요.<button class="button" data-action="restart-confirm">새 규칙으로 도전</button></div>';
+  return '<div class="legacy-notice">이어 하던 도전은 기존 유소년 여정으로 마무리됩니다. 유소년 → 프로리그 → 유럽대항전의 3 ACT는 새 도전부터 시작해요.<button class="button" data-action="restart-confirm">3 ACT 새 도전</button></div>';
 }
 function buildSummary() {
   const injuries = run.deck.filter(card => CARDS[card.id].type === 'injury').length;
@@ -446,7 +475,7 @@ function render() {
   if (boss) {
     const progress = Math.max(0, Math.min(boss.max || 0, boss.progress || 0));
     rule.dataset.effect = boss.effect;
-    rule.innerHTML = `<div class="boss-rule-heading"><strong>${esc(boss.title)}</strong>${boss.countered ? '<span class="boss-success">✓ 대응 성공</span>' : ''}${boss.max > 0 ? `<span class="boss-counter">${progress} / ${boss.max}</span>` : ''}</div><p>${esc(boss.detail)}</p>${boss.max > 0 ? `<div class="boss-rule-meter" role="progressbar" aria-label="${esc(boss.title)}" aria-valuemin="0" aria-valuemax="${boss.max}" aria-valuenow="${progress}" aria-valuetext="${esc(boss.detail)}"><i style="width:${100 * progress / boss.max}%"></i></div>` : ''}`;
+    rule.innerHTML = `<div class="boss-rule-heading"><strong>${boss.phase>1?'2단계 · ':''}${esc(boss.title)}</strong>${boss.countered ? '<span class="boss-success">✓ 대응 성공</span>' : ''}${boss.max > 0 ? `<span class="boss-counter">${progress} / ${boss.max}</span>` : ''}</div><p>${esc(boss.detail)}</p>${boss.max > 0 ? `<div class="boss-rule-meter" role="progressbar" aria-label="${esc(boss.title)}" aria-valuemin="0" aria-valuemax="${boss.max}" aria-valuenow="${progress}" aria-valuetext="${esc(boss.detail)}"><i style="width:${100 * progress / boss.max}%"></i></div>` : ''}`;
   } else { delete rule.dataset.effect; rule.textContent = active ? (match.intent.rule || opponent.mechanic || '').replace('첫 공격에', '처음 피해를 주는 카드에') : ''; }
   document.body.dataset.encounter = opponent.coach ? 'coach' : opponent.legend ? 'legend' : 'rival';
   $('away-score').textContent = match?.enemyHp ?? opponent.maxHp; $('enemy-max-hp').textContent = match?.enemyMaxHp || opponent.maxHp;
@@ -541,13 +570,15 @@ function render() {
         return change && `${enemy.name}: ${change}`;
       }).filter(Boolean) : [];
       const summary = perTarget.length ? [...perTarget, block&&`내 방어 +${block}`, CARDS[chosen.id].type==='header'&&`남는 방어 ${remainingBlock}`,momentumGain&&`기세 +${momentumGain}`,healthCost&&`내 체력 −${healthCost}`].filter(Boolean).join(' · ') : previewEffects.join(' · ');
-      $('damage-preview').textContent = (combo ? '연계 포함 · ' : '') + (summary||'카드 효과 적용');
+      const warning = watchedCard(chosen, boss) && preview.phase === 'match' ? `⚠ 상대 방어 +${boss.restrictionBlock} · 공격 ${enemyAttack}→${getEnemyAttack(preview)} · ` : '';
+      $('damage-preview').textContent = warning + (combo ? '연계 포함 · ' : '') + (summary||'카드 효과 적용');
     } else $('damage-preview').textContent=chosen ? CARDS[chosen.id].type === 'injury' ? '부상은 사용할 수 없어요 · 턴 종료 효과를 확인하세요' : '에너지가 부족해요' : run.rulesVersion === 2 ? '기세 · 연계 · 제공권' : '드리블 → 기세 → 강화된 슛';
     $('play-card-button').disabled=busy||!affordable||!!match.choice; $('play-card-button').textContent=chosen&&CARDS[chosen.id].type === 'injury'?'사용 불가':chosen&&!affordable?'에너지 부족':'카드 사용';
     if (chosen && affordable && enemies.length>1) { const scope=targetScope(chosen); $('play-card-button').textContent=scope==='all'?'전체 공격':scope==='self'?'카드 사용':`${enemyShortName(currentEnemy)}에게 사용`; }
     $('end-turn').disabled=busy||!!match.choice; $('end-turn').textContent=busy?'상대 행동…':'턴 종료 →';
   } else { delete hand.dataset.renderKey; delete hand.dataset.roundKey; renderPhase(); }
   renderEnemyTargets(active ? match.hand.find(c=>c.uid===selected) : null, selectedPreview, prediction);
+  renderBossWarnings();
   renderCompactCombat(active ? match.hand.find(c=>c.uid===selected) : null, selectedPreview, prediction, roundKey);
   $('commentary').textContent=(run.message||'기세를 모아 슛에 싣고, 상대의 다음 공격을 읽으세요.').replaceAll('헬스장','훈련장').replaceAll('휴식처','라커룸');
   $('sound-button').setAttribute('aria-pressed',String(sound)); $('sound-button').setAttribute('aria-label',sound?'소리 끄기':'소리 켜기'); $('sound-button').style.color=sound?'var(--mint)':'';
@@ -776,7 +807,7 @@ function showHelp() {
     <li>새 도전의 상점은 장비를 최대 3개, 기술 카드를 별도로 진열합니다. <strong>한 번 진열된 장비는 구매하지 않아도 이번 도전에서 다시 나오지 않습니다.</strong> 프로리그와 유럽대항전에서는 새로운 전용 기술과 장비도 만나볼 수 있습니다.</li>
     <li>카드를 고른 뒤 전술 지도로 돌아옵니다. 훈련장에 도착하면 카드 강화·정리를, 라커룸에서는 체력 회복${run.rulesVersion === 2 ? ' 또는 ACT당 한 번 부상 치료' : ''}를 할 수 있습니다. 상점은 지도 중간의 지정 지점에서만 방문합니다. 상점 카드 제거는 50골드부터 시작하고 제거할 때마다 25골드씩 오릅니다.</li>
     ${run.rulesVersion === 2 ? '<li><strong>테크닉 연계</strong>: 서로 다른 터치·드리블을 연달아 쓰면 발동. 다른 종류는 연계를 끊습니다.</li><li><strong>제공권 헤더</strong>: 방어 일부를 먼저 소모해 공격합니다. 기세는 유지됩니다.</li><li><strong>훈련과 휘발성</strong>: 훈련은 즉시 효과 또는 전투 동안 지속되는 효과를 줍니다. 휘발성 카드는 사용 후 이번 전투에서 소멸합니다.</li><li><strong>부상</strong>: 덱 부상은 라커룸에서 ACT당 1회, 한 장 치료할 수 있습니다. 카드 효과로 생긴 전투 한정 부상은 전투 후 사라집니다. 일반 카드 제거로는 치료할 수 없습니다.</li>' : ''}
-    </ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 전장 아래 손패 선택 → 상대 선택 → 카드 사용. 같은 카드를 다시 누르면 선택을 해제합니다. 손패가 6장을 넘으면 이전/다음으로 넘기고, 전체 효과는 상세에서 확인하세요.<br>공격수 1명 · 기술 ${Object.values(CARDS).filter(c => c.type !== 'injury').length}종${run.rulesVersion === 2 ? ' · 부상 3종' : ''} · 아이템 ${Object.keys(RELICS).length}종 · 엘리트 4명 · 감독 보스 7명.<br>새 도전은 3 ACT · 총 36개 지점입니다. 이전에 저장한 도전은 기존 유소년 경로를 유지합니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>`);
+    </ol><div class="rule-note">PC: 숫자 1~9 카드 선택 · Enter 사용 · Space 턴 종료.<br>모바일: 전장 아래 손패 선택 → 상대 선택 → 카드 사용. 같은 카드를 다시 누르면 선택을 해제합니다. 손패가 6장을 넘으면 이전/다음으로 넘기고, 전체 효과는 상세에서 확인하세요.<br>공격수 1명 · 기술 ${Object.values(CARDS).filter(c => c.type !== 'injury').length}종${run.rulesVersion === 2 ? ' · 부상 3종' : ''} · 아이템 ${Object.keys(RELICS).length}종 · 엘리트 4명 · 감독 보스 ${Object.values(OPPONENTS).filter(o=>o.coach).length}명.<br>새 도전은 3 ACT · 총 36개 지점입니다. ACT마다 고정된 감독 3명 중 한 명이 등장하고, 만났던 엘리트는 이번 도전에서 다시 나오지 않습니다. 뒤쪽 ACT의 감독은 강화된 전술로 대응하며, 시메오네의 경계 유형 카드를 사용하면 상대 방어와 이번 턴 공격이 강화됩니다. 이전에 저장한 도전은 기존 유소년 경로를 유지합니다. 엘리트는 선택해서 도전하며, 승리하면 선수별 전용 유물 3개 중 하나를 고른 뒤 희귀 카드가 포함된 보상을 받습니다.<br>감독 보스의 게이지는 전술 완성도입니다. 0으로 만들면 전술 시험을 통과합니다.</div><div class="phase-actions"><button class="button" data-action="tutorial">튜토리얼로 직접 배우기</button><button class="button primary" data-action="close">경기로 돌아가기 →</button></div></div>`);
 }
 function showMenu() {
   const previous = previousJourney();

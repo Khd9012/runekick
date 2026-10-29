@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {createRun,createCampaignRun,act,availableNodes,validateSave,getActView,getEnemyViews,getEnemyAttack,getBossView,forecast,cardCost,CARDS,RELICS,OPPONENTS} from '../dist/engine.js';
 import {ACTS,CAMPAIGN_BOSSES,campaignActAt,scaledOpponentHp} from '../dist/campaign.js';
 import {REGULAR_ENEMIES,ACT_ENEMIES,makeEnemies,startEnemyRound,finishEnemyRound,regularIntent,regularAttack} from '../dist/encounters.js';
 
 const checkpoint=r=>{const restored=validateSave(JSON.parse(JSON.stringify(r)));assert.ok(restored,`invalid ${r.phase}:${r.routeIndex}:${r.match?.turn}`);assert.deepEqual(restored,r);return restored;};
 const step=(r,a)=>{const next=act(r,a);assert.notEqual(next,r,`rejected ${JSON.stringify(a)} in ${r.phase}`);return checkpoint(next);};
-function fixture(seed=4) {
- const r=createCampaignRun(seed,'테스트 선수');
+function fixture(seed=4,options={}) {
+ const r=createCampaignRun(seed,'테스트 선수',options);
  // Deliberately strong fixture deck isolates route/state correctness from difficulty.
  r.deck.forEach(c=>{c.id='suppressing-header';c.upgraded=true;});
  r.relics=['captain-band','golden-whistle'];r.maxCondition=r.condition=115;
@@ -32,7 +33,7 @@ function advance(r,options={}) {
  return step(r,{type:'leave-node'});
 }
 function reach(seed,predicate,options={}) {
- let r=fixture(seed);
+ let r=fixture(seed,options);
  for(let i=0;i<650;i++){if(predicate(r))return r;assert.ok(!['victory','defeat'].includes(r.phase),`cannot reach target: ${r.phase} at${r.routeIndex}`);r=advance(r,options);}
  assert.fail('campaign did not converge');
 }
@@ -56,7 +57,7 @@ test('campaign has 36 connected stages, distinct boss pools and fair nonrepeatin
    assert.equal(new Set(combinations).size,3);assert.equal(r.route[(number-1)*12].choices[0].encounter.length,1);
   }
  }
- assert.equal(bosses.size,7);assert.equal(seen[2].size,5);assert.equal(seen[3].size,5);
+ assert.equal(bosses.size,9);assert.equal(seen[2].size,5);assert.equal(seen[3].size,5);
 });
 
 test('three-ACT legal journey preserves save at every action, rewards once and heals only on continue',()=>{
@@ -81,16 +82,17 @@ test('three-ACT legal journey preserves save at every action, rewards once and h
 });
 
 test('later elites and bosses use canonical scaled health and boss intent survives saves',()=>{
- let r=fixture(7),eliteActs=new Set(),bossActs=new Set();
+ let r=fixture(7),eliteActs=new Set(),bossActs=new Set(),eliteIds=[];
  for(let i=0;i<700&&!['victory','defeat'].includes(r.phase);i++) {
   if(r.phase==='match'&&['elite','boss'].includes(r.activeNode.type)) {
-   const expected=scaledOpponentHp(OPPONENTS[r.match.opponentId].maxHp,r.actNumber);assert.equal(r.match.enemyMaxHp,expected);
+   const expected=scaledOpponentHp(OPPONENTS[r.match.opponentId].maxHp,r.actNumber,r.challengeVersion);assert.equal(r.match.enemyMaxHp,expected);
    assert.equal(getEnemyViews(r)[0].actNumber,r.actNumber);(r.activeNode.type==='elite'?eliteActs:bossActs).add(r.actNumber);
    const bad=structuredClone(r);bad.match.campaignAct=1+(r.actNumber%3);assert.equal(validateSave(bad),null);
   }
+  if(r.phase==='reward'&&r.activeNode.type==='elite'&&r.relicOffers.length)eliteIds.push(r.match.opponentId);
   r=advance(r,{visitElite:true});
  }
- assert.equal(r.phase,'victory');assert.deepEqual([...eliteActs],[1,2,3]);assert.deepEqual([...bossActs],[1,2,3]);
+ assert.equal(r.phase,'victory');assert.deepEqual([...eliteActs],[1,2]);assert.deepEqual([...bossActs],[1,2,3]);assert.equal(eliteIds.length,4);assert.equal(new Set(eliteIds).size,4);
 });
 
 test('shop stock is at most three, displayed equipment never returns even without purchase',()=>{
@@ -166,7 +168,7 @@ test('later encounter forecasts match actual turn damage including exposed turns
 });
 
 test('boss details disclose ACT and long-battle attack additions without changing legacy intent text',()=>{
- for(const [number,id] of [[2,'coach-mourinho'],[2,'coach-ferguson'],[3,'coach-guardiola'],[3,'coach-ancelotti']]) {
+ for(const [number,id] of [[2,'coach-mourinho'],[3,'coach-ferguson'],[3,'coach-guardiola'],[3,'coach-ancelotti']]) {
   let seed=0;while(createCampaignRun(seed).route[number*12-1].choices[0].opponentId!==id)assert.ok(++seed<80);
   let r=reach(seed,r=>r.phase==='map'&&r.routeIndex===number*12-1);
   r.deck.forEach(c=>{c.id='cover';c.upgraded=true;});r=step(r,{type:'choose-node',id:availableNodes(r)[0].id});
@@ -180,4 +182,90 @@ test('boss details disclose ACT and long-battle attack additions without changin
  }
  const legacy=createRun(4);legacy.match={opponentId:'coach-mourinho',turn:13,enemyHp:92,enemyMaxHp:92,enemyBlock:12,played:[],boss:{version:1,counterCharge:0,pressure:0,adaptation:'none',combo:0,overtimeStart:0}};
  assert.ok(!getBossView(legacy).detail.includes('추가 압박'));assert.ok(!getBossView(legacy).detail.includes('장기전 압박'));
+});
+
+const bossMaps=new Map();
+function coachBattle(id,ids,options={}) {
+ const key=`${id}:${options.challengeVersion??2}`;
+ if(!bossMaps.has(key)){
+  let seed=0,index;for(;seed<200;seed++){index=createCampaignRun(seed,'테스트 선수',options).route.findIndex(s=>s.choices.some(n=>n.type==='boss'&&n.opponentId===id));if(index>=0)break;}assert.ok(seed<200);
+  bossMaps.set(key,reach(seed,r=>r.phase==='map'&&r.routeIndex===index,options));
+ }
+ let r=structuredClone(bossMaps.get(key));r.condition=r.maxCondition;
+ r.deck=Array.from({length:Math.max(12,ids.length)},(_,i)=>({uid:`c${i+1}`,id:ids[i]??'cover',upgraded:false}));r.nextUid=r.deck.length+1;
+ r=step(r,{type:'choose-node',id:availableNodes(r)[0].id});r.match.hand=structuredClone(r.deck.slice(0,ids.length));r.match.draw=structuredClone(r.deck.slice(ids.length));return checkpoint(r);
+}
+const use=(r,id)=>step(r,{type:'play-card',uid:r.match.hand.find(c=>c.id===id).uid});
+function arrange(r,ids) {
+ const all=[...r.match.hand,...r.match.draw,...r.match.discard];r.match.hand=ids.map(id=>{const i=all.findIndex(c=>c.id===id);assert.ok(i>=0);return all.splice(i,1)[0];});r.match.draw=all;r.match.discard=[];return checkpoint(r);
+}
+function lowerBoss(r,hp) {
+ const delta=r.match.enemyHp-hp;r.match.enemyHp=hp;r.match.damageDealt+=delta;r.match.chance+=delta;r.stats.damage+=delta;r.match.enemyBlock=0;return checkpoint(r);
+}
+function enemyTurn(r) {const before=r.condition,prediction=forecast(r);const next=step(r,{type:'end-turn'});assert.equal(before-next.condition,Math.min(before,prediction.incoming));return next;}
+
+test('old single and campaign route snapshots remain byte-identical and active old bosses resume unchanged',()=>{
+ const snapshots={2:['4496c4c6fd8ce67f3390894a9004a65c28f075d5cedd5e4d90c678f2056e7846','7b06f599f63a0123bba15abad7baba28aa6eefa88fd2eaac8feb9a74233dd628'],4:['57f6651391dbc54929c727bc8542c1e4a0b12a924ffdc1738421ccb0d8237fd2','6192cfd039faf0c0d8a8976f09a16f9121ba9e9d32ba03b35fb83bc172d979e4'],9:['ff603fbce2b0e112b5236812ae54ff0e5f9b1cb808ff71f1ba3b648ebf66d3e6','fd1e89ca5b44d84fcf1dcddc1009b37abb292beeb336c8006ee73512ce1b48df']};
+ for(const [seed,hashes] of Object.entries(snapshots))for(const [i,r] of [createRun(+seed),createCampaignRun(+seed,'루키',{challengeVersion:1})].entries()){checkpoint(r);assert.equal(createHash('sha256').update(JSON.stringify(r.route)).digest('hex'),hashes[i]);assert.equal(r.challengeVersion,undefined);}
+ let r=coachBattle('coach-mourinho',['cover'],{challengeVersion:1});assert.equal(r.match.enemyMaxHp,110);assert.equal(r.match.enemyBlock,12);
+ r=enemyTurn(r);assert.equal(r.match.intent.attack,24);r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');assert.equal(r.match.challengeVersion,undefined);
+ const changed=structuredClone(r);changed.challengeVersion=2;assert.equal(validateSave(changed),null);
+});
+
+test('Simeone reacts once per successful card, preserves broken guard and resets after the enemy action',()=>{
+ let r=coachBattle('coach-simeone',['double-touch','quick-pass','cover','breathing','judgment-training','stiff-muscle']);
+ assert.equal(getBossView(r).restrictedCategory,'attack');assert.equal(getBossView(r).nextRestrictedCategory,'defense');assert.equal(getEnemyAttack(r),8);
+ const injury=r.match.hand.find(c=>c.id==='stiff-muscle');assert.equal(act(r,{type:'play-card',uid:injury.uid}),r);
+ const hp=r.match.enemyHp;r=use(r,'double-touch');assert.equal(hp-r.match.enemyHp,2);assert.equal(r.match.enemyBlock,8);assert.equal(getEnemyAttack(r),14);assert.equal(getBossView(r).restrictionTriggers,1);
+ r=use(r,'quick-pass');assert.equal(r.match.enemyBlock,14);assert.equal(getEnemyAttack(r),20);assert.equal(getBossView(r).restrictionTriggers,2);
+ r=use(r,'cover');assert.equal(r.match.enemyBlock,14);const restored=checkpoint(r);assert.deepEqual(restored,r);
+ r=enemyTurn(r);assert.equal(getBossView(r).restrictedCategory,'defense');assert.equal(r.match.enemyBlock,4);assert.equal(getEnemyAttack(r),8);
+ r=arrange(r,['cover','breathing','judgment-training']);r=use(r,'cover');assert.equal(r.match.enemyBlock,12);assert.equal(getEnemyAttack(r),14);
+ r=use(r,'breathing');assert.ok(r.match.choice);const attack=getEnemyAttack(r),block=r.match.enemyBlock;r=step(r,{type:'choose-card',uid:r.match.choice.candidates[0]});assert.equal(getEnemyAttack(r),attack);assert.equal(r.match.enemyBlock,block);
+ r=enemyTurn(r);assert.equal(getBossView(r).restrictedCategory,'skill');r=arrange(r,['judgment-training']);r=use(r,'judgment-training');assert.equal(getBossView(r).restrictionTriggers,1);assert.equal(r.match.enemyBlock,12);assert.equal(getEnemyAttack(r),14);
+});
+
+test('Simeone skips guard reaction on lethal cards and fatal enemy turns still save',()=>{
+ let r=lowerBoss(coachBattle('coach-simeone',['quick-pass']),1);r=use(r,'quick-pass');assert.equal(r.phase,'reward');assert.equal(r.match.enemyBlock,0);checkpoint(r);
+ r=coachBattle('coach-simeone',['quick-pass']);r=use(r,'quick-pass');r.condition=1;r=enemyTurn(r);assert.equal(r.phase,'defeat');checkpoint(r);
+});
+
+test('De Zerbi counts mixed answers once per buildup turn and resets each cycle',()=>{
+ let r=coachBattle('coach-dezerbi',['quick-pass','cover','judgment-training']);
+ r=use(r,'quick-pass');assert.equal(getBossView(r).progress,0);r=use(r,'cover');assert.equal(getBossView(r).progress,1);assert.equal(r.match.boss.buildUpBreaks,0);
+ r=enemyTurn(r);assert.equal(r.match.boss.buildUpBreaks,1);r=arrange(r,['quick-pass','judgment-training']);r=use(r,'quick-pass');r=use(r,'judgment-training');assert.equal(getBossView(r).progress,2);
+ r=enemyTurn(r);assert.equal(getEnemyAttack(r),10);assert.equal(r.match.boss.buildUpBreaks,2);r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');r=enemyTurn(r);assert.equal(r.match.boss.buildUpBreaks,0);
+ let ignored=coachBattle('coach-dezerbi',['quick-pass']);ignored=use(ignored,'quick-pass');ignored=enemyTurn(ignored);ignored=enemyTurn(ignored);assert.equal(getEnemyAttack(ignored),22);
+ const bad=structuredClone(r);bad.match.boss.buildUpBreaks=3;assert.equal(validateSave(bad),null);
+});
+
+test('later boss upgrades change attack cycles, pressure and second-half tactics',()=>{
+ let r=coachBattle('coach-mourinho',[]);assert.equal(r.match.enemyBlock,14);r=enemyTurn(r);assert.equal(getEnemyAttack(r),26);r=enemyTurn(r);assert.equal(getBossView(r).effect,'press');r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');assert.equal(r.match.enemyBlock,0);
+ r=coachBattle('coach-klopp',['power-shot']);for(let i=0;i<3;i++)r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');r=arrange(r,['power-shot']);let hp=r.match.enemyHp;r=use(r,'power-shot');assert.equal(hp-r.match.enemyHp,22);
+ r=coachBattle('coach-guardiola',['power-shot']);r=enemyTurn(r);assert.equal(r.match.boss.pressure,3);r=enemyTurn(r);assert.equal(r.match.boss.pressure,4);r=enemyTurn(r);assert.equal(r.match.boss.pressure,0);assert.equal(getBossView(r).effect,'recover');r=arrange(r,['power-shot']);hp=r.match.enemyHp;r=use(r,'power-shot');assert.equal(hp-r.match.enemyHp,20);
+ r=coachBattle('coach-ancelotti',['quick-pass']);r=lowerBoss(r,Math.floor(r.match.enemyMaxHp/2));r=use(r,'quick-pass');r=enemyTurn(r);assert.equal(getBossView(r).phase,2);assert.equal(r.match.enemyBlock,17);r=enemyTurn(r);r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');assert.equal(r.match.enemyBlock,0);
+ r=coachBattle('coach-ferguson',['quick-pass']);r=lowerBoss(r,Math.floor(r.match.enemyMaxHp*.4)+1);r=use(r,'quick-pass');assert.equal(r.match.boss.overtimeStart,1);assert.equal(getEnemyAttack(r),22);r=enemyTurn(r);assert.equal(getEnemyAttack(r),26);r=enemyTurn(r);assert.equal(getEnemyAttack(r),32);r=enemyTurn(r);assert.equal(getBossView(r).effect,'recover');
+});
+
+test('elite draft follows actual visits, leaves skipped elites available and handles exhausted pools',()=>{
+ for(const seed of [2,4,9]) {
+  let r=fixture(seed),met=new Set(),exhausted=false;
+  for(let i=0;i<700&&!['victory','defeat'].includes(r.phase);i++){
+   if(r.phase==='match'&&r.activeNode.type==='elite'&&r.match.turn===1&&r.match.played.length===0){assert.ok(!met.has(r.match.opponentId));met.add(r.match.opponentId);}
+   if(r.phase==='map'&&met.size===4){exhausted=true;assert.ok(r.route.slice(r.routeIndex).every(row=>row.choices.every(n=>n.type!=='elite')));}
+   r=advance(r,{visitElite:true});
+  }
+  assert.equal(r.phase,'victory');assert.equal(met.size,4);assert.ok(exhausted);
+ }
+ const skipped=reach(4,r=>r.phase==='map'&&r.routeIndex===12);assert.equal(skipped.history.filter(h=>h.type==='elite').length,0);assert.ok(skipped.route.slice(12).some(row=>row.choices.some(n=>n.type==='elite')));
+});
+
+test('second-phase labels require real phase changes and Guardiola strengthens two-category pressure',()=>{
+ for(const id of ['coach-dezerbi','coach-simeone','coach-mourinho','coach-klopp','coach-arteta','coach-wenger']){
+  const r=coachBattle(id,[]);r.match.enemyHp=r.match.intentHp=Math.floor(r.match.enemyMaxHp*.45);assert.equal(getBossView(r).phase,1,id);
+ }
+ let r=coachBattle('coach-ferguson',['quick-pass']);r=lowerBoss(r,Math.floor(r.match.enemyMaxHp*.45));r=enemyTurn(r);assert.equal(getBossView(r).phase,1);r=lowerBoss(r,Math.floor(r.match.enemyMaxHp*.4)+1);r=arrange(r,['quick-pass']);r=use(r,'quick-pass');assert.equal(getBossView(r).phase,2);
+ r=coachBattle('coach-guardiola',['quick-pass','cover']);r=lowerBoss(r,Math.floor(r.match.enemyMaxHp*.5));r=use(r,'quick-pass');r=use(r,'cover');r=enemyTurn(r);
+ assert.equal(getBossView(r).phase,2);assert.equal(r.match.enemyBlock,8);assert.equal(r.match.boss.pressure,2);
+ r=arrange(r,['quick-pass','cover']);r=use(r,'quick-pass');r=use(r,'cover');assert.match(getBossView(r).detail,/2종 → 다음 압박 \+2/);r=enemyTurn(r);assert.equal(r.match.boss.pressure,4);
 });

@@ -38,9 +38,10 @@ export function campaignComposition(seed,act,stage) {
   let n=Math.imul(seed^(act*0x85ebca6b)^stage,0x7feb352d);n=Math.imul(n^(n>>>16),0x846ca68b);n=(n^(n>>>16))>>>0;
   return pool[n%pool.length].slice();
 }
-export function encounterMaxHp(ids) { return ids.reduce((sum,id)=>sum+(ids.length>1?REGULAR_ENEMIES[id].duoHp:REGULAR_ENEMIES[id].maxHp),0); }
-export function makeEnemies(ids) {
-  return ids.map((opponentId,i)=>({id:`e${i+1}`,opponentId,hp:ids.length>1?REGULAR_ENEMIES[opponentId].duoHp:REGULAR_ENEMIES[opponentId].maxHp,maxHp:ids.length>1?REGULAR_ENEMIES[opponentId].duoHp:REGULAR_ENEMIES[opponentId].maxHp,block:0,blockCap:0,exposed:0,weakened:0,charge:0,prepDamage:0,attackBuff:0,nextAttackBuff:0,nextBlock:0,supportTargetId:null}));
+const enemyMaxHp=(id,duo,version)=>Math.round((duo?REGULAR_ENEMIES[id].duoHp:REGULAR_ENEMIES[id].maxHp)*(version===2?(REGULAR_ENEMIES[id].actNumber===3?1.1:REGULAR_ENEMIES[id].actNumber===2?1.06:1):1));
+export function encounterMaxHp(ids,version) { return ids.reduce((sum,id)=>sum+enemyMaxHp(id,ids.length>1,version),0); }
+export function makeEnemies(ids,version) {
+  return ids.map((opponentId,i)=>({id:`e${i+1}`,opponentId,hp:enemyMaxHp(opponentId,ids.length>1,version),maxHp:enemyMaxHp(opponentId,ids.length>1,version),block:0,blockCap:0,exposed:0,weakened:0,charge:0,prepDamage:0,attackBuff:0,nextAttackBuff:0,nextBlock:0,supportTargetId:null}));
 }
 const alive = m => m.enemies.filter(e=>e.hp>0);
 export const selectedEnemy = m => m.enemies?.find(e=>e.id===m.targetId);
@@ -66,7 +67,7 @@ export function regularIntent(m,e) {
     if(def.role==='buffer')result=[{name:'공격 전술 지시',attack:0,defense:0,buff:3},{name:'수비 전술 지시',attack:0,defense:2,shield:euro?7:5},{name:'짧은 견제',attack:euro?4:3,defense:2},{name:'동료 격려',attack:0,defense:0,buff:euro?3:2}][p];
     if(result.expose)result.description='공격 후 약점 노출 1턴. 다음 턴 상대 공격 피해 +50%.';
   }
-  result={...result,attack:result.attack+pressure};
+  result={...result,attack:result.attack+pressure+(m.challengeVersion===2&&result.attack>0?Math.max(0,(def.actNumber??1)-1):0)};
   const ally=allyFor(m,e);
   if(result.buff) {
     const planned=m.enemies.find(other=>other.id===e.supportTargetId);
@@ -127,7 +128,7 @@ export function enemyViews(m) {
 }
 export function validEnemyState(m, ids) {
   if(!Array.isArray(m.enemies)||m.enemies.length!==ids.length)return false;
-  const initial=makeEnemies(ids), int=(n,min,max)=>Number.isSafeInteger(n)&&n>=min&&n<=max;
+  const initial=makeEnemies(ids,m.challengeVersion), int=(n,min,max)=>Number.isSafeInteger(n)&&n>=min&&n<=max;
   for(let i=0;i<initial.length;i++) {
     const e=m.enemies[i], expected=initial[i];
     if(!e||e.id!==expected.id||e.opponentId!==expected.opponentId||e.maxHp!==expected.maxHp||!int(e.hp,0,e.maxHp))return false;
